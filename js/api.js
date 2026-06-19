@@ -96,8 +96,8 @@ const API = (() => {
 // Separate backend from Supabase — handles PP storage, history, and ranks.
 // Swap MONGO_BASE to your deployed URL once the API is hosted.
 const MongoAPI = (() => {
-  const MONGO_BASE = 'http://localhost:3000';
-  const MONGO_KEY  = CONFIG.mongo?.apiKey || '';
+  const MONGO_BASE = 'https://zenlesbe.onrender.com';
+  const MONGO_KEY  = CONFIG.mongo?.apiKey || 'anigamble_secret_123';
 
   const headers = {
     'Content-Type': 'application/json',
