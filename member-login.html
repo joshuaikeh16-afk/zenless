@@ -190,11 +190,16 @@
       <input type="tel" id="phone-input" placeholder="e.g. 123456789" autocomplete="tel" inputmode="numeric"/>
     </div>
 
+    <div class="field">
+      <label>Access Code</label>
+      <input type="text" id="code-input" placeholder="Your private access code" autocomplete="off"/>
+    </div>
+
     <button class="login-btn" id="login-btn">
       <span class="btn-label">View My Profile</span>
       <div class="spinner-sm"></div>
     </button>
-    <div class="login-error" id="login-error">No player found with that number. Check your number or contact an admin.</div>
+    <div class="login-error" id="login-error">Incorrect phone number or access code.</div>
 
     <div class="divider">or</div>
     <a href="login.html" class="admin-link">
@@ -216,10 +221,11 @@
 
   async function attemptMemberLogin() {
     const raw = document.getElementById('phone-input').value.trim().replace(/\s+/g, '');
+    const code = document.getElementById('code-input').value.trim();
     const btn = document.getElementById('login-btn');
     const err = document.getElementById('login-error');
 
-    if (!raw) return;
+    if (!raw || !code) return;
 
     btn.classList.add('loading');
     btn.disabled = true;
@@ -231,7 +237,9 @@
     btn.classList.remove('loading');
     btn.disabled = false;
 
-    if (!user) {
+    // Require the access code to match the player's private row id —
+    // this is a stopgap until full server-side auth (RLS) is in place.
+    if (!user || user._rowId !== code) {
       err.classList.add('show');
       setTimeout(() => err.classList.remove('show'), 4000);
       return;
@@ -245,6 +253,9 @@
 
   document.getElementById('login-btn').addEventListener('click', attemptMemberLogin);
   document.getElementById('phone-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') attemptMemberLogin();
+  });
+  document.getElementById('code-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') attemptMemberLogin();
   });
 </script>
