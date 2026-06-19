@@ -1,0 +1,207 @@
+/* ══════════════════════════════════════════════════════════════
+   premium-upgrade.css — load LAST, after style.css / dashboard.css
+   / animations.css. Same class names — drop-in, no HTML changes.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 1. Token refinement ─────────────────────────────────────── */
+:root {
+  /* Slightly cooler, richer backgrounds with more separation */
+  --bg:       #07080d;
+  --bg-2:     #0e111a;
+  --bg-3:     #161a26;
+  --bg-4:     #1d2231;
+  --bg-5:     #262c3f;
+
+  /* Accent gets a second stop for gradients/glow instead of one flat purple */
+  --accent:       #7c5dfa;
+  --accent-2:     #5b8af5;
+  --accent-grad:  linear-gradient(135deg, #8b6bff 0%, #5b8af5 100%);
+  --accent-glow:  rgba(124,93,250,0.28);
+  --accent-dim:   rgba(124,93,250,0.12);
+
+  --gold-grad:  linear-gradient(135deg, #ffd76a 0%, #f0c040 60%, #c9962a 100%);
+
+  /* Layered shadows — ambient + contact, reads as real elevation not a blur filter */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.4), 0 1px 1px rgba(0,0,0,0.3);
+  --shadow:    0 1px 2px rgba(0,0,0,0.5), 0 8px 24px -8px rgba(0,0,0,0.55);
+  --shadow-lg: 0 2px 4px rgba(0,0,0,0.4), 0 24px 64px -16px rgba(0,0,0,0.7);
+  --shadow-accent: 0 4px 16px -4px rgba(124,93,250,0.35), 0 1px 2px rgba(124,93,250,0.4);
+
+  --border:   rgba(255,255,255,0.055);
+  --border-2: rgba(255,255,255,0.10);
+
+  --radius:    10px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+}
+
+/* ── 2. Background atmosphere — replace flat radial with layered field ── */
+body {
+  background:
+    radial-gradient(ellipse 70% 45% at 18% -8%, rgba(124,93,250,0.10) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(91,138,245,0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 60% at 50% 110%, rgba(124,93,250,0.05) 0%, transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* ── 3. Cards — true glass, not just a border ────────────────── */
+.card,
+.stat-card,
+.guild-card,
+.staff-card {
+  background:
+    linear-gradient(160deg, rgba(255,255,255,0.035), rgba(255,255,255,0) 40%),
+    var(--bg-2);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.25s var(--ease-out-quart, ease), transform 0.25s var(--ease-out-quart, ease),
+              box-shadow 0.25s var(--ease-out-quart, ease);
+}
+
+.stat-card:hover,
+.guild-card:hover,
+.staff-card:hover {
+  border-color: var(--border-2);
+  box-shadow: var(--shadow);
+  transform: translateY(-2px);
+}
+
+/* Top accent line gets a real gradient + slightly luminous */
+.stat-card::before {
+  background: linear-gradient(90deg, transparent, rgba(124,93,250,0.5), transparent);
+  height: 1.5px;
+  opacity: 0.7;
+}
+
+.stat-value {
+  background: linear-gradient(180deg, var(--text) 0%, var(--text-2) 140%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.stat-value.purple { background: var(--accent-grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.stat-value.gold   { background: var(--gold-grad);   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.stat-value.green  { background: linear-gradient(135deg, #4eebA0, var(--green)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+
+/* ── 4. Buttons — give primary action real material ─────────── */
+.btn-primary {
+  background: var(--accent-grad);
+  box-shadow: var(--shadow-accent);
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0) 60%);
+  pointer-events: none;
+}
+.btn-primary:hover {
+  opacity: 1;
+  box-shadow: 0 6px 24px -4px rgba(124,93,250,0.5), 0 1px 2px rgba(124,93,250,0.5);
+  transform: translateY(-1px);
+}
+
+.login-btn { background: var(--accent-grad); }
+
+/* ── 5. Sidebar — separate it from canvas instead of a flat fill ── */
+.sidebar {
+  background: linear-gradient(180deg, var(--bg-2) 0%, var(--bg) 100%);
+  box-shadow: 1px 0 0 var(--border), 8px 0 32px -16px rgba(0,0,0,0.6);
+}
+
+.nav-link.active {
+  background: linear-gradient(90deg, var(--accent-dim), transparent);
+}
+.nav-link.active::before {
+  background: var(--accent-grad);
+  box-shadow: 0 0 8px rgba(124,93,250,0.6);
+}
+
+/* ── 6. Tabs — active state with gradient + lift ─────────────── */
+.game-tab.active {
+  background: var(--accent-grad);
+  box-shadow: var(--shadow-accent);
+}
+
+/* ── 7. Rank badges — give top1 real gold material ───────────── */
+.rank-num.top1 {
+  background: var(--gold-grad);
+  color: #1a1306;
+  border: none;
+  box-shadow: 0 2px 10px -2px rgba(240,192,64,0.5);
+}
+
+/* ── 8. Modal — frosted glass with light falloff ─────────────── */
+.modal {
+  background:
+    linear-gradient(165deg, rgba(255,255,255,0.04), rgba(255,255,255,0) 35%),
+    var(--bg-2);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.04) inset;
+  border-color: var(--border-2);
+}
+
+.modal-overlay {
+  background: radial-gradient(ellipse 80% 60% at 50% 30%, rgba(124,93,250,0.06), rgba(0,0,0,0.78));
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+}
+
+.mstat {
+  background: linear-gradient(160deg, rgba(255,255,255,0.03), transparent), var(--bg-3);
+}
+
+/* ── 9. Coin / balance numerals — gold gets weight, not just color ── */
+.coin-display .amount {
+  background: var(--gold-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── 10. Table — quieter rules, hover gets a left accent not a flat fill ── */
+thead th { border-bottom: 1px solid var(--border-2); }
+
+tbody tr {
+  border-left: 2px solid transparent;
+  transition: background 0.15s, border-left-color 0.15s;
+}
+tbody tr:hover {
+  background: linear-gradient(90deg, rgba(124,93,250,0.06), transparent 60%);
+  border-left-color: var(--accent);
+}
+
+/* ── 11. Scrollbar gets a touch of accent on hover-active areas ── */
+::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
+
+/* ── 12. Focus states — visible, on-brand, never removed ─────── */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+.nav-link:focus-visible,
+.game-tab:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* ── 13. Fix the animations.css stagger bug ──────────────────── */
+/* Original rule applied *:nth-child(N) globally, hitting every nested
+   element on the page, not just grid items. Scope it to direct
+   children of the actual stagger containers instead. */
+.dash-grid > *:nth-child(1),  .guild-grid > *:nth-child(1),  .staff-grid > *:nth-child(1),  tbody > tr:nth-child(1)  { animation-delay: 0.03s; }
+.dash-grid > *:nth-child(2),  .guild-grid > *:nth-child(2),  .staff-grid > *:nth-child(2),  tbody > tr:nth-child(2)  { animation-delay: 0.06s; }
+.dash-grid > *:nth-child(3),  .guild-grid > *:nth-child(3),  .staff-grid > *:nth-child(3),  tbody > tr:nth-child(3)  { animation-delay: 0.10s; }
+.dash-grid > *:nth-child(4),  .guild-grid > *:nth-child(4),  .staff-grid > *:nth-child(4),  tbody > tr:nth-child(4)  { animation-delay: 0.14s; }
+.dash-grid > *:nth-child(5),  .guild-grid > *:nth-child(5),  .staff-grid > *:nth-child(5),  tbody > tr:nth-child(5)  { animation-delay: 0.19s; }
+.dash-grid > *:nth-child(6),  .guild-grid > *:nth-child(6),  .staff-grid > *:nth-child(6),  tbody > tr:nth-child(6)  { animation-delay: 0.24s; }
+.dash-grid > *:nth-child(7),  .guild-grid > *:nth-child(7),  .staff-grid > *:nth-child(7),  tbody > tr:nth-child(7)  { animation-delay: 0.30s; }
+.dash-grid > *:nth-child(8),  .guild-grid > *:nth-child(8),  .staff-grid > *:nth-child(8),  tbody > tr:nth-child(8)  { animation-delay: 0.36s; }
+.dash-grid > *:nth-child(n+9), .guild-grid > *:nth-child(n+9), .staff-grid > *:nth-child(n+9), tbody > tr:nth-child(n+9) { animation-delay: 0.42s; }
+
+/* ── 14. Reduced motion — re-affirm at this layer too ────────── */
+@media (prefers-reduced-motion: reduce) {
+  body { background-attachment: scroll; }
+  .stat-card:hover, .guild-card:hover, .staff-card:hover { transform: none; }
+}

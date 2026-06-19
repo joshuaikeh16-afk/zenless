@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AniGamble HQ — Games</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <link rel="stylesheet" href="css/premium.css">
+  <style>
+/* ══════════════════════════════════════════════════════
+   GAMES PAGE — full styles
+   Prime Points system + 6 games + PP leaderboard
+══════════════════════════════════════════════════════ */
+
+/* ── HUD ─────────────────────────────────────────────── */
+.hud {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  position: relative;
+  overflow: hidden;
+}
+.hud::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(124,93,250,0.04) 0%, transparent 60%);
+  pointer-events: none;
+}
+.hud-coins {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.hud-pp-badge {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: #a78bfa;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.hud-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+.hud-name  { font-size: 14px; font-weight: 600; color: var(--text); }
+.hud-stat-group { display: flex; gap: 1.25rem; align-items: center; }
+.hud-stat { text-align: center; }
+.hud-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.hud-input {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  width: 170px;
+  transition: border-color 0.15s;
+}
+.hud-input:focus { border-color: var(--accent); }
+.hud-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.5rem 1rem;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+  font-family: var(--font-body);
+}
+.hud-btn:hover { opacity: 0.85; }
+.hud-not-loaded { font-size: 13px; color: var(--text-3); font-style: italic; }
+
+/* Withdraw button in HUD */
+.withdraw-btn {
+  background: transparent;
+  border: 1px solid #a78bfa;
+  color: #a78bfa;
+  border-radius: var(--radius);
+  padding: 0.45rem 0.85rem;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s;
+  white-space: nowrap;
+  font-family: var(--font-body);
+}
+.withdraw-btn:hover { background: rgba(167,139,250,0.12); }
+
+/* PP flash animation */
+.pp-flash {
+  position: fixed;
+  top: 80px;
+  right: 24px;
+  background: linear-gradient(135deg, #7C5DFA, #a78bfa);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  padding: 0.5rem 1.25rem;
+  border-radius: 30px;
+  box-shadow: 0 4px 20px rgba(124,93,250,0.4);
+  z-index: 9999;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+.pp-flash.show { opacity: 1; transform: translateY(0); }
+
+/* ── Main layout ────────────────────────────────────── */
+.games-layout {
+  display: grid;
+  grid-template-columns: 1fr 288px;
+  gap: 1.25rem;
+  align-items: start;
+}
+@media(max-width: 900px) { .games-layout { grid-template-columns: 1fr; } }
+
+/* ── Game tabs ──────────────────────────────────────── */
+.game-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+.game-tab {
+  padding: 0.42rem 0.9rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-3);
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-body);
+}
+.game-tab.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.game-tab:hover:not(.active) { border-color: var(--text-3); color: var(--text); }
+
+/* ── Game panels ────────────────────────────────────── */
+.game-panel { display: none; }
+.game-panel.active { display: block; }
+
+/* ── Game card ──────────────────────────────────────── */
+.game-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+}
+.game-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+.game-desc { font-size: 12.5px; color: var(--text-3); margin-bottom: 1.25rem; line-height: 1.55; }
+
+/* PP reward tag */
+.pp-reward-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(167,139,250,0.12);
+  border: 1px solid rgba(167,139,250,0.25);
+  color: #a78bfa;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 20px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+/* ── Bet controls ───────────────────────────────────── */
+.bet-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.bet-row label { font-size: 12px; color: var(--text-3); white-space: nowrap; }
+.bet-input {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.45rem 0.75rem;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  width: 90px;
+  transition: border-color 0.15s;
+}
+.bet-input:focus { border-color: var(--accent); }
+.bet-presets { display: flex; gap: 5px; flex-wrap: wrap; }
+.preset-btn {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.28rem 0.6rem;
+  font-size: 11.5px;
+  color: var(--text-2);
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all 0.12s;
+}
+.preset-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ── Play button ────────────────────────────────────── */
+.play-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #7C5DFA, #5a3fd4);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.7rem;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.3px;
+  margin-top: 0.75rem;
+}
+.play-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.play-btn:active { transform: translateY(0); }
+.play-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+/* ── Result banner ──────────────────────────────────── */
+.result-banner {
+  text-align: center;
+  padding: 1rem;
+  border-radius: var(--radius);
+  margin-top: 1rem;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+.result-banner.win  { background: rgba(29,158,117,0.12); border: 1px solid rgba(29,158,117,0.3); color: var(--success); }
+.result-banner.lose { background: rgba(226,75,74,0.1);   border: 1px solid rgba(226,75,74,0.25); color: var(--danger); }
+.result-banner.show { display: block; }
+.result-amt { font-size: 22px; margin: 4px 0; }
+
+/* ── Minesweeper ────────────────────────────────────── */
+.mine-grid {
+  display: inline-grid;
+  gap: 3px;
+  margin: 0.75rem auto;
+  user-select: none;
+}
+.mine-cell {
+  width: 34px;
+  height: 34px;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.1s;
+  font-family: var(--font-display);
+}
+.mine-cell:hover:not(.revealed):not(.flagged) { background: var(--bg-2); border-color: var(--accent); }
+.mine-cell.revealed  { background: var(--bg); border-color: transparent; cursor: default; }
+.mine-cell.flagged   { background: rgba(212,83,126,0.12); border-color: #D4537E; }
+.mine-cell.mine-boom { background: rgba(226,75,74,0.15); border-color: var(--danger); animation: shake 0.3s ease; }
+.n1{color:#378ADD}.n2{color:#1D9E75}.n3{color:#E24B4A}
+.n4{color:#7F77DD}.n5{color:#D85A30}.n6{color:#639922}
+.n7{color:#D4537E}.n8{color:var(--text-3)}
+.mine-info { display:flex; gap:1.25rem; margin-bottom:0.5rem; font-size:12px; }
+.mine-info span { color:var(--text-3); }
+.mine-info strong { color:var(--text); font-family:var(--font-display); }
+.mine-tip { font-size:11px; color:var(--text-3); text-align:center; margin-top:0.4rem; }
+
+/* ── Tic-Tac-Toe ────────────────────────────────────── */
+.ttt-board {
+  display: grid;
+  grid-template-columns: repeat(3, 88px);
+  grid-template-rows:    repeat(3, 88px);
+  gap: 6px;
+  margin: 1rem auto;
+  width: fit-content;
+}
+.ttt-cell {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ttt-cell:hover:empty { background: var(--bg-2); border-color: var(--accent); }
+.ttt-cell.win-cell  { background: rgba(29,158,117,0.15); border-color: var(--success); }
+.ttt-cell.lose-cell { background: rgba(226,75,74,0.1);   border-color: var(--danger); }
+.ttt-status { font-size: 13px; color: var(--text-3); text-align: center; margin-top: 0.5rem; min-height: 20px; }
+
+/* ── Number Crash ───────────────────────────────────── */
+.crash-display {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 1rem 0;
+}
+.crash-multiplier {
+  font-family: var(--font-display);
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.crash-sub { font-size: 12px; color: var(--text-3); margin-top: 4px; }
+.crash-bar { height: 6px; background: var(--border); border-radius: 3px; margin-top: 1rem; overflow: hidden; }
+.crash-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #1D9E75, #7C5DFA); transition: width 0.1s linear, background 0.3s; }
+.crash-btn-row { display: flex; gap: 8px; }
+.cashout-btn {
+  flex: 1;
+  background: var(--success);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.65rem;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.cashout-btn:hover   { opacity: 0.85; }
+.cashout-btn:disabled{ opacity: 0.35; cursor: not-allowed; }
+
+/* ── Word Scramble ──────────────────────────────────── */
+.scramble-word {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: 10px;
+  text-align: center;
+  color: var(--accent);
+  margin: 1rem 0;
+  text-transform: uppercase;
+}
+.scramble-hint { font-size: 12px; color: var(--text-3); text-align: center; margin-bottom: 1rem; }
+.scramble-input {
+  width: 100%;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.9rem;
+  color: var(--text);
+  font-size: 16px;
+  font-family: var(--font-display);
+  text-align: center;
+  letter-spacing: 4px;
+  outline: none;
+  text-transform: uppercase;
+  transition: border-color 0.15s;
+}
+.scramble-input:focus { border-color: var(--accent); }
+.scramble-timer { text-align: center; font-family: var(--font-display); font-size: 28px; font-weight: 700; margin-top: 0.75rem; }
+.scramble-timer.danger { color: var(--danger); animation: pulse-fast 0.5s ease infinite; }
+
+/* ── Coin Flip ──────────────────────────────────────── */
+.cf-arena {
+  text-align: center;
+  padding: 1.5rem 1rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 1rem 0;
+}
+.cf-coin {
+  font-size: 72px;
+  line-height: 1;
+  display: block;
+  margin: 0 auto 0.75rem;
+  transition: transform 0.3s;
+  user-select: none;
+}
+.cf-coin.cf-spinning { animation: coinSpin 0.9s ease; }
+@keyframes coinSpin {
+  0%   { transform: rotateY(0deg) scale(1); }
+  50%  { transform: rotateY(720deg) scale(0.8); }
+  100% { transform: rotateY(1440deg) scale(1); }
+}
+.cf-choice-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 0.75rem;
+}
+.cf-choice-btn {
+  flex: 1;
+  max-width: 160px;
+  padding: 0.65rem 1rem;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.cf-choice-btn:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); background: rgba(212,167,23,0.08); }
+.cf-choice-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Dice Duel ──────────────────────────────────────── */
+.dd-arena {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 1.5rem 1rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+.dd-die-wrap { text-align: center; }
+.dd-die-label { font-size: 11px; color: var(--text-3); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.dd-die {
+  font-size: 64px;
+  line-height: 1;
+  display: block;
+  user-select: none;
+  transition: transform 0.15s;
+}
+.dd-die.dd-rolling { animation: diceShake 0.08s ease infinite; }
+@keyframes diceShake {
+  0%,100%{ transform: translate(0,0) rotate(0deg); }
+  25%    { transform: translate(-2px,2px) rotate(-5deg); }
+  75%    { transform: translate(2px,-2px) rotate(5deg); }
+}
+.dd-die.dd-win  { animation: diceWin 0.4s ease; }
+.dd-die.dd-lose { animation: shake 0.4s ease; }
+@keyframes diceWin {
+  0%,100%{ transform: scale(1); }
+  50%    { transform: scale(1.3) rotate(10deg); }
+}
+.dd-die-val { font-family: var(--font-display); font-size: 13px; font-weight: 700; margin-top: 4px; color: var(--text-3); }
+.dd-vs { font-family: var(--font-display); font-size: 22px; font-weight: 900; color: var(--text-3); }
+.dd-choice-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 0.75rem;
+}
+.dd-choice-btn {
+  flex: 1;
+  padding: 0.65rem;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.dd-choice-btn span { font-size: 10px; font-weight: 400; color: var(--text-3); font-family: var(--font-body); }
+.dd-choice-btn.high:hover:not(:disabled) { border-color: var(--success); color: var(--success); background: rgba(29,158,117,0.08); }
+.dd-choice-btn.low:hover:not(:disabled)  { border-color: #D4537E; color: #D4537E; background: rgba(212,83,126,0.08); }
+.dd-choice-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── RIGHT COLUMN ────────────────────────────────────── */
+.right-col { display: flex; flex-direction: column; gap: 1rem; }
+
+/* ── PP Leaderboard ─────────────────────────────────── */
+.pp-lb {
+  background: var(--bg-2);
+  border: 1px solid rgba(167,139,250,0.25);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  position: sticky;
+  top: 1.5rem;
+}
+.pp-lb-header {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(167,139,250,0.06);
+}
+.pp-lb-title { font-size: 13px; font-weight: 600; color: #a78bfa; }
+.pp-lb-sub   { font-size: 11px; color: var(--text-3); }
+.pp-lb-row {
+  padding: 0.55rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+.pp-lb-row:last-child { border-bottom: none; }
+.pp-lb-row.pp-lb-me { background: rgba(167,139,250,0.08); }
+.pp-lb-rank { font-size: 13px; font-weight: 700; width: 22px; text-align: center; flex-shrink: 0; }
+.pp-lb-info { flex: 1; min-width: 0; }
+.pp-lb-phone { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pp-lb-sub   { font-size: 10.5px; color: var(--text-3); }
+.pp-lb-pts   { font-family: var(--font-display); font-size: 13px; font-weight: 700; color: #a78bfa; white-space: nowrap; }
+.pp-unit     { font-size: 10px; font-weight: 400; opacity: 0.7; }
+.pp-lb-empty { padding: 1.25rem 1rem; text-align: center; font-size: 12px; color: var(--text-3); line-height: 1.6; }
+
+/* Withdraw from PP leaderboard */
+.pp-lb-footer {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border);
+  background: rgba(167,139,250,0.04);
+}
+.pp-withdraw-btn {
+  width: 100%;
+  background: rgba(167,139,250,0.12);
+  border: 1px solid rgba(167,139,250,0.3);
+  color: #a78bfa;
+  border-radius: var(--radius);
+  padding: 0.55rem;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-body);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.pp-withdraw-btn:hover { background: rgba(167,139,250,0.2); }
+
+/* ── Game log ───────────────────────────────────────── */
+.game-log { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
+.game-log-title { font-size: 11px; color: var(--text-3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; }
+.log-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 11.5px;
+}
+.log-item:last-child { border-bottom: none; }
+.log-win  { color: var(--success); font-weight: 600; }
+.log-lose { color: var(--danger);  font-weight: 600; }
+.log-game { color: var(--text-3); }
+
+/* ── Cashout Modal ──────────────────────────────────── */
+.cashout-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  backdrop-filter: blur(6px);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.cashout-modal-overlay.open { display: flex; }
+.cashout-modal {
+  background: var(--bg-2);
+  border: 1px solid rgba(167,139,250,0.3);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 440px;
+  position: relative;
+  animation: fadeIn 0.25s ease;
+}
+.cashout-modal-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+.cashout-modal-sub { font-size: 12.5px; color: var(--text-3); margin-bottom: 1.5rem; }
+.co-field { margin-bottom: 1rem; }
+.co-field label { display: block; font-size: 11.5px; color: var(--text-3); font-weight: 500; margin-bottom: 5px; }
+.co-field input, .co-field textarea {
+  width: 100%;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.85rem;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: var(--font-body);
+}
+.co-field input:focus, .co-field textarea:focus { border-color: #a78bfa; }
+.co-field textarea { resize: vertical; min-height: 70px; }
+.co-player-info {
+  background: var(--bg-3);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.co-player-name  { font-weight: 600; font-size: 14px; }
+.co-player-phone { font-size: 12px; color: var(--text-3); }
+.co-pp-balance   { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: #a78bfa; }
+.co-submit-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #7C5DFA, #a78bfa);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.7rem;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font-display);
+  transition: opacity 0.15s;
+  margin-top: 0.5rem;
+}
+.co-submit-btn:hover { opacity: 0.88; }
+.co-close-btn {
+  position: absolute;
+  top: 1rem; right: 1rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 15px; color: var(--text-3);
+  transition: all 0.15s;
+}
+.co-close-btn:hover { color: var(--text); }
+.co-error {
+  background: rgba(226,75,74,0.1);
+  border: 1px solid rgba(226,75,74,0.25);
+  color: var(--danger);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.85rem;
+  font-size: 12.5px;
+  margin-top: 0.75rem;
+}
+.co-success { margin-top: 0.75rem; }
+.co-success-title { font-weight: 700; font-size: 15px; color: var(--success); margin-bottom: 0.35rem; }
+.co-success-sub   { font-size: 12.5px; color: var(--text-3); margin-bottom: 1rem; line-height: 1.55; }
+.co-wa-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  background: #25D366;
+  color: #fff;
+  text-decoration: none;
+  border-radius: var(--radius);
+  padding: 0.7rem;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  transition: opacity 0.15s;
+}
+.co-wa-btn:hover { opacity: 0.88; }
+
+/* ── Misc ────────────────────────────────────────────── */
+.avatar {
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.user-cell      { display: flex; align-items: center; gap: 0.6rem; }
+.user-cell-name { font-size: 13px; font-weight: 500; }
+.user-cell-phone{ font-size: 11.5px; color: var(--text-3); }
+.badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
+.badge-purple { background: rgba(127,119,221,0.12); color: #7F77DD; }
+.badge-green  { background: rgba(29,158,117,0.12);  color: var(--success); }
+
+@keyframes shake    { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-4px)} 60%{transform:translateX(4px)} }
+@keyframes fadeIn   { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+@keyframes pulse-fast { 0%,100%{opacity:1} 50%{opacity:0.5} }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+
+    <!-- Page header -->
+    <div class="page-header fade-in">
+      <div class="page-title">Games</div>
+      <div class="page-sub">Bet Prime Coins · Earn Prime Points · Cash out via WhatsApp</div>
+    </div>
+
+    <!-- Player HUD -->
+    <div class="hud fade-in" id="hud">
+      <div id="hud-avatar"></div>
+      <div>
+        <div id="hud-name" class="hud-not-loaded">Not loaded</div>
+        <div class="hud-stat-group" style="margin-top:4px;">
+          <div class="hud-stat">
+            <div class="hud-label">Prime Coins</div>
+            <div class="hud-coins">🪙 <span id="hud-coins">—</span></div>
+          </div>
+          <div style="width:1px;height:36px;background:var(--border);"></div>
+          <div class="hud-stat">
+            <div class="hud-label">Prime Points</div>
+            <div class="hud-pp-badge">◈ <span id="hud-pp">0</span></div>
+          </div>
+          <div class="hud-stat">
+            <div style="font-size:10px;color:var(--text-3);" id="hud-pp-wins">0W / 0G</div>
+          </div>
+        </div>
+      </div>
+      <div class="hud-right">
+        <button class="withdraw-btn" onclick="openCashoutModal()" title="Withdraw Prime Points via WhatsApp">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
+          Withdraw PP
+        </button>
+        <!-- Load player controls: hidden automatically when user is already logged in -->
+        <div id="hud-load-section" style="display:flex;align-items:center;gap:8px;">
+          <input type="text" class="hud-input" id="hud-phone" placeholder="Your phone number…" />
+          <button class="hud-btn" id="hud-load-btn">Load Player</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main layout -->
+    <div class="games-layout">
+
+      <!-- ───────────── LEFT: Games ───────────── -->
+      <div>
+        <div class="game-tabs">
+          <button class="game-tab active" onclick="switchGame('minesweeper', this)">💣 Minesweeper</button>
+          <button class="game-tab" onclick="switchGame('tictactoe', this)">✖ Tic-Tac-Toe</button>
+          <button class="game-tab" onclick="switchGame('crash', this)">📈 Number Crash</button>
+          <button class="game-tab" onclick="switchGame('scramble', this)">🔤 Word Scramble</button>
+          <button class="game-tab" onclick="switchGame('coinflip', this)">🪙 Coin Flip</button>
+          <button class="game-tab" onclick="switchGame('diceduel', this)">🎲 Dice Duel</button>
+        </div>
+
+        <!-- ══ MINESWEEPER ══════════════════════════════ -->
+        <div class="game-panel active" id="panel-minesweeper">
+          <div class="game-card">
+            <div class="game-title">💣 Minesweeper <span class="pp-reward-tag">◈ +50 PP on win</span></div>
+            <div class="game-desc">10×10 grid, 20 mines. Reveal every safe cell to win 4× your bet and earn 50 Prime Points. One wrong click and it's over.</div>
+
+            <div class="bet-row">
+              <label>Bet:</label>
+              <input type="number" class="bet-input" id="mine-bet" value="100" min="50" />
+              <div class="bet-presets">
+                <button class="preset-btn" onclick="setBet('mine-bet',100)">100</button>
+                <button class="preset-btn" onclick="setBet('mine-bet',250)">250</button>
+                <button class="preset-btn" onclick="setBet('mine-bet',500)">500</button>
+                <button class="preset-btn" onclick="setBet('mine-bet',1000)">1K</button>
+              </div>
+            </div>
+
+            <div class="mine-info">
+              <span>Safe left: <strong id="mine-cells-left">—</strong></span>
+              <span>Mines: <strong id="mine-mine-count">20</strong></span>
+              <span>Win: <strong id="mine-win-amount" style="color:var(--gold)">—</strong></span>
+            </div>
+
+            <div style="overflow-x:auto;text-align:center;">
+              <div class="mine-grid" id="mine-grid"></div>
+            </div>
+            <div class="mine-tip">Right-click to 🚩 flag a suspected mine</div>
+
+            <button class="play-btn" id="mine-start-btn" onclick="startMinesweeper()">Start Game</button>
+            <div class="result-banner" id="mine-result"></div>
+            <div class="game-log">
+              <div class="game-log-title">Recent</div>
+              <div id="mine-log-list"><span style="color:var(--text-3)">No games yet</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ TIC-TAC-TOE ═════════════════════════════ -->
+        <div class="game-panel" id="panel-tictactoe">
+          <div class="game-card">
+            <div class="game-title">✖ Tic-Tac-Toe <span class="pp-reward-tag">◈ +30 PP on win</span></div>
+            <div class="game-desc">Beat our minimax bot. Win = 3× bet + 30 PP. Draw = 0.7× return (house takes 30%). Lose = forfeit. The bot plays perfectly — nearly impossible to beat.</div>
+
+            <div class="bet-row">
+              <label>Bet:</label>
+              <input type="number" class="bet-input" id="ttt-bet" value="150" min="50" />
+              <div class="bet-presets">
+                <button class="preset-btn" onclick="setBet('ttt-bet',150)">150</button>
+                <button class="preset-btn" onclick="setBet('ttt-bet',300)">300</button>
+                <button class="preset-btn" onclick="setBet('ttt-bet',500)">500</button>
+                <button class="preset-btn" onclick="setBet('ttt-bet',1000)">1K</button>
+              </div>
+            </div>
+
+            <div class="ttt-board" id="ttt-board"></div>
+            <div class="ttt-status" id="ttt-status">Set a bet and start to play</div>
+            <button class="play-btn" id="ttt-start-btn" onclick="startTTT()">Start Game</button>
+            <div class="result-banner" id="ttt-result"></div>
+            <div class="game-log">
+              <div class="game-log-title">Recent</div>
+              <div id="ttt-log-list"><span style="color:var(--text-3)">No games yet</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ NUMBER CRASH ════════════════════════════ -->
+        <div class="game-panel" id="panel-crash">
+          <div class="game-card">
+            <div class="game-title">📈 Number Crash <span class="pp-reward-tag">◈ +20 PP on cashout</span></div>
+            <div class="game-desc">A multiplier rises. Cash out before it crashes. Crash is random and can drop at 1.01×. Each successful cashout earns 20 Prime Points.</div>
+
+            <div class="bet-row">
+              <label>Bet:</label>
+              <input type="number" class="bet-input" id="crash-bet" value="200" min="50" />
+              <div class="bet-presets">
+                <button class="preset-btn" onclick="setBet('crash-bet',200)">200</button>
+                <button class="preset-btn" onclick="setBet('crash-bet',500)">500</button>
+                <button class="preset-btn" onclick="setBet('crash-bet',1000)">1K</button>
+                <button class="preset-btn" onclick="setBet('crash-bet',2500)">2.5K</button>
+              </div>
+            </div>
+
+            <div class="crash-display">
+              <div class="crash-multiplier" id="crash-mult" style="color:var(--gold)">1.00×</div>
+              <div class="crash-sub" id="crash-sub">Waiting to launch…</div>
+              <div class="crash-bar"><div class="crash-fill" id="crash-fill" style="width:0%"></div></div>
+            </div>
+
+            <div class="crash-btn-row" style="margin-top:0.75rem;">
+              <button class="play-btn" style="flex:1;margin-top:0;" id="crash-start-btn" onclick="startCrash()">Launch 🚀</button>
+              <button class="cashout-btn" id="crash-cashout-btn" onclick="crashCashout()" disabled>Cash Out 💰</button>
+            </div>
+
+            <div class="result-banner" id="crash-result"></div>
+            <div class="game-log">
+              <div class="game-log-title">Recent crashes</div>
+              <div id="crash-log-list"><span style="color:var(--text-3)">No games yet</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ WORD SCRAMBLE ═══════════════════════════ -->
+        <div class="game-panel" id="panel-scramble">
+          <div class="game-card">
+            <div class="game-title">🔤 Word Scramble <span class="pp-reward-tag">◈ +25 PP on win</span></div>
+            <div class="game-desc">Unscramble an anime word in 20 seconds. Win = 2.5× bet + 25 PP. Timeout or wrong answer = full loss. Letters are jumbled hard.</div>
+
+            <div class="bet-row">
+              <label>Bet:</label>
+              <input type="number" class="bet-input" id="scr-bet" value="100" min="50" />
+              <div class="bet-presets">
+                <button class="preset-btn" onclick="setBet('scr-bet',100)">100</button>
+                <button class="preset-btn" onclick="setBet('scr-bet',250)">250</button>
+                <button class="preset-btn" onclick="setBet('scr-bet',500)">500</button>
+                <button class="preset-btn" onclick="setBet('scr-bet',1000)">1K</button>
+              </div>
+            </div>
+
+            <div class="scramble-word" id="scr-word">？ ？ ？ ？ ？</div>
+            <div class="scramble-hint" id="scr-hint">Set a bet and start a round</div>
+            <input type="text" class="scramble-input" id="scr-answer" placeholder="TYPE ANSWER" maxlength="20" disabled />
+            <div class="scramble-timer" id="scr-timer">—</div>
+
+            <button class="play-btn" id="scr-start-btn" onclick="startScramble()">Start Round</button>
+            <div class="result-banner" id="scr-result"></div>
+            <div class="game-log">
+              <div class="game-log-title">Recent</div>
+              <div id="scr-log-list"><span style="color:var(--text-3)">No games yet</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ COIN FLIP ═══════════════════════════════ -->
+        <div class="game-panel" id="panel-coinflip">
+          <div class="game-card">
+            <div class="game-title">🪙 Coin Flip <span class="pp-reward-tag">◈ +10 PP on win</span></div>
+            <div class="game-desc">50/50. Pick Heads or Tails. Win = 2× your bet + 10 Prime Points. No house edge — pure chance.</div>
+
+            <div class="bet-row">
+              <label>Bet:</label>
+              <input type="number" class="bet-input" id="cf-bet" value="100" min="50" />
+              <div class="bet-presets">
+                <button class="preset-btn" onclick="setBet('cf-bet',100)">100</button>
+                <button class="preset-btn" onclick="setBet('cf-bet',250)">250</button>
+                <button class="preset-btn" onclick="setBet('cf-bet',500)">500</button>
+                <button class="preset-btn" onclick="setBet('cf-bet',1000)">1K</button>
+              </div>
+            </div>
+
+            <div class="cf-arena">
+              <span class="cf-coin" id="cf-coin">🪙</span>
+              <div style="font-size:12px;color:var(--text-3);">Pick a side, then flip</div>
+            </div>
+
+            <div class="cf-choice-row">
+              <button class="cf-choice-btn" onclick="playCoinFlip('heads')">🪙 Heads</button>
+              <button class="cf-choice-btn" onclick="playCoinFlip('tails')">🌑 Tails</button>
+            </div>
+
+            <div class="result-banner" id="cf-result"></div>
+            <div class="game-log">
+              <div class="game-log-title">Recent</div>
+              <div id="cf-log-list"><span style="color:var(--text-3)">No games yet</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ DICE DUEL ════════════════════════════════ -->
+        <div class="game-panel" id="panel-diceduel">
+          <div class="game-card">
+            <div class="game-title">🎲 Dice Duel <span class="pp-reward-tag">◈ +15 PP on win</span></div>
+            <div class="game-desc">Pick High (4–6) or Low (1–3). Both you and the bot roll a d6. You win if your roll is in your chosen range AND beats the bot's roll. Win = 2.2× bet + 15 PP.</div>
+
+            <div class="bet-row">
+              <label>Bet:</label>
+              <input type="number" class="bet-input" id="dd-bet" value="150" min="50" />
+              <div class="bet-presets">
+                <button class="preset-btn" onclick="setBet('dd-bet',150)">150</button>
+                <button class="preset-btn" onclick="setBet('dd-bet',300)">300</button>
+                <button class="preset-btn" onclick="setBet('dd-bet',500)">500</button>
+                <button class="preset-btn" onclick="setBet('dd-bet',1000)">1K</button>
+              </div>
+            </div>
+
+            <div class="dd-arena">
+              <div class="dd-die-wrap">
+                <div class="dd-die-label">You</div>
+                <div class="dd-die" id="dd-player-die">⚀</div>
+                <div class="dd-die-val" id="dd-player-val">—</div>
+              </div>
+              <div class="dd-vs">VS</div>
+              <div class="dd-die-wrap">
+                <div class="dd-die-label">Bot</div>
+                <div class="dd-die" id="dd-bot-die">⚀</div>
+                <div class="dd-die-val" id="dd-bot-val">—</div>
+              </div>
+            </div>
+
+            <div class="dd-choice-row">
+              <button class="dd-choice-btn high" onclick="playDiceDuel('high')">
+                ⬆ HIGH
+                <span>Roll 4, 5, or 6</span>
+              </button>
+              <button class="dd-choice-btn low" onclick="playDiceDuel('low')">
+                ⬇ LOW
+                <span>Roll 1, 2, or 3</span>
+              </button>
+            </div>
+
+            <div class="result-banner" id="dd-result"></div>
+            <div class="game-log">
+              <div class="game-log-title">Recent</div>
+              <div id="dd-log-list"><span style="color:var(--text-3)">No games yet</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /LEFT -->
+
+      <!-- ───────────── RIGHT: PP Leaderboard ───────────── -->
+      <div class="right-col">
+        <div class="pp-lb">
+          <div class="pp-lb-header">
+            <div>
+              <div class="pp-lb-title">◈ Prime Points Board</div>
+              <div class="pp-lb-sub">Local to this device · session earnings</div>
+            </div>
+          </div>
+          <div id="pp-lb-list">
+            <div class="pp-lb-empty">Play a game to appear here!</div>
+          </div>
+          <div class="pp-lb-footer">
+            <button class="pp-withdraw-btn" onclick="openCashoutModal()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
+              Withdraw Prime Points via WhatsApp
+            </button>
+          </div>
+        </div>
+      </div><!-- /RIGHT -->
+
+    </div><!-- /games-layout -->
+  </main>
+</div>
+
+<!-- PP Flash -->
+<div class="pp-flash" id="pp-flash"></div>
+
+<!-- Cashout / Withdraw Modal -->
+<div class="cashout-modal-overlay" id="cashout-modal">
+  <div class="cashout-modal">
+    <button class="co-close-btn" onclick="closeCashoutModal()">✕</button>
+    <div class="cashout-modal-title">◈ Withdraw Prime Points</div>
+    <div class="cashout-modal-sub">Prime Points are redeemed by sending a DM to the WhatsApp admin. Enter the amount below and tap the button — it will open a pre-filled WhatsApp message.</div>
+
+    <div class="co-player-info">
+      <div>
+        <div class="co-player-name" id="co-player-name">—</div>
+        <div class="co-player-phone" id="co-player-phone">—</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--text-3);margin-bottom:2px;">Balance</div>
+        <div class="co-pp-balance">◈ <span id="co-pp-balance">0</span></div>
+      </div>
+    </div>
+
+    <div class="co-field">
+      <label>Amount to withdraw (min 500 PP)</label>
+      <input type="number" id="co-amount" placeholder="e.g. 500" min="500" />
+    </div>
+    <div class="co-field">
+      <label>Optional note to admin</label>
+      <textarea id="co-note" placeholder="I would like to convert my Coins"></textarea>
+    </div>
+
+    <button class="co-submit-btn" onclick="submitCashout()">Generate WhatsApp Request →</button>
+    <div id="co-result"></div>
+  </div>
+</div>
+
+<script src="data/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/games.js"></script>
+<script src="js/celebrate.js"></script>
+</body>
+</html>

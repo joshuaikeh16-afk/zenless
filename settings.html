@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AniGamble HQ — Staff</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+    <div class="page-header fade-in">
+      <div class="page-title">Staff</div>
+      <div class="page-sub">GC admins and moderators</div>
+    </div>
+    <div class="card fade-in">
+      <div class="empty">
+        <div class="empty-icon">🛡️</div>
+        <div class="empty-text">Add a <code>role</code> field to your user records (e.g. <code>"admin"</code> or <code>"mod"</code>) to list staff here.</div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="data/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/profile.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => renderSidebar('staff'));</script>
+</body>
+</html>

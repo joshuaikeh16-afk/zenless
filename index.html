@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AniGamble HQ — Overview</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <link rel="stylesheet" href="css/premium.css">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── BASE ── */
+    *, *::before, *::after { box-sizing: border-box; }
+    body { overflow-x: hidden; }
+
+    /* ── SCANLINE TEXTURE ── */
+    .main::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 3px,
+        rgba(139,92,246,0.018) 3px, rgba(139,92,246,0.018) 4px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+    .main > * { position: relative; z-index: 1; }
+
+    /* ── NEBULA BACKGROUND ── */
+    #bg-nebula {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .nebula-blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(90px);
+      animation: nebulaBreath ease-in-out infinite alternate;
+      will-change: transform, opacity;
+    }
+    .nb-1 { width: 700px; height: 700px; background: radial-gradient(circle, rgba(124,58,237,0.18) 0%, transparent 70%); top: -200px; right: -150px; animation-duration: 12s; }
+    .nb-2 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(234,179,8,0.12) 0%, transparent 70%); bottom: -100px; left: -100px; animation-duration: 15s; animation-delay: -5s; }
+    .nb-3 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(52,211,153,0.1) 0%, transparent 70%); top: 40%; left: 40%; animation-duration: 18s; animation-delay: -8s; }
+    .nb-4 { width: 300px; height: 300px; background: radial-gradient(circle, rgba(236,72,153,0.08) 0%, transparent 70%); top: 60%; right: 20%; animation-duration: 10s; animation-delay: -3s; }
+    @keyframes nebulaBreath {
+      from { transform: scale(1) translate(0, 0); opacity: 0.7; }
+      to   { transform: scale(1.15) translate(15px, -20px); opacity: 1; }
+    }
+
+    /* ── FLOATING PARTICLES ── */
+    #particles {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .particle {
+      position: absolute;
+      border-radius: 50%;
+      animation: floatUp linear infinite;
+      opacity: 0;
+    }
+    @keyframes floatUp {
+      0%   { transform: translateY(100vh) scale(0) rotate(0deg); opacity: 0; }
+      10%  { opacity: 1; }
+      90%  { opacity: 0.7; }
+      100% { transform: translateY(-10vh) scale(1.3) rotate(360deg); opacity: 0; }
+    }
+
+    /* ── HERO ── */
+    .ov-hero {
+      position: relative;
+      border-radius: 24px;
+      overflow: hidden;
+      padding: 3.5rem 3rem 3rem;
+      margin-bottom: 1.75rem;
+      background: linear-gradient(135deg, rgba(8,6,24,0.85) 0%, rgba(19,8,40,0.9) 45%, rgba(7,13,28,0.85) 100%);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(139,92,246,0.35);
+      box-shadow:
+        0 0 0 1px rgba(139,92,246,0.1),
+        0 24px 64px rgba(0,0,0,0.6),
+        inset 0 1px 0 rgba(255,255,255,0.07),
+        0 0 80px rgba(124,58,237,0.15);
+      min-height: 300px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+
+    /* Animated orbs */
+    .hero-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(70px);
+      animation: orbFloat ease-in-out infinite;
+      pointer-events: none;
+      will-change: transform;
+    }
+    .hero-orb-1 { width: 380px; height: 380px; background: rgba(124,58,237,0.45); top: -140px; right: -90px; animation-duration: 7s; }
+    .hero-orb-2 { width: 260px; height: 260px; background: rgba(234,179,8,0.22); bottom: -70px; left: 80px; animation-duration: 9s; animation-delay: -3s; }
+    .hero-orb-3 { width: 180px; height: 180px; background: rgba(52,211,153,0.18); top: 30px; left: -50px; animation-duration: 11s; animation-delay: -6s; }
+    .hero-orb-4 { width: 140px; height: 140px; background: rgba(236,72,153,0.15); bottom: 30px; right: 200px; animation-duration: 13s; animation-delay: -9s; }
+    @keyframes orbFloat {
+      0%,100% { transform: translate(0,0) scale(1); }
+      33%     { transform: translate(22px,-18px) scale(1.08); }
+      66%     { transform: translate(-12px,12px) scale(0.94); }
+    }
+
+    /* Glowing grid */
+    .hero-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(139,92,246,0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(139,92,246,0.07) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 0%, transparent 100%);
+      animation: gridPulse 6s ease-in-out infinite alternate;
+    }
+    @keyframes gridPulse {
+      from { opacity: 0.5; }
+      to   { opacity: 1; }
+    }
+
+    /* Corner glow accents */
+    .hero-corner-tl, .hero-corner-br {
+      position: absolute;
+      width: 120px; height: 120px;
+      pointer-events: none;
+    }
+    .hero-corner-tl {
+      top: 0; left: 0;
+      background: linear-gradient(135deg, rgba(139,92,246,0.3), transparent);
+      border-radius: 0 0 100% 0;
+    }
+    .hero-corner-br {
+      bottom: 0; right: 0;
+      background: linear-gradient(315deg, rgba(234,179,8,0.2), transparent);
+      border-radius: 100% 0 0 0;
+    }
+
+    .hero-eyebrow {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase;
+      color: #a78bfa; margin-bottom: 0.85rem;
+      display: flex; align-items: center; gap: 10px;
+      position: relative;
+    }
+    .live-dot {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 10px; color: #34d399; font-weight: 600; letter-spacing: 0.08em;
+    }
+    .live-dot::before {
+      content: '';
+      width: 6px; height: 6px; border-radius: 50%; background: #34d399;
+      animation: pulseDot 2s infinite;
+      box-shadow: 0 0 8px #34d399;
+    }
+    @keyframes pulseDot {
+      0%,100% { opacity:1; transform:scale(1); box-shadow: 0 0 10px #34d399; }
+      50%      { opacity:0.4; transform:scale(0.6); box-shadow: 0 0 3px #34d399; }
+    }
+
+    .hero-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: clamp(2.6rem, 5.5vw, 4.2rem);
+      font-weight: 700; line-height: 1.0;
+      color: #fff; margin-bottom: 0.85rem;
+      position: relative;
+      text-shadow: 0 0 40px rgba(139,92,246,0.3);
+    }
+    .hero-title .grad {
+      background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 25%, #c084fc 60%, #818cf8 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text; background-size: 300%;
+      animation: shimmer 5s ease infinite;
+    }
+    @keyframes shimmer {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .hero-desc {
+      font-size: 14px; color: rgba(255,255,255,0.45);
+      max-width: 500px; line-height: 1.7; margin-bottom: 2rem;
+    }
+
+    .hero-actions { display: flex; gap: 0.85rem; flex-wrap: wrap; }
+
+    /* ── GLASS BUTTON ── */
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 0.7rem 1.6rem; border-radius: 12px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.9), rgba(167,139,250,0.85));
+      backdrop-filter: blur(12px);
+      color: #fff; font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 15px;
+      letter-spacing: 0.07em; text-decoration: none; border: none; cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.18);
+      box-shadow: 0 0 24px rgba(124,58,237,0.55), inset 0 1px 0 rgba(255,255,255,0.2);
+      transition: all 0.25s;
+      position: relative; overflow: hidden;
+    }
+    .btn-primary::before {
+      content: '';
+      position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent);
+      transition: left 0.4s;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 40px rgba(124,58,237,0.8), inset 0 1px 0 rgba(255,255,255,0.25); }
+    .btn-primary:hover::before { left: 100%; }
+
+    .btn-ghost {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 0.7rem 1.6rem; border-radius: 12px;
+      background: rgba(255,255,255,0.05);
+      backdrop-filter: blur(12px);
+      color: rgba(255,255,255,0.65);
+      font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 15px;
+      letter-spacing: 0.07em; text-decoration: none;
+      border: 1px solid rgba(255,255,255,0.13);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+      transition: all 0.25s;
+    }
+    .btn-ghost:hover {
+      background: rgba(139,92,246,0.12);
+      border-color: rgba(139,92,246,0.45);
+      color: #c4b5fd;
+      transform: translateY(-2px);
+    }
+
+    /* ── STAT RIBBON — GLASS CARDS ── */
+    .stat-ribbon {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 1rem; margin-bottom: 1.75rem;
+    }
+    .stat-cell {
+      background: rgba(255,255,255,0.035);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 18px;
+      padding: 1.4rem 1.5rem;
+      display: flex; flex-direction: column; gap: 6px;
+      position: relative; overflow: hidden;
+      transition: transform 0.25s, box-shadow 0.25s, border-color 0.25s;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    /* Inner shimmer band */
+    .stat-cell::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 60%);
+      border-radius: inherit;
+      pointer-events: none;
+    }
+    /* Bottom accent bar */
+    .stat-cell::after {
+      content: '';
+      position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+      border-radius: 0 0 18px 18px;
+      opacity: 0.6;
+      transition: opacity 0.25s, height 0.25s;
+    }
+    .stat-cell.gold   { --accent: #fbbf24; }
+    .stat-cell.purple { --accent: #a78bfa; }
+    .stat-cell.green  { --accent: #34d399; }
+    .stat-cell.white  { --accent: #e2e8f0; }
+    .stat-cell.gold::after   { background: #fbbf24; box-shadow: 0 0 10px #fbbf24; }
+    .stat-cell.purple::after { background: #a78bfa; box-shadow: 0 0 10px #a78bfa; }
+    .stat-cell.green::after  { background: #34d399; box-shadow: 0 0 10px #34d399; }
+    .stat-cell.white::after  { background: #e2e8f0; box-shadow: 0 0 10px rgba(226,232,240,0.5); }
+    .stat-cell:hover { transform: translateY(-4px); border-color: rgba(var(--accent, 255,255,255), 0.3); }
+    .stat-cell:hover::after { opacity: 1; height: 3px; }
+
+    .stat-cell-icon { font-size: 22px; margin-bottom: 3px; }
+    .stat-cell-label {
+      font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+      color: rgba(255,255,255,0.32); font-weight: 500;
+    }
+    .stat-cell-value {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 2rem; font-weight: 700; line-height: 1;
+      animation: countIn 0.7s cubic-bezier(0.34,1.56,0.64,1) forwards;
+    }
+    @keyframes countIn {
+      from { opacity:0; transform: translateY(12px) scale(0.9); }
+      to   { opacity:1; transform: translateY(0) scale(1); }
+    }
+    .val-gold   { color: #fbbf24; text-shadow: 0 0 20px rgba(251,191,36,0.5); }
+    .val-purple { color: #a78bfa; text-shadow: 0 0 20px rgba(167,139,250,0.5); }
+    .val-white  { color: #fff;    text-shadow: 0 0 20px rgba(255,255,255,0.3); }
+    .val-green  { color: #34d399; text-shadow: 0 0 20px rgba(52,211,153,0.5); }
+
+    /* ── ABOUT / FEATURE SECTION ── */
+    .about-section {
+      margin-bottom: 1.75rem;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;
+    }
+
+    /* Glass identity card */
+    .identity-card {
+      background: rgba(255,255,255,0.03);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(167,139,250,0.2);
+      border-radius: 20px;
+      padding: 2rem;
+      position: relative; overflow: hidden;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.07);
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .identity-card:hover {
+      border-color: rgba(167,139,250,0.4);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(139,92,246,0.1), inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+    .identity-card::before {
+      content: '🎴';
+      position: absolute; font-size: 140px;
+      right: -20px; top: -20px;
+      opacity: 0.05; transform: rotate(15deg);
+      pointer-events: none;
+      animation: cardFloat 6s ease-in-out infinite alternate;
+    }
+    @keyframes cardFloat {
+      from { transform: rotate(12deg) translateY(0); }
+      to   { transform: rotate(18deg) translateY(-8px); }
+    }
+    /* Inner glass highlight */
+    .identity-card::after {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 60%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%);
+      border-radius: 20px 20px 0 0;
+      pointer-events: none;
+    }
+    .identity-tag {
+      display: inline-block;
+      background: rgba(167,139,250,0.12);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(167,139,250,0.28);
+      border-radius: 20px; padding: 3px 14px;
+      font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+      color: #a78bfa; font-weight: 600; margin-bottom: 1rem;
+    }
+    .identity-heading {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1.6rem; font-weight: 700; color: #fff; line-height: 1.2;
+      margin-bottom: 0.85rem;
+    }
+    .identity-body { font-size: 13px; color: rgba(255,255,255,0.42); line-height: 1.75; }
+    .identity-body strong { color: rgba(255,255,255,0.75); }
+
+    .feature-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 1.4rem; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(255,255,255,0.04);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 20px; padding: 5px 14px;
+      font-size: 12px; color: rgba(255,255,255,0.55); font-weight: 500;
+      transition: all 0.2s; cursor: default;
+    }
+    .pill:hover {
+      background: rgba(139,92,246,0.12);
+      border-color: rgba(139,92,246,0.3);
+      color: #c4b5fd; transform: translateY(-2px);
+    }
+
+    /* How it works — glass cards */
+    .how-col { display: flex; flex-direction: column; gap: 1rem; }
+    .how-card {
+      background: rgba(255,255,255,0.03);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px; padding: 1.2rem 1.4rem;
+      display: flex; align-items: flex-start; gap: 16px;
+      position: relative; overflow: hidden;
+      transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+      animation: slideInRight 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards;
+      opacity: 0;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.05);
+    }
+    .how-card:nth-child(1) { animation-delay: 0.1s; }
+    .how-card:nth-child(2) { animation-delay: 0.22s; }
+    .how-card:nth-child(3) { animation-delay: 0.34s; }
+    .how-card:nth-child(4) { animation-delay: 0.46s; }
+    @keyframes slideInRight {
+      from { opacity:0; transform: translateX(24px); }
+      to   { opacity:1; transform: translateX(0); }
+    }
+    .how-card:hover {
+      border-color: rgba(139,92,246,0.35);
+      transform: translateX(-4px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 0 20px rgba(139,92,246,0.08), inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    /* Hover left accent */
+    .how-card::before {
+      content: '';
+      position: absolute; left: 0; top: 15%; bottom: 15%; width: 2px;
+      background: linear-gradient(180deg, transparent, #7c3aed, transparent);
+      border-radius: 2px; opacity: 0;
+      transition: opacity 0.25s;
+    }
+    .how-card:hover::before { opacity: 1; }
+    .how-num {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 2.2rem; font-weight: 700;
+      color: rgba(139,92,246,0.22); line-height: 1;
+      flex-shrink: 0; width: 38px;
+    }
+    .how-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 15px; font-weight: 700; color: #e2e8f0; margin-bottom: 4px;
+    }
+    .how-desc { font-size: 12px; color: rgba(255,255,255,0.35); line-height: 1.65; }
+
+    /* ── FEATURE SHOWCASE — replaces spotlight/leaderboard ── */
+    .showcase-row {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem; margin-bottom: 1.75rem;
+    }
+    .glass-card {
+      background: rgba(255,255,255,0.03);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 1.75rem;
+      position: relative; overflow: hidden;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s, border-color 0.3s;
+      animation: fadeInUp 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards;
+      opacity: 0;
+    }
+    .glass-card:nth-child(1) { animation-delay: 0.1s; --card-accent: #a78bfa; }
+    .glass-card:nth-child(2) { animation-delay: 0.22s; --card-accent: #fbbf24; }
+    .glass-card:nth-child(3) { animation-delay: 0.34s; --card-accent: #34d399; }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .glass-card:hover {
+      transform: translateY(-6px) scale(1.01);
+      border-color: rgba(255,255,255,0.15);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px rgba(139,92,246,0.1), inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+    /* Top shine */
+    .glass-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 50%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 100%);
+      border-radius: 20px 20px 0 0; pointer-events: none;
+    }
+    /* Accent bottom line */
+    .glass-card::after {
+      content: '';
+      position: absolute; bottom: 0; left: 10%; right: 10%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--card-accent, #a78bfa), transparent);
+      opacity: 0.5;
+    }
+    .gc-icon {
+      font-size: 2.5rem; margin-bottom: 1rem;
+      display: block;
+      animation: iconBounce 3s ease-in-out infinite;
+    }
+    .glass-card:nth-child(2) .gc-icon { animation-delay: -1s; }
+    .glass-card:nth-child(3) .gc-icon { animation-delay: -2s; }
+    @keyframes iconBounce {
+      0%,100% { transform: translateY(0) rotate(0deg); }
+      30%     { transform: translateY(-6px) rotate(-3deg); }
+      60%     { transform: translateY(-3px) rotate(2deg); }
+    }
+    .gc-title {
+      font-family: 'Rajdhani', sans-serif; font-size: 1.15rem; font-weight: 700;
+      color: #fff; margin-bottom: 0.5rem;
+    }
+    .gc-desc { font-size: 12px; color: rgba(255,255,255,0.38); line-height: 1.7; }
+    .gc-badge {
+      display: inline-block; margin-top: 1rem;
+      padding: 3px 12px; border-radius: 20px; font-size: 10px;
+      letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600;
+    }
+    .badge-purple { background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.3); color: #a78bfa; }
+    .badge-gold   { background: rgba(251,191,36,0.1);  border: 1px solid rgba(251,191,36,0.3);  color: #fbbf24; }
+    .badge-green  { background: rgba(52,211,153,0.1);  border: 1px solid rgba(52,211,153,0.3);  color: #34d399; }
+
+    /* ── FLOATING CARD STACK ── */
+    .card-showcase {
+      margin-bottom: 1.75rem;
+      background: rgba(255,255,255,0.025);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 24px;
+      padding: 2.5rem 2rem;
+      position: relative; overflow: hidden;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+      display: flex; align-items: center; justify-content: space-between; gap: 2rem;
+    }
+    .card-showcase::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 80% at 80% 50%, rgba(124,58,237,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .card-showcase-text { flex: 1; position: relative; }
+    .card-showcase-text .identity-tag { margin-bottom: 0.85rem; }
+    .card-showcase-heading {
+      font-family: 'Rajdhani', sans-serif; font-size: 1.75rem; font-weight: 700;
+      color: #fff; margin-bottom: 0.65rem; line-height: 1.2;
+    }
+    .card-showcase-body { font-size: 13px; color: rgba(255,255,255,0.4); line-height: 1.7; max-width: 380px; }
+
+    /* Animated card stack */
+    .card-stack {
+      position: relative; width: 200px; height: 260px;
+      flex-shrink: 0; perspective: 800px;
+    }
+    .anime-card {
+      position: absolute; width: 160px; height: 220px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.12);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-size: 48px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+      will-change: transform;
+    }
+    .anime-card-label {
+      font-family: 'Rajdhani', sans-serif; font-size: 11px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: rgba(255,255,255,0.4); margin-top: 8px;
+    }
+    .ac-1 {
+      background: linear-gradient(135deg, rgba(124,58,237,0.45), rgba(79,70,229,0.3));
+      left: 20px; top: 20px;
+      animation: cardFloat1 6s ease-in-out infinite;
+      z-index: 3;
+    }
+    .ac-2 {
+      background: linear-gradient(135deg, rgba(234,179,8,0.35), rgba(245,158,11,0.2));
+      left: 14px; top: 14px;
+      animation: cardFloat2 7s ease-in-out infinite;
+      z-index: 2;
+    }
+    .ac-3 {
+      background: linear-gradient(135deg, rgba(52,211,153,0.3), rgba(16,185,129,0.2));
+      left: 8px; top: 8px;
+      animation: cardFloat3 8s ease-in-out infinite;
+      z-index: 1;
+    }
+    @keyframes cardFloat1 {
+      0%,100% { transform: translateY(0) rotateY(0deg) rotateX(3deg); }
+      33%     { transform: translateY(-8px) rotateY(6deg) rotateX(0deg); }
+      66%     { transform: translateY(4px) rotateY(-4deg) rotateX(5deg); }
+    }
+    @keyframes cardFloat2 {
+      0%,100% { transform: translateY(0) rotateY(-5deg) rotateX(2deg) rotate(-2deg); }
+      50%     { transform: translateY(-4px) rotateY(2deg) rotateX(6deg) rotate(1deg); }
+    }
+    @keyframes cardFloat3 {
+      0%,100% { transform: translateY(0) rotateY(-8deg) rotateX(4deg) rotate(-5deg); }
+      50%     { transform: translateY(6px) rotateY(-2deg) rotateX(1deg) rotate(-3deg); }
+    }
+
+    /* ── CTA BANNER ── */
+    .cta-banner {
+      background: rgba(255,255,255,0.025);
+      backdrop-filter: blur(28px) saturate(200%);
+      -webkit-backdrop-filter: blur(28px) saturate(200%);
+      border: 1px solid rgba(167,139,250,0.22);
+      border-radius: 20px; padding: 2.25rem 2.25rem;
+      display: flex; align-items: center; justify-content: space-between; gap: 1.25rem;
+      position: relative; overflow: hidden; margin-bottom: 1.75rem;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.07);
+    }
+    /* Sweeping glow */
+    .cta-banner::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(139,92,246,0.1) 50%, transparent 100%);
+      animation: sweepGlow 4.5s ease-in-out infinite;
+    }
+    /* Top shine */
+    .cta-banner::after {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(167,139,250,0.6), transparent);
+    }
+    @keyframes sweepGlow {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+    .cta-text { position: relative; }
+    .cta-heading {
+      font-family: 'Rajdhani', sans-serif; font-size: 1.4rem; font-weight: 700;
+      color: #fff; margin-bottom: 5px;
+    }
+    .cta-sub { font-size: 12px; color: rgba(255,255,255,0.36); }
+
+    /* ── FADE IN BASE ── */
+    .fade-in {
+      animation: fadeIn 0.6s ease forwards;
+      opacity: 0;
+    }
+    @keyframes fadeIn {
+      to { opacity: 1; }
+    }
+
+    /* ── MEDIA ── */
+    @media (max-width: 700px) {
+      .stat-ribbon     { grid-template-columns: 1fr 1fr; }
+      .about-section   { grid-template-columns: 1fr; }
+      .showcase-row    { grid-template-columns: 1fr; }
+      .cta-banner      { flex-direction: column; text-align: center; }
+      .card-showcase   { flex-direction: column; }
+      .card-stack      { width: 160px; height: 220px; }
+    }
+    @media (max-width: 500px) {
+      .stat-ribbon { grid-template-columns: 1fr 1fr; }
+      .showcase-row { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nebula background -->
+<div id="bg-nebula">
+  <div class="nebula-blob nb-1"></div>
+  <div class="nebula-blob nb-2"></div>
+  <div class="nebula-blob nb-3"></div>
+  <div class="nebula-blob nb-4"></div>
+</div>
+
+<!-- Floating particles -->
+<div id="particles"></div>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+
+    <!-- ── HERO ── -->
+    <div class="ov-hero fade-in">
+      <div class="hero-grid"></div>
+      <div class="hero-orb hero-orb-1"></div>
+      <div class="hero-orb hero-orb-2"></div>
+      <div class="hero-orb hero-orb-3"></div>
+      <div class="hero-orb hero-orb-4"></div>
+      <div class="hero-corner-tl"></div>
+      <div class="hero-corner-br"></div>
+      <div class="hero-eyebrow">
+        AniGamble HQ &nbsp;·&nbsp; <span class="live-dot">Live Economy</span>
+      </div>
+      <div class="hero-title">
+        Anime Cards.<br><span class="grad">Real Stakes.</span>
+      </div>
+      <div class="hero-desc">
+        The premier GC-powered trading &amp; gambling arena for anime card collectors.
+        Earn coins, build your deck, climb the ranks.
+      </div>
+      <div class="hero-actions">
+        <a href="member-login.html" class="btn-primary">🔑 Login to Play</a>
+        <a href="games.html" class="btn-ghost">🎮 Browse Games</a>
+      </div>
+    </div>
+
+    <!-- ── STAT RIBBON ── -->
+    <div class="stat-ribbon fade-in" id="stats">
+      <div class="stat-cell purple">
+        <div class="stat-cell-icon">🎮</div>
+        <div class="stat-cell-label">Players</div>
+        <div class="stat-cell-value val-purple" id="s-players">—</div>
+      </div>
+      <div class="stat-cell gold">
+        <div class="stat-cell-icon">🪙</div>
+        <div class="stat-cell-label">Coins in Circulation</div>
+        <div class="stat-cell-value val-gold" id="s-coins">—</div>
+      </div>
+      <div class="stat-cell white">
+        <div class="stat-cell-icon">🎴</div>
+        <div class="stat-cell-label">Cards Traded</div>
+        <div class="stat-cell-value val-white" id="s-cards">—</div>
+      </div>
+      <div class="stat-cell green">
+        <div class="stat-cell-icon">◈</div>
+        <div class="stat-cell-label">Prime Points</div>
+        <div class="stat-cell-value val-green" id="s-souv">—</div>
+      </div>
+    </div>
+
+    <!-- ── ABOUT + HOW IT WORKS ── -->
+    <div class="about-section fade-in">
+
+      <div class="identity-card">
+        <div class="identity-tag">Who We Are</div>
+        <div class="identity-heading">The Anime Card<br>Gambling Underground</div>
+        <div class="identity-body">
+          AniGamble HQ is a <strong>private GC economy</strong> built for anime fans who take their cards seriously.
+          We mix the rush of gambling with the strategy of a trading card game — all powered by our own coin system.<br><br>
+          <strong>No luck-only games.</strong> Every match is earned. Every card has value.
+          Prime Points are your gateway to high-stakes tables.
+        </div>
+        <div class="feature-pills">
+          <span class="pill">🎴 Card Trading</span>
+          <span class="pill">🪙 GC Economy</span>
+          <span class="pill">◈ Prime Points</span>
+          <span class="pill">🏆 Weekly Rankings</span>
+          <span class="pill">🎰 Gambling Games</span>
+        </div>
+      </div>
+
+      <div class="how-col">
+        <div class="how-card">
+          <span class="how-num">01</span>
+          <div>
+            <div class="how-title">🔑 Join the Hub</div>
+            <div class="how-desc">Login with your registered phone number. New? DM an admin to get started.</div>
+          </div>
+        </div>
+        <div class="how-card">
+          <span class="how-num">02</span>
+          <div>
+            <div class="how-title">🪙 Earn GC Coins</div>
+            <div class="how-desc">Play games, win trades, and complete challenges to stack your coin balance.</div>
+          </div>
+        </div>
+        <div class="how-card">
+          <span class="how-num">03</span>
+          <div>
+            <div class="how-title">🎴 Build Your Deck</div>
+            <div class="how-desc">Collect anime cards through trades and wins. Rarer cards = more street cred.</div>
+          </div>
+        </div>
+        <div class="how-card">
+          <span class="how-num">04</span>
+          <div>
+            <div class="how-title">◈ Gamble with Prime Points</div>
+            <div class="how-desc">Only Prime Points enter the gambling tables. High risk, high reward.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── GLASS CARD SHOWCASE ── -->
+    <div class="card-showcase fade-in">
+      <div class="card-showcase-text">
+        <div class="identity-tag">Card System</div>
+        <div class="card-showcase-heading">Every Card Tells<br>a Story</div>
+        <div class="card-showcase-body">
+          From common pulls to legendary holographics — your deck is your reputation.
+          Trade smart, hoard strategically, or gamble it all away in the arena.
+          The choice is yours.
+        </div>
+      </div>
+      <div class="card-stack">
+        <div class="anime-card ac-3">
+          ⚡
+          <div class="anime-card-label">Common</div>
+        </div>
+        <div class="anime-card ac-2">
+          🌙
+          <div class="anime-card-label">Rare</div>
+        </div>
+        <div class="anime-card ac-1">
+          ✨
+          <div class="anime-card-label">Legendary</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FEATURE GLASS CARDS ── -->
+    <div class="showcase-row">
+      <div class="glass-card">
+        <span class="gc-icon">🎰</span>
+        <div class="gc-title">Gambling Arena</div>
+        <div class="gc-desc">Step into high-stakes rooms where only Prime Points get you in. Skill, strategy, and nerve decide who walks out rich.</div>
+        <div class="gc-badge badge-purple">Prime Only</div>
+      </div>
+      <div class="glass-card">
+        <span class="gc-icon">🪙</span>
+        <div class="gc-title">GC Economy</div>
+        <div class="gc-desc">A living, breathing coin ecosystem. Earn through gameplay, trade on the open market, or stack your coins for the big game.</div>
+        <div class="gc-badge badge-gold">Live Market</div>
+      </div>
+      <div class="glass-card">
+        <span class="gc-icon">🎴</span>
+        <div class="gc-title">Card Trading</div>
+        <div class="gc-desc">Negotiate, barter, and deal. Every card has intrinsic value. Build the rarest deck in the hub and cement your legacy.</div>
+        <div class="gc-badge badge-green">Always Open</div>
+      </div>
+    </div>
+
+    <!-- ── CTA BANNER ── -->
+    <div class="cta-banner fade-in">
+      <div class="cta-text">
+        <div class="cta-heading">Ready to enter the arena?</div>
+        <div class="cta-sub">Login to view your balance, cards, and Prime Points.</div>
+      </div>
+      <a href="member-login.html" class="btn-primary" style="flex-shrink:0;">🔑 Login Now</a>
+    </div>
+
+  </main>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+<script src="data/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/profile.js"></script>
+<script src="js/games.js"></script>
+<script>
+// ── PARTICLES ──
+(function() {
+  const container = document.getElementById('particles');
+  const configs = [
+    { col: 'rgba(167,139,250,', size: [2, 5] },
+    { col: 'rgba(251,191,36,',  size: [1.5, 3.5] },
+    { col: 'rgba(52,211,153,',  size: [1.5, 4] },
+    { col: 'rgba(129,140,248,', size: [2, 4] },
+    { col: 'rgba(236,72,153,',  size: [1, 3] },
+  ];
+  for (let i = 0; i < 40; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const cfg  = configs[Math.floor(Math.random() * configs.length)];
+    const size = Math.random() * (cfg.size[1] - cfg.size[0]) + cfg.size[0];
+    const dur  = Math.random() * 14 + 8;
+    const del  = Math.random() * 15;
+    const left = Math.random() * 100;
+    const alpha = Math.random() * 0.5 + 0.3;
+    p.style.cssText = `
+      width:${size}px; height:${size}px; left:${left}%;
+      background:${cfg.col}${alpha});
+      animation-duration:${dur}s; animation-delay:-${del}s;
+      box-shadow: 0 0 ${size * 3}px ${cfg.col}0.4);
+    `;
+    container.appendChild(p);
+  }
+})();
+
+// ── STATS ──
+async function loadStats() {
+  try {
+    const raw = await API.getAllUsers();
+    const users = App.parseUsers(raw);
+    const totalCoins = users.reduce((a, u) => a + u.netWorth, 0);
+    const totalCards = users.reduce((a, u) => a + u.cards.length, 0);
+    const totalSouv  = users.reduce((a, u) => a + (u.primePoints || u.souvenirs?.length || 0), 0);
+    document.getElementById('s-players').textContent = users.length;
+    document.getElementById('s-coins').textContent   = App.formatCoins(totalCoins);
+    document.getElementById('s-cards').textContent   = totalCards;
+    document.getElementById('s-souv').textContent    = totalSouv;
+  } catch(e) { /* silently ignore if API not available */ }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof renderSidebar === 'function') renderSidebar('index');
+  loadStats();
+});
+</script>
+</body>
+</html>

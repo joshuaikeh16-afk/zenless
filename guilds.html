@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AniGamble HQ — Guilds</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+   <link rel="stylesheet" href="css/premium.css">
+  <style>
+    .main::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 3px,
+        rgba(139,92,246,0.018) 3px, rgba(139,92,246,0.018) 4px
+      );
+      pointer-events: none; z-index: 0;
+    }
+    .main > * { position: relative; z-index: 1; }
+
+    /* ── PAGE HEADER ── */
+    .guild-header {
+      margin-bottom: 1.5rem;
+    }
+    .guild-eyebrow {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: #a78bfa; margin-bottom: 0.4rem;
+    }
+    .guild-page-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      font-weight: 700; color: #fff; line-height: 1.05;
+    }
+    .guild-page-sub { font-size: 13px; color: rgba(255,255,255,0.35); margin-top: 4px; }
+
+    /* ── SUMMARY RIBBON ── */
+    .guild-ribbon {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: rgba(139,92,246,0.15);
+      border: 1px solid rgba(139,92,246,0.15);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 1.75rem;
+    }
+    .guild-ribbon-cell {
+      background: #080618;
+      padding: 1rem 1.25rem;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .grc-label {
+      font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: rgba(255,255,255,0.3); font-weight: 500;
+    }
+    .grc-value {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1.7rem; font-weight: 700; line-height: 1;
+    }
+    .grc-icon { font-size: 18px; margin-bottom: 2px; }
+
+    /* ── GUILD GRID ── */
+    .guild-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.25rem;
+    }
+
+    /* ── GUILD CARD ── */
+    .guild-card {
+      background: #080618;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      animation: cardIn 0.4s ease forwards;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .guild-card:hover {
+      border-color: rgba(139,92,246,0.4);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(139,92,246,0.15);
+    }
+    @keyframes cardIn {
+      from { opacity:0; transform: translateY(16px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+
+    /* colored top bar per guild */
+    .guild-bar {
+      height: 3px;
+      background: var(--guild-color, linear-gradient(90deg, #7c3aed, #a78bfa));
+    }
+
+    .guild-card-header {
+      padding: 1.1rem 1.25rem 0.75rem;
+      display: flex; align-items: center; gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .guild-emblem {
+      width: 44px; height: 44px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+      background: var(--guild-bg, rgba(139,92,246,0.15));
+      border: 1px solid var(--guild-border, rgba(139,92,246,0.25));
+    }
+    .guild-name {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1.1rem; font-weight: 700; color: #fff;
+    }
+    .guild-member-count {
+      font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 2px;
+    }
+    .guild-rank-badge {
+      margin-left: auto; flex-shrink: 0;
+      font-family: 'Rajdhani', sans-serif; font-size: 1.5rem;
+    }
+
+    /* stats row */
+    .guild-stats {
+      display: grid; grid-template-columns: 1fr 1fr;
+      padding: 0.9rem 1.25rem;
+      gap: 0.75rem;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .gs-item { display: flex; flex-direction: column; gap: 2px; }
+    .gs-label {
+      font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: rgba(255,255,255,0.28); font-weight: 500;
+    }
+    .gs-value {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1.15rem; font-weight: 700;
+    }
+    .gs-gold   { color: #fbbf24; }
+    .gs-purple { color: #a78bfa; }
+
+    /* members list */
+    .guild-members-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.7rem 1.25rem 0.35rem;
+    }
+    .gm-label {
+      font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+      color: rgba(255,255,255,0.28); font-weight: 600;
+    }
+    .guild-members-list {
+      padding: 0 1.25rem 1rem;
+      display: flex; flex-direction: column; gap: 1px;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s ease;
+    }
+    .guild-card.expanded .guild-members-list { max-height: 600px; }
+    .guild-toggle {
+      font-size: 11px; color: #a78bfa; cursor: pointer;
+      background: none; border: none; padding: 0;
+      font-family: 'Rajdhani', sans-serif; font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .member-row {
+      display: flex; align-items: center; gap: 9px;
+      padding: 0.45rem 4px;
+      border-radius: 7px;
+      transition: background 0.1s;
+      cursor: pointer;
+    }
+    .member-row:hover { background: rgba(139,92,246,0.08); }
+    .member-name { font-size: 12px; font-weight: 500; color: #e2e8f0; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .member-coins { font-family: 'Rajdhani', sans-serif; font-size: 12px; font-weight: 700; color: #fbbf24; }
+    .member-cards { font-size: 11px; color: rgba(255,255,255,0.35); margin-left: 4px; }
+    .member-leader { font-size: 12px; margin-left: 2px; }
+
+    /* empty state */
+    .guilds-empty {
+      text-align: center; padding: 4rem 2rem;
+      color: rgba(255,255,255,0.25);
+    }
+    .guilds-empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+    .guilds-empty-text { font-size: 14px; line-height: 1.6; }
+    .guilds-empty-text code {
+      background: rgba(255,255,255,0.06);
+      border-radius: 4px; padding: 2px 6px;
+      font-size: 12px; color: #a78bfa;
+    }
+
+    @media (max-width: 600px) {
+      .guild-ribbon { grid-template-columns: 1fr 1fr; }
+      .guild-grid   { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+
+    <div class="guild-header fade-in">
+      <div class="guild-eyebrow">AniGamble HQ</div>
+      <div class="guild-page-title">⚔️ Guilds</div>
+      <div class="guild-page-sub">Group rankings and collective economy</div>
+    </div>
+
+    <!-- summary ribbon -->
+    <div class="guild-ribbon fade-in" id="guild-ribbon">
+      <div class="guild-ribbon-cell">
+        <div class="grc-icon">⚔️</div>
+        <div class="grc-label">Total Guilds</div>
+        <div class="grc-value" style="color:#a78bfa;" id="r-guilds">—</div>
+      </div>
+      <div class="guild-ribbon-cell">
+        <div class="grc-icon">🪙</div>
+        <div class="grc-label">Combined Wealth</div>
+        <div class="grc-value" style="color:#fbbf24;" id="r-coins">—</div>
+      </div>
+      <div class="guild-ribbon-cell">
+        <div class="grc-icon">🎴</div>
+        <div class="grc-label">Cards Held</div>
+        <div class="grc-value" style="color:#fff;" id="r-cards">—</div>
+      </div>
+    </div>
+
+    <!-- guild cards -->
+    <div class="guild-grid" id="guild-grid">
+      <div style="grid-column:1/-1;">
+        <div class="loader"><div class="spinner"></div> Loading guilds...</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+<script src="data/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/profile.js"></script>
+<script>
+// Guild color palette — cycles through these
+const GUILD_THEMES = [
+  { bar: 'linear-gradient(90deg,#7c3aed,#a78bfa)', bg: 'rgba(124,58,237,0.15)',  border: 'rgba(124,58,237,0.3)',  emoji: '⚔️' },
+  { bar: 'linear-gradient(90deg,#b45309,#fbbf24)', bg: 'rgba(251,191,36,0.12)',  border: 'rgba(251,191,36,0.25)', emoji: '🔥' },
+  { bar: 'linear-gradient(90deg,#065f46,#34d399)', bg: 'rgba(52,211,153,0.12)',  border: 'rgba(52,211,153,0.25)', emoji: '🌿' },
+  { bar: 'linear-gradient(90deg,#1e40af,#60a5fa)', bg: 'rgba(96,165,250,0.12)',  border: 'rgba(96,165,250,0.25)', emoji: '🌊' },
+  { bar: 'linear-gradient(90deg,#9d174d,#f472b6)', bg: 'rgba(244,114,182,0.12)', border: 'rgba(244,114,182,0.25)',emoji: '🌸' },
+  { bar: 'linear-gradient(90deg,#4c1d95,#818cf8)', bg: 'rgba(129,140,248,0.12)', border: 'rgba(129,140,248,0.25)',emoji: '💜' },
+];
+
+const RANK_MEDALS = ['🥇','🥈','🥉'];
+
+function groupByGuild(users) {
+  const map = {};
+  users.forEach(u => {
+    const g = (u.guild || '').trim();
+    if (!g) return;
+    if (!map[g]) map[g] = [];
+    map[g].push(u);
+  });
+  return map;
+}
+
+function buildGuildCard(name, members, rank, theme) {
+  const totalCoins = members.reduce((a,u) => a + u.netWorth, 0);
+  const totalCards = members.reduce((a,u) => a + u.cards.length, 0);
+  const sorted     = [...members].sort((a,b) => b.netWorth - a.netWorth);
+  const leader     = sorted[0];
+  const cardId     = `guild-${rank}`;
+
+  const memberRows = sorted.map((u,i) => `
+    <div class="member-row" onclick="openProfileModal('${u.phone}')">
+      ${App.renderAvatar(u, 26)}
+      <span class="member-name">${u.name}${u === leader ? '<span class="member-leader" title="Guild leader">👑</span>' : ''}</span>
+      <span class="member-coins">${App.formatCoins(u.netWorth)}</span>
+      <span class="member-cards">🎴${u.cards.length}</span>
+    </div>
+  `).join('');
+
+  return `
+    <div class="guild-card fade-in" id="${cardId}" style="animation-delay:${rank * 0.07}s" onclick="toggleGuild('${cardId}', event)">
+      <div class="guild-bar" style="background:${theme.bar}"></div>
+      <div class="guild-card-header">
+        <div class="guild-emblem" style="--guild-bg:${theme.bg};--guild-border:${theme.border};">
+          ${theme.emoji}
+        </div>
+        <div>
+          <div class="guild-name">${name}</div>
+          <div class="guild-member-count">${members.length} member${members.length !== 1 ? 's' : ''}</div>
+        </div>
+        <div class="guild-rank-badge">${RANK_MEDALS[rank] || `#${rank+1}`}</div>
+      </div>
+
+      <div class="guild-stats">
+        <div class="gs-item">
+          <div class="gs-label">Total Coins</div>
+          <div class="gs-value gs-gold">${App.formatCoins(totalCoins)}</div>
+        </div>
+        <div class="gs-item">
+          <div class="gs-label">Cards Held</div>
+          <div class="gs-value gs-purple">🎴 ${totalCards}</div>
+        </div>
+      </div>
+
+      <div class="guild-members-header">
+        <div class="gm-label">Members</div>
+        <button class="guild-toggle" onclick="toggleGuild('${cardId}', event)">Show ▾</button>
+      </div>
+      <div class="guild-members-list">
+        ${memberRows}
+      </div>
+    </div>
+  `;
+}
+
+function toggleGuild(id, e) {
+  // don't fire if clicking a member row (let profile modal open instead)
+  if (e && e.target.closest('.member-row')) return;
+  const card = document.getElementById(id);
+  const btn  = card.querySelector('.guild-toggle');
+  const expanded = card.classList.toggle('expanded');
+  btn.textContent = expanded ? 'Hide ▴' : 'Show ▾';
+}
+
+async function loadGuilds() {
+  const raw   = await API.getAllUsers();
+  const users = App.parseUsers(raw);
+  const map   = groupByGuild(users);
+
+  const guildNames = Object.keys(map);
+
+  // Unguilded players — silently ignore for display
+  const totalGuildCoins = guildNames.reduce((a,g) => a + map[g].reduce((b,u) => b + u.netWorth, 0), 0);
+  const totalGuildCards = guildNames.reduce((a,g) => a + map[g].reduce((b,u) => b + u.cards.length, 0), 0);
+
+  document.getElementById('r-guilds').textContent = guildNames.length;
+  document.getElementById('r-coins').textContent  = App.formatCoins(totalGuildCoins);
+  document.getElementById('r-cards').textContent  = totalGuildCards;
+
+  const grid = document.getElementById('guild-grid');
+
+  if (!guildNames.length) {
+    grid.innerHTML = `
+      <div style="grid-column:1/-1;" class="guilds-empty">
+        <div class="guilds-empty-icon">⚔️</div>
+        <div class="guilds-empty-text">
+          No guilds found yet. Add a <code>guild</code> field to your player records in Supabase to populate this page.
+        </div>
+      </div>`;
+    return;
+  }
+
+  // Sort guilds by total coins descending
+  const ranked = guildNames
+    .map(name => ({ name, members: map[name], totalCoins: map[name].reduce((a,u) => a + u.netWorth, 0) }))
+    .sort((a,b) => b.totalCoins - a.totalCoins);
+
+  grid.innerHTML = ranked
+    .map((g, i) => buildGuildCard(g.name, g.members, i, GUILD_THEMES[i % GUILD_THEMES.length]))
+    .join('');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderSidebar('guilds');
+  loadGuilds();
+});
+</script>
+</body>
+</html>

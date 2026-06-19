@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AniGamble HQ — Leaderboard</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <link rel="stylesheet" href="css/premium.css">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ═══════════════════════════════════════════════════
+       ANIGAMBLE HQ — LEADERBOARD — ULTRA CSS
+       Signature: scanline aurora bg + particle burst on podium hover
+       + magnetic row highlight + liquid tab indicator
+    ═══════════════════════════════════════════════════ */
+
+    /* ── KEYFRAMES ── */
+    @keyframes riseUp {
+      0%   { opacity:0; transform: translateY(40px) scale(0.92); filter: blur(4px); }
+      60%  { filter: blur(0); }
+      100% { opacity:1; transform: translateY(0) scale(1); }
+    }
+    @keyframes crownFloat {
+      0%,100% { transform: translateX(-50%) translateY(0) rotate(-3deg); }
+      33%     { transform: translateX(-50%) translateY(-6px) rotate(3deg); }
+      66%     { transform: translateX(-50%) translateY(-3px) rotate(-1deg); }
+    }
+    @keyframes crownGlow {
+      0%,100% { text-shadow: 0 0 8px rgba(251,191,36,0.6), 0 0 20px rgba(251,191,36,0.3); }
+      50%     { text-shadow: 0 0 20px rgba(251,191,36,1),  0 0 40px rgba(251,191,36,0.6), 0 0 60px rgba(251,191,36,0.2); }
+    }
+    @keyframes fadeRow {
+      from { opacity:0; transform: translateX(-16px); }
+      to   { opacity:1; transform: translateX(0); }
+    }
+    @keyframes scanPulse {
+      0%,100% { opacity: 0.018; }
+      50%     { opacity: 0.04; }
+    }
+    @keyframes auroraShift {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes tabSlide {
+      from { transform: scaleX(0); opacity: 0; }
+      to   { transform: scaleX(1); opacity: 1; }
+    }
+    @keyframes podiumRise {
+      0%   { transform: scaleY(0); transform-origin: bottom; }
+      100% { transform: scaleY(1); transform-origin: bottom; }
+    }
+    @keyframes pulseRing {
+      0%   { transform: translateX(-50%) scale(1); opacity: 0.7; }
+      100% { transform: translateX(-50%) scale(2.2); opacity: 0; }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    @keyframes goldPulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(251,191,36,0); }
+      50%     { box-shadow: 0 0 0 6px rgba(251,191,36,0.15), 0 0 30px rgba(251,191,36,0.1); }
+    }
+    @keyframes rankBadgePop {
+      0%   { transform: scale(0.5) rotate(-10deg); opacity:0; }
+      70%  { transform: scale(1.15) rotate(3deg); }
+      100% { transform: scale(1) rotate(0deg); opacity:1; }
+    }
+    @keyframes particleDrift {
+      0%   { opacity: 1; transform: translate(0,0) scale(1); }
+      100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0); }
+    }
+    @keyframes borderTrace {
+      0%   { background-position: 0% 0%; }
+      100% { background-position: 300% 0%; }
+    }
+    @keyframes floatGlow {
+      0%,100% { box-shadow: 0 4px 24px rgba(139,92,246,0.15), 0 0 0 1px rgba(139,92,246,0.12); }
+      50%     { box-shadow: 0 8px 40px rgba(139,92,246,0.3),  0 0 0 1px rgba(139,92,246,0.25); }
+    }
+    @keyframes liveDot {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%     { opacity:0.3; transform:scale(0.6); }
+    }
+    @keyframes slideInSection {
+      from { opacity:0; transform: translateY(12px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+    @keyframes headerGlitch {
+      0%,94%,100% { text-shadow: none; transform: none; }
+      95% { text-shadow: 2px 0 #a78bfa, -2px 0 #34d399; transform: translateX(1px); }
+      97% { text-shadow: -2px 0 #a78bfa, 2px 0 #34d399; transform: translateX(-1px); }
+    }
+    @keyframes eyebrowScan {
+      0%   { clip-path: inset(0 100% 0 0); }
+      100% { clip-path: inset(0 0% 0 0); }
+    }
+    @keyframes valueCountUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── AMBIENT BACKGROUND ── */
+    .main::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 3px,
+        rgba(139,92,246,0.022) 3px, rgba(139,92,246,0.022) 4px
+      );
+      pointer-events: none; z-index: 0;
+      animation: scanPulse 4s ease-in-out infinite;
+    }
+    .main::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(139,92,246,0.08) 0%, transparent 70%),
+                  radial-gradient(ellipse 40% 60% at 80% 100%, rgba(99,102,241,0.05) 0%, transparent 60%),
+                  radial-gradient(ellipse 50% 30% at 10% 50%, rgba(167,139,250,0.04) 0%, transparent 60%);
+      pointer-events: none; z-index: 0;
+      animation: auroraShift 12s ease-in-out infinite;
+      background-size: 200% 200%;
+    }
+    .main > * { position: relative; z-index: 1; }
+
+    /* ── PAGE HEADER ── */
+    .lb-header {
+      margin-bottom: 1.75rem;
+      position: relative;
+    }
+    .lb-eyebrow {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.28em; text-transform: uppercase;
+      color: #a78bfa; margin-bottom: 0.5rem;
+      animation: eyebrowScan 0.8s cubic-bezier(0.4,0,0.2,1) forwards;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .lb-eyebrow::before {
+      content: '';
+      display: inline-block; width: 20px; height: 1px;
+      background: linear-gradient(90deg, transparent, #a78bfa);
+    }
+    .lb-eyebrow::after {
+      content: '';
+      display: inline-block; width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #a78bfa;
+      animation: liveDot 1.4s ease-in-out infinite;
+      box-shadow: 0 0 8px rgba(167,139,250,0.8);
+    }
+    .lb-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 700; color: #fff; line-height: 1.0;
+      animation: headerGlitch 8s ease-in-out infinite;
+      background: linear-gradient(135deg, #fff 30%, #c4b5fd 60%, #fff 80%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer 5s linear infinite, headerGlitch 8s ease-in-out infinite;
+    }
+    .lb-sub {
+      font-size: 12px; color: rgba(255,255,255,0.3); margin-top: 6px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .lb-sub::before {
+      content: '';
+      display: inline-block; width: 4px; height: 4px; border-radius: 50%;
+      background: #34d399;
+      box-shadow: 0 0 6px #34d399;
+      animation: liveDot 2s ease-in-out infinite;
+    }
+
+    /* ── TABS — liquid morphing ── */
+    .lb-tabs {
+      display: flex; gap: 4px; margin-bottom: 1.75rem;
+      background: rgba(8,6,24,0.8);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 5px;
+      width: fit-content;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05);
+      position: relative;
+    }
+    .lb-tab {
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 13px; font-weight: 700; letter-spacing: 0.08em;
+      padding: 0.55rem 1.4rem; border-radius: 10px;
+      border: none; background: transparent;
+      color: rgba(255,255,255,0.35); cursor: pointer;
+      transition: color 0.25s, transform 0.2s;
+      position: relative;
+      z-index: 1;
+    }
+    .lb-tab::after {
+      content: '';
+      position: absolute; inset: 0;
+      border-radius: 10px;
+      background: rgba(139,92,246,0.18);
+      border: 1px solid rgba(139,92,246,0.4);
+      opacity: 0;
+      transform: scale(0.85);
+      transition: opacity 0.25s, transform 0.25s;
+      z-index: -1;
+    }
+    .lb-tab.active { color: #c4b5fd; }
+    .lb-tab.active::after {
+      opacity: 1; transform: scale(1);
+      box-shadow: 0 0 20px rgba(139,92,246,0.3), inset 0 1px 0 rgba(255,255,255,0.08);
+      animation: floatGlow 3s ease-in-out infinite;
+    }
+    .lb-tab:not(.active):hover {
+      color: rgba(255,255,255,0.7);
+      transform: translateY(-1px);
+    }
+    .lb-tab:not(.active):hover::after { opacity: 0.35; transform: scale(0.95); }
+
+    /* ── SECTION TRANSITION ── */
+    #section-net, #section-cards, #section-pp {
+      animation: slideInSection 0.35s cubic-bezier(0.4,0,0.2,1) forwards;
+    }
+
+    /* ── PODIUM ── */
+    .podium {
+      display: flex; align-items: flex-end; justify-content: center;
+      gap: 1.25rem; margin-bottom: 2rem;
+      padding: 2.5rem 1rem 0;
+      position: relative;
+    }
+    /* Spotlight beams behind podium */
+    .podium::before {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 300px; height: 160px;
+      background: radial-gradient(ellipse at bottom, rgba(251,191,36,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .podium-slot {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      animation: riseUp 0.7s cubic-bezier(0.34,1.56,0.64,1) forwards;
+      opacity: 0; cursor: pointer;
+      transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      position: relative;
+    }
+    .podium-slot:nth-child(1) { animation-delay: 0.18s; }
+    .podium-slot:nth-child(2) { animation-delay: 0.05s; }
+    .podium-slot:nth-child(3) { animation-delay: 0.32s; }
+    .podium-slot:hover { transform: translateY(-6px) scale(1.04); }
+
+    /* Particle rings on podium hover */
+    .podium-slot::before {
+      content: '';
+      position: absolute; bottom: 0; left: 50%;
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      border: 1px solid rgba(139,92,246,0.4);
+      transform: translateX(-50%) scale(0);
+      pointer-events: none;
+      transition: none;
+    }
+    .podium-slot:hover::before {
+      animation: pulseRing 0.6s ease-out forwards;
+    }
+
+    .podium-medal {
+      font-size: 26px; margin-bottom: 2px;
+      filter: drop-shadow(0 0 8px rgba(255,255,255,0.3));
+      transition: transform 0.3s;
+    }
+    .podium-slot:hover .podium-medal { transform: rotate(15deg) scale(1.2); }
+
+    .podium-avatar-wrap {
+      position: relative;
+      transition: filter 0.3s;
+    }
+    /* Glow ring behind avatar */
+    .podium-slot.p1 .podium-avatar-wrap::after {
+      content: '';
+      position: absolute; inset: -4px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, #fbbf24, #f59e0b, #fbbf24, #fde68a, #fbbf24);
+      z-index: -1;
+      animation: borderTrace 2s linear infinite;
+      background-size: 300% 100%;
+      filter: blur(1px);
+    }
+    .podium-slot.p2 .podium-avatar-wrap::after {
+      content: '';
+      position: absolute; inset: -3px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, #94a3b8, #cbd5e1, #94a3b8, #e2e8f0, #94a3b8);
+      z-index: -1;
+      animation: borderTrace 3s linear infinite;
+      background-size: 300% 100%;
+      filter: blur(1px);
+    }
+    .podium-slot.p3 .podium-avatar-wrap::after {
+      content: '';
+      position: absolute; inset: -3px;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, #b4783c, #d4a06a, #b4783c, #e8c49a, #b4783c);
+      z-index: -1;
+      animation: borderTrace 4s linear infinite;
+      background-size: 300% 100%;
+      filter: blur(1px);
+    }
+
+    .podium-crown {
+      position: absolute; top: -22px; left: 50%;
+      font-size: 22px;
+      animation: crownFloat 2.8s ease-in-out infinite, crownGlow 2s ease-in-out infinite;
+      filter: drop-shadow(0 0 6px rgba(251,191,36,0.8));
+    }
+
+    .podium-name {
+      font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 700;
+      color: #e2e8f0; text-align: center; max-width: 90px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      letter-spacing: 0.04em;
+    }
+    .podium-val {
+      font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 700;
+      text-align: center;
+      animation: valueCountUp 0.4s ease forwards;
+    }
+
+    /* Podium block — animated scaleY rise */
+    .podium-block {
+      border-radius: 12px 12px 0 0;
+      width: 84px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Rajdhani', sans-serif; font-size: 1.5rem; font-weight: 700;
+      color: rgba(255,255,255,0.15);
+      animation: podiumRise 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.5s both;
+      position: relative;
+      overflow: hidden;
+    }
+    /* Shimmer sweep on blocks */
+    .podium-block::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.07) 50%, transparent 70%);
+      background-size: 200% 100%;
+      animation: shimmer 3s linear infinite;
+    }
+
+    /* 1st place */
+    .podium-slot.p1 .podium-block {
+      height: 84px;
+      background: linear-gradient(180deg, rgba(251,191,36,0.28) 0%, rgba(251,191,36,0.08) 100%);
+      border: 1px solid rgba(251,191,36,0.4);
+      box-shadow: 0 0 30px rgba(251,191,36,0.12), inset 0 1px 0 rgba(251,191,36,0.3);
+      animation: podiumRise 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.4s both, goldPulse 3s ease-in-out infinite;
+    }
+    .podium-slot.p1 .podium-val { color: #fbbf24; text-shadow: 0 0 12px rgba(251,191,36,0.5); }
+
+    /* 2nd */
+    .podium-slot.p2 .podium-block {
+      height: 60px;
+      background: linear-gradient(180deg, rgba(148,163,184,0.22) 0%, rgba(148,163,184,0.07) 100%);
+      border: 1px solid rgba(148,163,184,0.28);
+      box-shadow: 0 0 20px rgba(148,163,184,0.08);
+    }
+    .podium-slot.p2 .podium-val { color: #94a3b8; }
+
+    /* 3rd */
+    .podium-slot.p3 .podium-block {
+      height: 42px;
+      background: linear-gradient(180deg, rgba(180,120,60,0.22) 0%, rgba(180,120,60,0.07) 100%);
+      border: 1px solid rgba(180,120,60,0.28);
+      box-shadow: 0 0 20px rgba(180,120,60,0.08);
+    }
+    .podium-slot.p3 .podium-val { color: #d4954a; }
+
+    /* ── LEADERBOARD CARD ── */
+    .lb-card {
+      background: rgba(8,6,24,0.85);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 18px;
+      overflow: hidden;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 8px 48px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.04) inset;
+      transition: box-shadow 0.4s;
+    }
+    .lb-card:hover {
+      box-shadow: 0 12px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(139,92,246,0.12), 0 1px 0 rgba(255,255,255,0.05) inset;
+    }
+    .lb-card table { width: 100%; border-collapse: collapse; }
+
+    .lb-card th {
+      font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: rgba(255,255,255,0.22); font-weight: 700;
+      padding: 0.85rem 1.4rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      background: linear-gradient(90deg, rgba(139,92,246,0.04), rgba(255,255,255,0.01));
+      position: relative;
+    }
+    .lb-card th::after {
+      content: '';
+      position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, rgba(139,92,246,0.3), transparent);
+    }
+
+    .lb-card td {
+      padding: 0.8rem 1.4rem; font-size: 13px; color: #94a3b8;
+      border-bottom: 1px solid rgba(255,255,255,0.035);
+      transition: color 0.2s;
+    }
+
+    /* Fancy row hover — magnetic highlight */
+    .lb-card tbody tr {
+      cursor: pointer;
+      position: relative;
+      transition: background 0.2s, transform 0.15s;
+      animation: fadeRow 0.35s ease forwards;
+      opacity: 0;
+    }
+    .lb-card tbody tr::before {
+      content: '';
+      position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+      background: linear-gradient(180deg, #a78bfa, #7c3aed);
+      opacity: 0;
+      transition: opacity 0.2s;
+      border-radius: 0 2px 2px 0;
+    }
+    .lb-card tbody tr:hover { background: rgba(139,92,246,0.06); }
+    .lb-card tbody tr:hover::before { opacity: 1; }
+    .lb-card tbody tr:hover td { color: #e2e8f0; }
+    .lb-card tbody tr:last-child td { border-bottom: none; }
+
+    /* Top 3 rows — special treatment */
+    .lb-card tbody tr:nth-child(1) { background: rgba(251,191,36,0.03); }
+    .lb-card tbody tr:nth-child(1)::before {
+      background: linear-gradient(180deg, #fbbf24, #f59e0b);
+      opacity: 0.6;
+    }
+    .lb-card tbody tr:nth-child(2) { background: rgba(148,163,184,0.02); }
+    .lb-card tbody tr:nth-child(2)::before {
+      background: linear-gradient(180deg, #94a3b8, #64748b);
+      opacity: 0.5;
+    }
+    .lb-card tbody tr:nth-child(3) { background: rgba(180,120,60,0.02); }
+    .lb-card tbody tr:nth-child(3)::before {
+      background: linear-gradient(180deg, #b4783c, #8b5a2b);
+      opacity: 0.5;
+    }
+
+    /* ── RANK NUMBER ── */
+    .rank-num {
+      font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 700;
+      color: rgba(255,255,255,0.18); width: 36px; display: inline-block;
+      text-align: center; letter-spacing: 0.02em;
+    }
+    .rank-top {
+      color: transparent;
+      background: linear-gradient(135deg, #fbbf24, #fde68a);
+      -webkit-background-clip: text;
+      background-clip: text;
+      font-size: 18px;
+      animation: rankBadgePop 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards;
+      filter: drop-shadow(0 0 6px rgba(251,191,36,0.4));
+    }
+
+    /* ── VALUE HIGHLIGHTS ── */
+    .val-gold {
+      font-family:'Rajdhani',sans-serif; font-weight:700; color:#fbbf24;
+      text-shadow: 0 0 10px rgba(251,191,36,0.3);
+      animation: valueCountUp 0.4s ease both;
+    }
+    .val-purple { font-family:'Rajdhani',sans-serif; font-weight:700; color:#a78bfa; }
+    .val-green  {
+      font-family:'Rajdhani',sans-serif; font-weight:700; color:#34d399;
+      text-shadow: 0 0 8px rgba(52,211,153,0.25);
+    }
+    .val-white  { font-family:'Rajdhani',sans-serif; font-weight:700; color:#e2e8f0; }
+
+    /* ── CARD COUNT BADGE ── */
+    .card-count {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: linear-gradient(135deg, rgba(139,92,246,0.18), rgba(99,102,241,0.1));
+      border: 1px solid rgba(139,92,246,0.35);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 700;
+      color: #c4b5fd;
+      transition: all 0.2s;
+      box-shadow: 0 0 0 0 rgba(139,92,246,0);
+    }
+    .lb-card tbody tr:hover .card-count {
+      border-color: rgba(139,92,246,0.6);
+      box-shadow: 0 0 12px rgba(139,92,246,0.2);
+      background: rgba(139,92,246,0.25);
+    }
+
+    /* ── SECTION CARD HEADERS (cards & pp boards) ── */
+    .lb-card > div:first-child {
+      position: relative;
+      overflow: hidden;
+    }
+    .lb-card > div:first-child::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(105deg, transparent 40%, rgba(139,92,246,0.06) 50%, transparent 60%);
+      background-size: 200% 100%;
+      animation: shimmer 4s linear infinite;
+      pointer-events: none;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 600px) {
+      .podium { gap: 0.6rem; }
+      .podium-block { width: 64px; }
+      .lb-card th:nth-child(4),
+      .lb-card td:nth-child(4) { display: none; }
+      .lb-title { font-size: 1.9rem; }
+    }
+
+    /* ── REDUCED MOTION ── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main">
+
+    <!-- ── HEADER ── -->
+    <div class="lb-header fade-in">
+      <div class="lb-eyebrow">AniGamble HQ</div>
+      <div class="lb-title">🏆 Leaderboard</div>
+      <div class="lb-sub">Rankings across all players — updated live</div>
+    </div>
+
+    <!-- ── TABS ── -->
+    <div class="lb-tabs">
+      <button class="lb-tab active" id="tab-net"   onclick="switchTab('net',this)">💰 Net Worth</button>
+      <button class="lb-tab"        id="tab-cards" onclick="switchTab('cards',this)">🎴 Card Count</button>
+      <button class="lb-tab"        id="tab-pp"    onclick="switchTab('pp',this)">◈ Prime Points</button>
+    </div>
+
+    <!-- ── NET WORTH SECTION ── -->
+    <div id="section-net" class="fade-in">
+      <div id="podium-net" class="podium"></div>
+      <div class="lb-card">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:48px">#</th>
+              <th>Player</th>
+              <th>Net Worth</th>
+              <th>Cards</th>
+              <th>Prime Points</th>
+            </tr>
+          </thead>
+          <tbody id="lb-body">
+            <tr><td colspan="5"><div class="loader"><div class="spinner"></div> Loading...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── CARDS SECTION ── -->
+    <div id="section-cards" style="display:none;" class="fade-in">
+      <div id="podium-cards" class="podium"></div>
+      <div class="lb-card" style="border-color:rgba(139,92,246,0.25);">
+        <div style="display:flex;align-items:center;gap:10px;padding:1rem 1.25rem;border-bottom:1px solid rgba(139,92,246,0.15);background:rgba(139,92,246,0.05);">
+          <span style="font-size:20px;">🎴</span>
+          <div>
+            <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;color:#a78bfa;">Card Collectors Board</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.3);">Ranked by total cards held. Collect more to climb.</div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:48px">#</th>
+              <th>Player</th>
+              <th>Cards Held</th>
+              <th>Net Worth</th>
+            </tr>
+          </thead>
+          <tbody id="cards-lb-body">
+            <tr><td colspan="4"><div class="loader"><div class="spinner"></div> Loading...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── PRIME POINTS SECTION ── -->
+    <div id="section-pp" style="display:none;" class="fade-in">
+      <div id="podium-pp" class="podium"></div>
+      <div class="lb-card" style="border-color:rgba(139,92,246,0.25);">
+        <div style="display:flex;align-items:center;gap:10px;padding:1rem 1.25rem;border-bottom:1px solid rgba(139,92,246,0.15);background:rgba(139,92,246,0.05);">
+          <span style="font-size:20px;">◈</span>
+          <div>
+            <div style="font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;color:#a78bfa;">Prime Points Board</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.3);">Ranked by Prime Points earned from games. Win more to climb.</div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:48px">#</th>
+              <th>Player</th>
+              <th>Prime Points</th>
+              <th>Rank</th>
+            </tr>
+          </thead>
+          <tbody id="pp-lb-body">
+            <tr><td colspan="4"><div class="loader"><div class="spinner"></div> Loading...</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal" id="modal-content"></div>
+</div>
+
+<script src="data/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/profile.js"></script>
+<script src="js/leaderboard.js"></script>
+<script>
+let allUsers = [];
+
+function switchTab(tab, el) {
+  document.getElementById('section-net').style.display   = tab === 'net'   ? '' : 'none';
+  document.getElementById('section-cards').style.display = tab === 'cards' ? '' : 'none';
+  document.getElementById('section-pp').style.display    = tab === 'pp'    ? '' : 'none';
+  document.querySelectorAll('.lb-tab').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+  if (tab === 'pp' && !ppLoaded) loadPPBoard();
+}
+
+function buildPodium(containerId, sorted, valueKey, formatFn) {
+  const top = sorted.slice(0, 3);
+  // Reorder: 2nd, 1st, 3rd for visual podium
+  const order = [top[1], top[0], top[2]].filter(Boolean);
+  const posClass = ['p2','p1','p3'];
+  const medals   = ['🥈','🥇','🥉'];
+  const heights  = [52,72,38];
+
+  const container = document.getElementById(containerId);
+  if (!top.length) { container.innerHTML = ''; return; }
+
+  container.innerHTML = order.map((u, i) => {
+    const isFirst = order[i] === top[0];
+    return `
+      <div class="podium-slot ${posClass[i]}" onclick="openProfileModal('${u.phone}')">
+        <div class="podium-medal">${medals[i]}</div>
+        <div class="podium-avatar-wrap">
+          ${isFirst ? '<div class="podium-crown">👑</div>' : ''}
+          ${App.renderAvatar(u, isFirst ? 44 : 36)}
+        </div>
+        <div class="podium-name">${u.name}</div>
+        <div class="podium-val">${formatFn(u[valueKey])}</div>
+        <div class="podium-block" style="height:${heights[i]}px">${i===1?'1':(i===0?'2':'3')}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderNetBoard(users) {
+  const sorted = [...users].sort((a,b) => b.netWorth - a.netWorth);
+  buildPodium('podium-net', sorted, 'netWorth', App.formatCoins);
+
+  const medals = ['🥇','🥈','🥉'];
+  document.getElementById('lb-body').innerHTML = sorted.map((u, i) => `
+    <tr style="animation-delay:${Math.min(i*0.04,0.6)}s" onclick="openProfileModal('${u.phone}')">
+      <td><span class="rank-num ${i<3?'rank-top':''}">${medals[i] || (i+1)}</span></td>
+      <td>
+        <div class="user-cell">
+          ${App.renderAvatar(u, 30)}
+          <div class="user-cell-info">
+            <div class="user-cell-name">${u.name}</div>
+            <div class="user-cell-phone">${u.phone || u.id}</div>
+          </div>
+        </div>
+      </td>
+      <td class="val-gold">${App.formatCoins(u.netWorth)}</td>
+      <td><span class="card-count">🎴 ${u.cards.length}</span></td>
+      <td class="val-green">${u.primePoints ?? u.souvenirs?.length ?? 0} ◈</td>
+    </tr>
+  `).join('');
+}
+
+function renderCardsBoard(users) {
+  const sorted = [...users].sort((a,b) => b.cards.length - a.cards.length);
+  buildPodium('podium-cards', sorted, 'cards', v => `🎴 ${v.length}`);
+
+  const medals = ['🥇','🥈','🥉'];
+  document.getElementById('cards-lb-body').innerHTML = sorted.map((u, i) => `
+    <tr style="animation-delay:${Math.min(i*0.04,0.6)}s" onclick="openProfileModal('${u.phone}')">
+      <td><span class="rank-num ${i<3?'rank-top':''}">${medals[i] || (i+1)}</span></td>
+      <td>
+        <div class="user-cell">
+          ${App.renderAvatar(u, 30)}
+          <div class="user-cell-info">
+            <div class="user-cell-name">${u.name}</div>
+            <div class="user-cell-phone">${u.phone || u.id}</div>
+          </div>
+        </div>
+      </td>
+      <td><span class="card-count" style="font-size:15px;">🎴 ${u.cards.length}</span></td>
+      <td class="val-gold">${App.formatCoins(u.netWorth)}</td>
+    </tr>
+  `).join('');
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  renderSidebar('leaderboard');
+  const raw = await API.getAllUsers();
+  allUsers  = App.parseUsers(raw);
+  renderNetBoard(allUsers);
+  renderCardsBoard(allUsers);
+});
+</script>
+</body>
+</html>

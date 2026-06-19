@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>AniGamble HQ — Login</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="stylesheet" href="css/animations.css"/>
+   <link rel="stylesheet" href="css/premium.css">
+  <style>
+    body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg); }
+
+    .login-wrap {
+      width: 100%;
+      max-width: 360px;
+      padding: 1rem;
+    }
+
+    .login-brand {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .login-logo {
+      font-size: 40px;
+      display: block;
+      margin-bottom: 0.5rem;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-6px); }
+    }
+
+    .login-name {
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+
+    .login-tag {
+      font-size: 12px;
+      color: var(--text-3);
+      margin-top: 4px;
+    }
+
+    .login-card {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+    }
+
+    .login-card h2 {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .login-card p {
+      font-size: 12.5px;
+      color: var(--text-3);
+      margin-bottom: 1.5rem;
+    }
+
+    .field { margin-bottom: 1rem; }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-2);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    .field input {
+      width: 100%;
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.65rem 0.9rem;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .field input:focus { border-color: var(--accent); }
+
+    .login-btn {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      padding: 0.7rem;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: var(--font-display);
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      margin-top: 0.25rem;
+    }
+
+    .login-btn:hover { opacity: 0.88; }
+    .login-btn:active { transform: scale(0.98); }
+
+    .login-error {
+      background: rgba(226,75,74,0.12);
+      border: 1px solid rgba(226,75,74,0.25);
+      color: #E24B4A;
+      border-radius: var(--radius);
+      padding: 0.6rem 0.85rem;
+      font-size: 12.5px;
+      margin-top: 0.85rem;
+      display: none;
+    }
+
+    .login-error.show { display: block; animation: fadeIn 0.2s ease; }
+  </style>
+</head>
+<body>
+<div class="login-wrap fade-in">
+  <div class="login-brand">
+    <span class="login-logo">🎴</span>
+    <div class="login-name">AniGamble HQ</div>
+    <div class="login-tag">Admin Dashboard</div>
+  </div>
+
+  <div class="login-card">
+    <h2>Welcome back</h2>
+    <p>Enter the admin password to continue</p>
+
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="pw-input" placeholder="••••••••••" autocomplete="current-password"/>
+    </div>
+
+    <button class="login-btn" id="login-btn">Sign in</button>
+    <div class="login-error" id="login-error">Incorrect password. Try again.</div>
+  </div>
+</div>
+
+<script src="data/config.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  // Already logged in → skip to dashboard
+  if (Auth.isLoggedIn()) window.location.href = 'index.html';
+
+  function attemptLogin() {
+    const pw = document.getElementById('pw-input').value;
+    const err = document.getElementById('login-error');
+    if (Auth.login(pw)) {
+      window.location.href = 'index.html';
+    } else {
+      err.classList.add('show');
+      document.getElementById('pw-input').value = '';
+      document.getElementById('pw-input').focus();
+      setTimeout(() => err.classList.remove('show'), 3000);
+    }
+  }
+
+  document.getElementById('login-btn').addEventListener('click', attemptLogin);
+  document.getElementById('pw-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') attemptLogin();
+  });
+</script>
+</body>
+</html>
