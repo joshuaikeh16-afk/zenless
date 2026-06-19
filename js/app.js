@@ -62,12 +62,30 @@ const App = (() => {
     return date.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
   }
  
+  function getAvatarUrl(filenameOrUrl) {
+    if (!filenameOrUrl) return null;
+    if (filenameOrUrl.startsWith('http')) return filenameOrUrl;
+    const { url } = CONFIG.supabase;
+    return `${url}/storage/v1/object/public/media/${filenameOrUrl}`;
+  }
+
   function renderAvatar(user, size = 40) {
-    if (user.avatar) {
-      return `<img src="${user.avatar}" width="${size}" height="${size}" style="border-radius:50%;object-fit:cover;" alt="${user.name}">`;
+    const src      = getAvatarUrl(user.avatar);
+    const bg       = avatarColor(user.name);
+    const ini      = initials(user.name);
+    const fontSize = Math.round(size * 0.35);
+    const fallback = `
+      const d = document.createElement('div');
+      d.className = 'avatar';
+      d.style.cssText = 'width:${size}px;height:${size}px;background:${bg};font-size:${fontSize}px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;';
+      d.textContent = '${ini}';
+      this.replaceWith(d);
+    `.replace(/\n\s*/g, ' ');
+
+    if (src) {
+      return `<img src="${src}" width="${size}" height="${size}" alt="${user.name}" style="border-radius:50%;object-fit:cover;display:block;flex-shrink:0;" onerror="${fallback}">`;
     }
-    const bg = avatarColor(user.name);
-    return `<div class="avatar" style="width:${size}px;height:${size}px;background:${bg};font-size:${Math.round(size * 0.35)}px;">${initials(user.name)}</div>`;
+    return `<div class="avatar" style="width:${size}px;height:${size}px;background:${bg};font-size:${fontSize}px;">${ini}</div>`;
   }
  
   function setLoading(el, state) {
