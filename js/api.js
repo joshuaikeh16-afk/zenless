@@ -137,6 +137,21 @@ const MongoAPI = (() => {
     });
   }
 
+  // Check if today's claim is still available, without granting anything
+  function getClaimStatus(phone) {
+    return request(`/users/${encodeURIComponent(phone)}/claim/status`);
+  }
+
+  // Claim today's free Prime Points. Server enforces the cooldown —
+  // returns { claimed: false, msRemaining } if already claimed today,
+  // or { claimed: true, amount, prime_points } on success.
+  function claimDailyPP(phone, name = '') {
+    return request(`/users/${encodeURIComponent(phone)}/claim`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+  }
+
   // Full PP history for a user
   function getPPHistory(phone) {
     return request(`/users/${encodeURIComponent(phone)}/pp/history`);
@@ -155,5 +170,5 @@ const MongoAPI = (() => {
     });
   }
 
-  return { ensureUser, getUser, grantPP, getPPHistory, getPPLeaderboard, adjustCoins };
+  return { ensureUser, getUser, grantPP, claimDailyPP, getClaimStatus, getPPHistory, getPPLeaderboard, adjustCoins };
 })();
