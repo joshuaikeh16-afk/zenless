@@ -98,7 +98,6 @@ const API = (() => {
 const MongoAPI = (() => {
   const MONGO_BASE = 'https://zenlesbe.onrender.com';
   const MONGO_KEY  = CONFIG.mongo?.apiKey || 'anigamble_secret_123';
-
   const headers = {
     'Content-Type': 'application/json',
     'X-API-Key': MONGO_KEY,
@@ -129,7 +128,9 @@ const MongoAPI = (() => {
   }
 
   // Grant or deduct PP. amount can be negative.
-  function grantPP(phone, amount, reason, grantedBy = 'admin') {
+  // Ensures the user exists in Mongo first, so new players don't fail silently.
+  async function grantPP(phone, amount, reason, grantedBy = 'admin', name = '') {
+    await ensureUser(phone, name);
     return request(`/users/${encodeURIComponent(phone)}/pp`, {
       method: 'POST',
       body: JSON.stringify({ amount, reason, granted_by: grantedBy }),
