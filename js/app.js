@@ -62,29 +62,14 @@ const App = (() => {
     return date.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
   }
  
-  function getAvatarUrl(filenameOrUrl) {
-    if (!filenameOrUrl) return null;
-    if (filenameOrUrl.startsWith('http')) return filenameOrUrl;
-    return `https://padybdvevwazfilxopqy.supabase.co/storage/v1/object/public/media/${filenameOrUrl}`;
-  }
+  const DEFAULT_AVATAR = 'https://padybdvevwazfilxopqy.supabase.co/storage/v1/object/public/media/alya_1781906906746_35.jpg';
 
   function renderAvatar(user, size = 40) {
-    const src      = getAvatarUrl(user.avatar);
     const bg       = avatarColor(user.name);
     const ini      = initials(user.name);
     const fontSize = Math.round(size * 0.35);
-    const fallback = `
-      const d = document.createElement('div');
-      d.className = 'avatar';
-      d.style.cssText = 'width:${size}px;height:${size}px;background:${bg};font-size:${fontSize}px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;';
-      d.textContent = '${ini}';
-      this.replaceWith(d);
-    `.replace(/\n\s*/g, ' ');
-
-    if (src) {
-      return `<img src="${src}" width="${size}" height="${size}" alt="${user.name}" style="border-radius:50%;object-fit:cover;display:block;flex-shrink:0;" onerror="${fallback}">`;
-    }
-    return `<div class="avatar" style="width:${size}px;height:${size}px;background:${bg};font-size:${fontSize}px;">${ini}</div>`;
+    const fallback = `const d=document.createElement('div');d.className='avatar';d.style.cssText='width:${size}px;height:${size}px;background:${bg};font-size:${fontSize}px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;';d.textContent='${ini}';this.replaceWith(d);`;
+    return `<img src="${DEFAULT_AVATAR}" width="${size}" height="${size}" alt="${user.name}" style="border-radius:50%;object-fit:cover;display:block;flex-shrink:0;" onerror="${fallback}">`;
   }
  
   function setLoading(el, state) {
@@ -605,4 +590,4 @@ function closeCardModal() {
     overlay.style.display = 'none';
     overlay.innerHTML = '';
   }
-            }
+                                            }
