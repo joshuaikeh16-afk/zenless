@@ -1034,6 +1034,9 @@
               <div class="balance-item-label">Record</div>
               <div class="balance-item-val">${wins}W / ${losses}L</div>
             </div>
+            <button id="claim-pp-btn" class="promo-btn" style="width:100%;justify-content:center;margin-top:0.85rem;" onclick="handleClaimPP()">
+              <span id="claim-pp-label">🎁 Claim Daily PP</span>
+            </button>
           </div>
         </div>
 
@@ -1105,6 +1108,10 @@
     content.style.display = 'block';
     content.innerHTML = renderProfile(user, mongoUser, mongoHistory);
 
+    // Set the claim button's initial state (read-only check, doesn't claim anything)
+    const status = await MongoAPI.getClaimStatus(user.phone);
+    setClaimButtonState(status);
+
     requestAnimationFrame(() => {
       const games   = mongoHistory ? mongoHistory.length : 0;
       const wins    = mongoHistory ? mongoHistory.filter(h => h.amount > 0).length : 0;
@@ -1116,6 +1123,57 @@
     });
 
     document.title = `${user.name} — AniGamble HQ`;
+  }
+
+  function formatMsRemaining(ms) {
+    const totalMin = Math.max(0, Math.ceil(ms / 60000));
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  }
+
+  function setClaimButtonState(status) {
+    const btn   = document.getElementById('claim-pp-btn');
+    const label = document.getElementById('claim-pp-label');
+    if (!btn || !label || !status) return;
+
+    if (status.canClaim) {
+      btn.disabled = false;
+      btn.style.opacity = '';
+      label.textContent = '🎁 Claim Daily PP';
+    } else {
+      btn.disabled = true;
+      btn.style.opacity = '0.55';
+      label.textContent = `⏳ Next claim in ${formatMsRemaining(status.msRemaining)}`;
+    }
+  }
+
+  async function handleClaimPP() {
+    const phone = sessionStorage.getItem('agi_member_phone');
+    const name  = sessionStorage.getItem('agi_member_name') || '';
+    const btn   = document.getElementById('claim-pp-btn');
+    const label = document.getElementById('claim-pp-label');
+    if (!phone || !btn) return;
+
+    btn.disabled = true;
+    label.textContent = 'Claiming...';
+
+    const result = await MongoAPI.claimDailyPP(phone, name);
+
+    if (!result) {
+      App.showToast("Couldn't reach the server — try again.", 'error');
+      label.textContent = '🎁 Claim Daily PP';
+      btn.disabled = false;
+      return;
+    }
+
+    if (result.claimed) {
+      App.showToast(`+${result.amount} Prime Points claimed! 🎉`, 'success');
+      loadMyProfile(); // refresh balance, history, and button state
+    } else {
+      App.showToast(`Already claimed today — back in ${formatMsRemaining(result.msRemaining)}`, 'info');
+      setClaimButtonState({ canClaim: false, msRemaining: result.msRemaining });
+    }
   }
 
   document.addEventListener('DOMContentLoaded', () => {
