@@ -65,8 +65,7 @@ const App = (() => {
   function getAvatarUrl(filenameOrUrl) {
     if (!filenameOrUrl) return null;
     if (filenameOrUrl.startsWith('http')) return filenameOrUrl;
-    const { url } = CONFIG.supabase;
-    return `${url}/storage/v1/object/public/media/${filenameOrUrl}`;
+    return `https://padybdvevwazfilxopqy.supabase.co/storage/v1/object/public/media/${filenameOrUrl}`;
   }
 
   function renderAvatar(user, size = 40) {
@@ -606,4 +605,4 @@ function closeCardModal() {
     overlay.style.display = 'none';
     overlay.innerHTML = '';
   }
-}
+            }
