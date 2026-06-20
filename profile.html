@@ -892,13 +892,14 @@
     mongoUser    = mongoUser || { prime_points: 0, prime_coins: 0, rank: 'Rookie' };
     mongoHistory = mongoHistory || [];
 
-    const wins    = mongoHistory.filter(h => h.amount > 0).length;
+    const wins    = mongoHistory.filter(h => (h.pts ?? h.amount ?? 0) > 0).length;
     const games   = mongoHistory.length;
     const losses  = games - wins;
     const winRate = games > 0 ? Math.round((wins / games) * 100) : 0;
     const ppPoints = mongoUser.prime_points || 0;
 
     const recentPP = mongoHistory.slice(0, 8).map(h => {
+      const pts = h.pts ?? h.amount ?? 0;
       const d = h.timestamp ? new Date(h.timestamp) : null;
       const timeStr = d && !isNaN(d) ? App.timeAgo(d) : '';
       return `
@@ -907,7 +908,7 @@
             <div class="pp-entry-label">${h.reason || 'PP Update'}</div>
             <div class="pp-entry-time">${timeStr}</div>
           </div>
-          <div class="pp-entry-pts ${h.amount > 0 ? 'gain' : 'loss'}">${h.amount > 0 ? '+' : ''}${h.amount} ◈</div>
+          <div class="pp-entry-pts ${pts > 0 ? 'gain' : 'loss'}">${pts > 0 ? '+' : ''}${pts} ◈</div>
         </div>`;
     }).join('') || '<div class="inv-empty">No activity yet — play a game! 🎮</div>';
 
@@ -1100,7 +1101,7 @@
       return;
     }
 
-    // Pull Prime Points from MongoDB (auto-creates a PP profile on first visit)
+    // Pull Prime Points from Supabase (auto-creates a PP profile on first visit)
     const mongoUser = await MongoAPI.ensureUser(user.phone, user.name);
     const mongoHistory = mongoUser ? await MongoAPI.getPPHistory(user.phone) : [];
 
@@ -1114,7 +1115,7 @@
 
     requestAnimationFrame(() => {
       const games   = mongoHistory ? mongoHistory.length : 0;
-      const wins    = mongoHistory ? mongoHistory.filter(h => h.amount > 0).length : 0;
+      const wins    = mongoHistory ? mongoHistory.filter(h => (h.pts ?? h.amount ?? 0) > 0).length : 0;
       const winRate = games > 0 ? Math.round((wins / games) * 100) : 0;
       setTimeout(() => {
         const bar = document.getElementById('wr-bar');
