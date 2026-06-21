@@ -1037,6 +1037,10 @@
     if (result.claimed) {
       App.showToast(`+${result.amount} Prime Points claimed! 🎉`, 'success');
       loadMyProfile();
+    } else if (result.failed) {
+      App.showToast("Couldn't save your claim — check your connection and try again.", 'error');
+      label.textContent = '🎁 Claim Daily PP';
+      btn.disabled = false;
     } else {
       App.showToast(`Already claimed today — back in ${formatMsRemaining(result.msRemaining)}`, 'info');
       setClaimButtonState({ canClaim: false, msRemaining: result.msRemaining });
