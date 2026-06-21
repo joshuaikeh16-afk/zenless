@@ -1045,27 +1045,54 @@
         }
       });
 
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
-      if (!blob) throw new Error('canvas_blocked'); // most likely a CORS-tainted canvas
+      // Step 1: export the canvas — fails here if any card image tainted it (CORS)
+      let blob;
+      try {
+        blob = await new Promise((resolve, reject) => {
+          canvas.toBlob(b => b ? resolve(b) : reject(new Error('blob_null')), 'image/jpeg', 0.92);
+        });
+      } catch (e) {
+        throw new Error('STEP_CANVAS: ' + e.message);
+      }
 
-      const form = new FormData();
-      form.append('reqtype', 'fileupload');
-      form.append('fileToUpload', blob, 'deck.jpg');
+      // Step 2: upload to catbox — fails here if catbox blocks browser-side CORS,
+      // or if the network request itself is blocked/refused
+      let deckImageUrl;
+      try {
+        const form = new FormData();
+        form.append('reqtype', 'fileupload');
+        form.append('fileToUpload', blob, 'deck.jpg');
+        const uploadRes = await fetch('https://catbox.moe/user/api.php', { method: 'POST', body: form });
+        const text = (await uploadRes.text()).trim();
+        if (!uploadRes.ok || !text.startsWith('http')) throw new Error('bad_response: ' + text.slice(0, 120));
+        deckImageUrl = text;
+      } catch (e) {
+        throw new Error('STEP_UPLOAD: ' + e.message);
+      }
 
-      const uploadRes = await fetch('https://catbox.moe/user/api.php', { method: 'POST', body: form });
-      const deckImageUrl = (await uploadRes.text()).trim();
-      if (!deckImageUrl.startsWith('http')) throw new Error('upload_failed');
-
-      await API.updateUserData(currentUser._rowId, currentUser._raw, { webDeckUrl: deckImageUrl });
-      currentUser._raw.webDeckUrl = deckImageUrl;
+      // Step 3: save the URL back to Supabase
+      try {
+        await API.updateUserData(currentUser._rowId, currentUser._raw, { webDeckUrl: deckImageUrl });
+        currentUser._raw.webDeckUrl = deckImageUrl;
+      } catch (e) {
+        throw new Error('STEP_SAVE: ' + e.message);
+      }
 
       status.innerHTML = `<span style="color:var(--success);">✅ Saved!</span> <a href="${deckImageUrl}" target="_blank" rel="noopener" style="color:var(--accent);">View image</a>`;
     } catch (err) {
       console.error('[Deck Image]', err);
-      const corsLikely = err?.name === 'SecurityError' || err?.message === 'canvas_blocked';
-      status.innerHTML = `<span style="color:var(--danger);">❌ ${corsLikely
-        ? "Failed — the card image host is blocking this (CORS). Can't render the image from the browser."
-        : 'Something went wrong — try again.'}</span>`;
+      const msg = err?.message || '';
+      let display;
+      if (msg.startsWith('STEP_CANVAS')) {
+        display = "Failed rendering the image — the card art host (cdn7.mazoku.cc) is likely blocking cross-origin canvas export (CORS). Can't fix this from the browser alone.";
+      } else if (msg.startsWith('STEP_UPLOAD')) {
+        display = "Failed uploading to catbox.moe — either it's blocking direct browser requests (CORS) or the upload itself failed. Check the console for the exact response.";
+      } else if (msg.startsWith('STEP_SAVE')) {
+        display = 'Image uploaded, but saving the URL to Supabase failed. The image itself was generated fine — check Supabase permissions.';
+      } else {
+        display = 'Something went wrong — check the browser console for details.';
+      }
+      status.innerHTML = `<span style="color:var(--danger);">❌ ${display}</span>`;
     } finally {
       btn.disabled = false;
       btn.textContent = '📤 Update WhatsApp Image';
