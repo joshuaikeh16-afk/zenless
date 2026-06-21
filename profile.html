@@ -699,145 +699,6 @@
       border-radius: 20px;
     }
 
-    /* ══════════════════════════════════════════════════════
-       BACKGROUND CHANGER
-    ══════════════════════════════════════════════════════ */
-    .bg-changer-card {
-      background: var(--bg-2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 1.25rem;
-      position: relative;
-      overflow: hidden;
-      transition: border-color .2s;
-      margin-bottom: 1.25rem;
-    }
-    .bg-changer-card:hover { border-color: var(--border-2); }
-
-    .bg-changer-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
-    }
-
-    .bg-options {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-top: 0.85rem;
-    }
-
-    .bg-option {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-      cursor: pointer;
-    }
-
-    .bg-option-swatch {
-      width: 52px;
-      height: 52px;
-      border-radius: var(--radius);
-      border: 2px solid var(--border);
-      transition: border-color .15s, transform .15s, box-shadow .15s;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .bg-option:hover .bg-option-swatch {
-      border-color: var(--border-2);
-      transform: translateY(-2px);
-    }
-
-    .bg-option.active .bg-option-swatch {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 2px rgba(124,93,250,.3);
-    }
-
-    .bg-option-label {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--text-3);
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      text-align: center;
-    }
-
-    .bg-option.active .bg-option-label { color: var(--accent); }
-
-    /* Swatch visuals */
-    .swatch-white  { background: #ffffff; }
-    .swatch-blue   { background: linear-gradient(135deg, #0f1a35 0%, #162647 50%, #0a1628 100%); }
-    .swatch-black  { background: #0a0a0a; }
-    .swatch-custom {
-      background: conic-gradient(#f472b6, #a78bfa, #60a5fa, #34d399, #fbbf24, #f472b6);
-      position: relative;
-    }
-
-    .swatch-locked-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(0,0,0,0.55);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 18px;
-    }
-
-    /* Custom color picker row */
-    .custom-picker-row {
-      display: none;
-      align-items: center;
-      gap: 10px;
-      margin-top: 0.85rem;
-      padding: 0.75rem;
-      background: var(--bg-3);
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-    }
-    .custom-picker-row.visible { display: flex; }
-
-    #custom-color-input {
-      width: 44px; height: 44px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      padding: 2px;
-      cursor: pointer;
-      background: none;
-    }
-
-    .custom-picker-label {
-      font-size: 12.5px;
-      color: var(--text-2);
-      flex: 1;
-    }
-
-    .custom-apply-btn {
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: var(--radius);
-      padding: 0.4rem 0.9rem;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: var(--font-display);
-      transition: opacity .15s;
-    }
-    .custom-apply-btn:hover { opacity: 0.85; }
-
-    .pp-gate-note {
-      font-size: 11.5px;
-      color: var(--text-3);
-      margin-top: 0.6rem;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .pp-gate-note .pp-val { color: var(--pp-color); font-weight: 700; }
   </style>
 </head>
 <body>
@@ -884,167 +745,6 @@
 <script src="js/profile.js"></script>
 <script>
   let currentUser = null;
-
-  /* ── Background Changer ──────────────────────────────── */
-  // Keys for localStorage (per-user, stored by phone)
-  function bgKey(phone) { return `agi_bg_${phone}`; }
-
-  const BG_PRESETS = {
-    white: {
-      label: 'White',
-      swatchClass: 'swatch-white',
-      style: { background: '#f8f8f8', color: '#111' },
-      bodyBg: '#f8f8f8'
-    },
-    blue: {
-      label: 'Blue',
-      swatchClass: 'swatch-blue',
-      style: null, // keep the default CSS vars (dark blue)
-      bodyBg: null  // null = reset to default
-    },
-    black: {
-      label: 'Black',
-      swatchClass: 'swatch-black',
-      style: { background: '#0a0a0a' },
-      bodyBg: '#0a0a0a'
-    }
-  };
-
-  const PP_COST_CUSTOM = 250000;
-
-  function applyBackground(setting, ppPoints) {
-    const body = document.body;
-    const main = document.querySelector('.main');
-    const layout = document.querySelector('.layout');
-
-    // Reset first
-    body.style.background = '';
-    if (layout) layout.style.background = '';
-
-    if (!setting || setting === 'blue') {
-      // Default — let CSS handle it
-      return;
-    }
-
-    if (setting === 'white') {
-      body.style.background = '#f0f0f0';
-      if (layout) layout.style.background = '#f0f0f0';
-      return;
-    }
-
-    if (setting === 'black') {
-      body.style.background = '#0a0a0a';
-      if (layout) layout.style.background = '#0a0a0a';
-      return;
-    }
-
-    // Custom hex
-    if (setting.startsWith('#')) {
-      if (ppPoints < PP_COST_CUSTOM) return; // no access
-      body.style.background = setting;
-      if (layout) layout.style.background = setting;
-    }
-  }
-
-  function saveAndApplyBg(phone, setting, ppPoints) {
-    localStorage.setItem(bgKey(phone), setting);
-    applyBackground(setting, ppPoints);
-    rebuildBgOptions(ppPoints, setting);
-  }
-
-  function rebuildBgOptions(ppPoints, current) {
-    const container = document.getElementById('bg-options-row');
-    const customRow = document.getElementById('custom-picker-row');
-    const gateNote  = document.getElementById('pp-gate-note');
-    if (!container) return;
-
-    const hasCustom = ppPoints >= PP_COST_CUSTOM;
-
-    container.innerHTML = Object.entries(BG_PRESETS).map(([key, preset]) => `
-      <div class="bg-option ${current === key ? 'active' : ''}" onclick="chooseBg('${key}')">
-        <div class="bg-option-swatch ${preset.swatchClass}"></div>
-        <div class="bg-option-label">${preset.label}</div>
-      </div>
-    `).join('') + `
-      <div class="bg-option ${(current && current.startsWith('#')) ? 'active' : ''}" onclick="openCustomPicker()">
-        <div class="bg-option-swatch swatch-custom">
-          ${!hasCustom ? '<div class="swatch-locked-overlay">🔒</div>' : ''}
-        </div>
-        <div class="bg-option-label">Custom</div>
-      </div>
-    `;
-
-    // Show gate note
-    if (gateNote) {
-      gateNote.style.display = hasCustom ? 'none' : 'flex';
-    }
-
-    // Show custom row only if currently using a custom color
-    if (customRow) {
-      customRow.classList.toggle('visible', !!(current && current.startsWith('#')));
-      if (current && current.startsWith('#')) {
-        const inp = document.getElementById('custom-color-input');
-        if (inp) inp.value = current;
-      }
-    }
-  }
-
-  function chooseBg(key) {
-    if (!currentUser) return;
-    const phone = sessionStorage.getItem('agi_member_phone');
-    saveAndApplyBg(phone, key, currentUser.primePoints || 0);
-    // Hide custom row when a preset is chosen
-    const customRow = document.getElementById('custom-picker-row');
-    if (customRow) customRow.classList.remove('visible');
-  }
-
-  function openCustomPicker() {
-    if (!currentUser) return;
-    const ppPoints = currentUser.primePoints || 0;
-    if (ppPoints < PP_COST_CUSTOM) {
-      App.showToast(`You need ◈ ${PP_COST_CUSTOM.toLocaleString()} Prime Points to unlock custom backgrounds.`, 'error');
-      return;
-    }
-    const customRow = document.getElementById('custom-picker-row');
-    if (customRow) customRow.classList.toggle('visible');
-  }
-
-  function applyCustomColor() {
-    if (!currentUser) return;
-    const ppPoints = currentUser.primePoints || 0;
-    if (ppPoints < PP_COST_CUSTOM) return;
-    const inp = document.getElementById('custom-color-input');
-    if (!inp) return;
-    const hex = inp.value;
-    const phone = sessionStorage.getItem('agi_member_phone');
-    saveAndApplyBg(phone, hex, ppPoints);
-  }
-
-  function renderBgChanger(ppPoints, currentSetting) {
-    const hasCustom = ppPoints >= PP_COST_CUSTOM;
-    const needMore  = PP_COST_CUSTOM - ppPoints;
-
-    return `
-      <div class="bg-changer-card fade-in">
-        <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
-          <span>🎨 Page Background</span>
-        </div>
-        <div class="bg-options" id="bg-options-row"></div>
-
-        <!-- Custom color picker (only shown when custom is active) -->
-        <div class="custom-picker-row" id="custom-picker-row">
-          <input type="color" id="custom-color-input" value="#1a1040" title="Pick a color"/>
-          <span class="custom-picker-label">Choose any background color</span>
-          <button class="custom-apply-btn" onclick="applyCustomColor()">Apply</button>
-        </div>
-
-        <div class="pp-gate-note" id="pp-gate-note">
-          🔒 Custom colors unlock at <span class="pp-val">◈ ${PP_COST_CUSTOM.toLocaleString()}</span> Prime Points
-          — you need <span class="pp-val">◈ ${needMore.toLocaleString()}</span> more.
-        </div>
-      </div>
-    `;
-  }
 
   /* ── Profile Renderer ────────────────────────────────── */
   function renderProfile(user) {
@@ -1099,10 +799,6 @@
     const guildBadge = user.guild ? `<div class="hero-meta-item">⚔️ ${user.guild}</div>` : '';
     const joinDate   = user.joinedAt ? timeAgoFull(user.joinedAt) : null;
     const roleBadge  = user.role ? App.roleBadge(user.role) : '';
-
-    // Current bg setting for this user
-    const phone      = sessionStorage.getItem('agi_member_phone');
-    const currentBg  = localStorage.getItem(bgKey(phone)) || 'blue';
 
     return `
       <!-- Hero -->
@@ -1162,9 +858,6 @@
         </div>
         <a href="games.html" class="promo-btn">Open Games →</a>
       </div>
-
-      <!-- Background Changer -->
-      ${renderBgChanger(ppPoints, currentBg)}
 
       <!-- Grid -->
       <div class="profile-grid">
@@ -1279,14 +972,6 @@
     const content = document.getElementById('profile-content');
     content.style.display = 'block';
     content.innerHTML = renderProfile(user);
-
-    // Apply saved background
-    const phone2 = sessionStorage.getItem('agi_member_phone');
-    const savedBg = localStorage.getItem(bgKey(phone2)) || 'blue';
-    applyBackground(savedBg, user.primePoints || 0);
-
-    // Populate the bg-options swatches
-    rebuildBgOptions(user.primePoints || 0, savedBg);
 
     // Claim button state
     const status = PPApi.getClaimStatus(user._raw);
