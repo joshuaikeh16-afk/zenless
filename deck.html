@@ -490,8 +490,11 @@
     if (!unlocked) { grid.style.background = ''; return; }
 
     if (key === 'custom') {
-      const phone = sessionStorage.getItem('agi_member_phone');
-      grid.style.background = localStorage.getItem(bgKey(phone) + '_custom') || '#1a1040';
+      const phone = localStorage.getItem('agi_member_phone');
+      const hex = currentUser?._raw?.deckBgCustom
+               || localStorage.getItem(bgKey(phone) + '_custom')
+               || '#1a1040';
+      grid.style.background = hex;
     } else {
       grid.style.background = preset.bg;
     }
@@ -548,29 +551,27 @@
       if (!confirmed) return;
 
       try {
-        // Deduct PP and record history entry
-        const raw  = currentUser._raw;
-        const data = typeof raw.data === 'string' ? JSON.parse(raw.data) : { ...(raw.data || {}) };
+        // Use PPApi.adjustPP so PP history, rank, and balance all update correctly
+        await PPApi.adjustPP(
+          currentUser._rowId,
+          currentUser._raw,
+          -preset.price,
+          `Bought ${preset.label.replace(/\s*[\u{1F000}-\u{1FFFF}✨💗].*/u, '').trim()} deck background`,
+          'system'
+        );
 
-        const currentPP   = data.primePoints ?? 0;
-        const newPP       = currentPP - preset.price;
-        const histEntry   = { amount: -preset.price, reason: `Bought ${preset.label.replace(/\s*[\u{1F000}-\u{1FFFF}✨💗].*/u, '').trim()} deck background`, timestamp: Date.now() };
-        const newHistory  = [histEntry, ...(data.ppHistory || [])];
-        const newOwned    = [...Array.from(owned), key];
-
-        await API.updateUserData(currentUser._rowId, raw, {
-          primePoints:   newPP,
-          ppHistory:     newHistory,
-          deckBgsOwned:  newOwned,
+        // Save owned list + active bg into Supabase so it persists across devices
+        const newOwned = [...Array.from(owned), key];
+        await API.updateUserData(currentUser._rowId, currentUser._raw, {
+          deckBgsOwned: newOwned,
+          deckBgActive: key,
         });
 
-        // Update local currentUser so the UI reflects new balance immediately
-        currentUser._raw.deckBgsOwned = newOwned;
-        if (typeof currentUser._raw.data === 'object') {
-          currentUser._raw.data.primePoints = newPP;
-          currentUser._raw.data.ppHistory   = newHistory;
-        }
-        currentUser.primePoints = newPP;
+        // Reflect locally so UI updates without a full reload
+        currentUser._raw.deckBgsOwned      = newOwned;
+        currentUser._raw.deckBgActive      = key;
+        currentUser._raw.primePoints       = (currentUser._raw.primePoints || 0) - preset.price;
+        currentUser.primePoints            = currentUser._raw.primePoints;
 
         App.showToast(`${preset.label} background unlocked! ◈ ${preset.price.toLocaleString()} spent.`, 'success');
       } catch (e) {
@@ -605,8 +606,11 @@
     const picker = document.getElementById('custom-inline-picker');
     if (picker) picker.style.display = 'none';
 
-    const phone = sessionStorage.getItem('agi_member_phone');
-    localStorage.setItem(bgKey(phone), key);
+    const phone = localStorage.getItem('agi_member_phone');
+    localStorage.setItem(bgKey(phone), key); // local cache for instant paint on next load
+    // Also persist to Supabase so it loads on any device
+    API.updateUserData(currentUser._rowId, currentUser._raw, { deckBgActive: key });
+    currentUser._raw.deckBgActive = key;
     applyDeckBackground(key, currentUser.primePoints || 0);
     rebuildBgOptions(currentUser.primePoints || 0, key);
   }
@@ -614,13 +618,20 @@
   function applyCustomColor() {
     if (!currentUser) return;
     const owned = getOwnedBgs(currentUser);
-    if (!owned.has('custom')) return; // shouldn't happen but guard it
+    if (!owned.has('custom')) return;
     const inp = document.getElementById('custom-color-input');
     if (!inp) return;
     const hex   = inp.value;
-    const phone = sessionStorage.getItem('agi_member_phone');
+    const phone = localStorage.getItem('agi_member_phone');
     localStorage.setItem(bgKey(phone), 'custom');
     localStorage.setItem(bgKey(phone) + '_custom', hex);
+    // Persist to Supabase so it loads on any device
+    API.updateUserData(currentUser._rowId, currentUser._raw, {
+      deckBgActive: 'custom',
+      deckBgCustom: hex,
+    });
+    currentUser._raw.deckBgActive = 'custom';
+    currentUser._raw.deckBgCustom = hex;
     const grid = document.getElementById('deck-grid');
     if (grid) grid.style.background = hex;
     rebuildBgOptions(currentUser.primePoints || 0, 'custom');
@@ -691,7 +702,7 @@
   }
 
   async function loadDeckPage() {
-    const phone = sessionStorage.getItem('agi_member_phone');
+    const phone = localStorage.getItem('agi_member_phone');
     if (!phone) { window.location.href = 'member-login.html'; return; }
 
     const raw  = await API.getUserByPhone(phone);
@@ -708,8 +719,12 @@
     document.getElementById('deck-content').style.display = 'block';
     document.title = `${user.name}'s Deck — AniGamble HQ`;
 
-    // Apply saved background to deck grid
-    const savedBg = localStorage.getItem(bgKey(phone)) || 'default';
+    // Active bg: Supabase is truth (works across devices), localStorage is a fast paint cache
+    const savedBg = user._raw?.deckBgActive
+                 || localStorage.getItem(bgKey(phone))
+                 || 'default';
+    // Sync local cache to match Supabase
+    if (user._raw?.deckBgActive) localStorage.setItem(bgKey(phone), user._raw.deckBgActive);
     applyDeckBackground(savedBg, user.primePoints || 0);
     rebuildBgOptions(user.primePoints || 0, savedBg);
 
@@ -795,7 +810,7 @@
       status.innerHTML = '📤 Uploading HD image...';
 
       // Upload to your bot's endpoint
-      const phone    = sessionStorage.getItem('agi_member_phone') || 'unknown';
+      const phone    = localStorage.getItem('agi_member_phone') || 'unknown';
       const formData = new FormData();
       formData.append('deck_image', blob, `deck_${phone}_${Date.now()}.png`);
       formData.append('phone', phone);
