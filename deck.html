@@ -551,8 +551,10 @@
       if (!confirmed) return;
 
       try {
-        // Use PPApi.adjustPP so PP history, rank, and balance all update correctly
-        await PPApi.adjustPP(
+        // Use PPApi.adjustPP so PP history, rank, and balance all update correctly.
+        // adjustPP returns null if the write didn't actually succeed — must check this
+        // before touching local state, or PP can appear spent when it never really was.
+        const ppRes = await PPApi.adjustPP(
           currentUser._rowId,
           currentUser._raw,
           -preset.price,
@@ -560,18 +562,34 @@
           'system'
         );
 
+        if (!ppRes) {
+          App.showToast("Couldn't save the purchase — check your connection and try again. Nothing was charged.", 'error');
+          return;
+        }
+
+        // Reflect the confirmed PP deduction locally
+        currentUser._raw.primePoints = ppRes.primePoints;
+        currentUser._raw.rank        = ppRes.rank;
+        currentUser._raw.ppHistory   = ppRes.ppHistory;
+        currentUser.primePoints      = ppRes.primePoints;
+
         // Save owned list + active bg into Supabase so it persists across devices
         const newOwned = [...Array.from(owned), key];
-        await API.updateUserData(currentUser._rowId, currentUser._raw, {
+        const ownedRes = await API.updateUserData(currentUser._rowId, currentUser._raw, {
           deckBgsOwned: newOwned,
           deckBgActive: key,
         });
 
+        if (!Array.isArray(ownedRes) || !ownedRes.length) {
+          // PP was already spent and confirmed — don't pretend the background unlocked too.
+          App.showToast('PP was spent, but saving the background failed — reloading to check your real state.', 'error');
+          await loadDeckPage();
+          return;
+        }
+
         // Reflect locally so UI updates without a full reload
-        currentUser._raw.deckBgsOwned      = newOwned;
-        currentUser._raw.deckBgActive      = key;
-        currentUser._raw.primePoints       = (currentUser._raw.primePoints || 0) - preset.price;
-        currentUser.primePoints            = currentUser._raw.primePoints;
+        currentUser._raw.deckBgsOwned = newOwned;
+        currentUser._raw.deckBgActive = key;
 
         App.showToast(`${preset.label} background unlocked! ◈ ${preset.price.toLocaleString()} spent.`, 'success');
       } catch (e) {
@@ -609,13 +627,17 @@
     const phone = localStorage.getItem('agi_member_phone');
     localStorage.setItem(bgKey(phone), key); // local cache for instant paint on next load
     // Also persist to Supabase so it loads on any device
-    API.updateUserData(currentUser._rowId, currentUser._raw, { deckBgActive: key });
-    currentUser._raw.deckBgActive = key;
+    const res = await API.updateUserData(currentUser._rowId, currentUser._raw, { deckBgActive: key });
+    if (Array.isArray(res) && res.length) {
+      currentUser._raw.deckBgActive = key;
+    } else {
+      App.showToast("Background changed here, but didn't save — it may revert on other devices.", 'info');
+    }
     applyDeckBackground(key, currentUser.primePoints || 0);
     rebuildBgOptions(currentUser.primePoints || 0, key);
   }
 
-  function applyCustomColor() {
+  async function applyCustomColor() {
     if (!currentUser) return;
     const owned = getOwnedBgs(currentUser);
     if (!owned.has('custom')) return;
@@ -623,13 +645,19 @@
     if (!inp) return;
     const hex   = inp.value;
     const phone = localStorage.getItem('agi_member_phone');
-    localStorage.setItem(bgKey(phone), 'custom');
-    localStorage.setItem(bgKey(phone) + '_custom', hex);
-    // Persist to Supabase so it loads on any device
-    API.updateUserData(currentUser._rowId, currentUser._raw, {
+
+    const res = await API.updateUserData(currentUser._rowId, currentUser._raw, {
       deckBgActive: 'custom',
       deckBgCustom: hex,
     });
+
+    if (!Array.isArray(res) || !res.length) {
+      App.showToast("Couldn't save your color — check your connection and try again.", 'error');
+      return;
+    }
+
+    localStorage.setItem(bgKey(phone), 'custom');
+    localStorage.setItem(bgKey(phone) + '_custom', hex);
     currentUser._raw.deckBgActive = 'custom';
     currentUser._raw.deckBgCustom = hex;
     const grid = document.getElementById('deck-grid');
