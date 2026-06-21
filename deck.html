@@ -1,1 +1,579 @@
-j
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>AniGamble HQ — My Deck</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <link rel="stylesheet" href="css/dashboard.css"/>
+  <link rel="stylesheet" href="css/animations.css"/>
+  <link rel="stylesheet" href="css/premium.css">
+  <style>
+    /* ── Deck Grid ──────────────────────────────────────── */
+    .deck-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 10px;
+    }
+
+    .deck-tile {
+      aspect-ratio: 5 / 7;
+      border-radius: var(--radius);
+      overflow: hidden;
+      position: relative;
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      transition: border-color .15s, transform .15s;
+    }
+
+    .deck-tile.filled { cursor: pointer; }
+    .deck-tile.filled:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+
+    .deck-tile img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .deck-tile-name {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      padding: 4px 5px 5px;
+      font-size: 9.5px;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .deck-tile.empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-style: dashed;
+      cursor: pointer;
+    }
+
+    .deck-tile.empty:hover {
+      border-color: var(--border-2);
+      background: var(--bg-4);
+    }
+
+    .deck-tile.empty span {
+      font-size: 22px;
+      color: var(--text-3);
+      opacity: 0.5;
+    }
+
+    .deck-tile-remove {
+      position: absolute;
+      top: 4px; right: 4px;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(0,0,0,0.65);
+      color: #fff;
+      font-size: 10px;
+      line-height: 20px;
+      text-align: center;
+      cursor: pointer;
+      padding: 0;
+      z-index: 2;
+      transition: background .15s;
+    }
+    .deck-tile-remove:hover { background: var(--danger); }
+
+    /* ── Card Picker ──────────────────────────────────── */
+    .picker-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 410;
+      background: rgba(0,0,0,.7);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      animation: fadeIn .2s ease;
+    }
+
+    .picker-overlay.open { display: flex; }
+
+    .picker-card {
+      background: var(--bg-2);
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius-xl, 20px);
+      width: 100%;
+      max-width: 420px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 80px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.04);
+      animation: popupIn .25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .picker-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.1rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .picker-header button {
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      width: 26px; height: 26px;
+      color: var(--text-2);
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    #picker-list {
+      overflow-y: auto;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .picker-item {
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 7px 9px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+
+    .picker-item img {
+      width: 30px; height: 42px;
+      object-fit: cover;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .picker-item:hover { border-color: var(--border-2); background: var(--bg-4); }
+
+    .picker-item.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ── Page card ────────────────────────────────────── */
+    .deck-page-card {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .deck-page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .deck-page-title {
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .deck-page-subtitle {
+      font-size: 12.5px;
+      color: var(--text-3);
+      margin-top: 3px;
+    }
+
+    .deck-image-btn {
+      font-size: 12px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border-2);
+      background: var(--bg-3);
+      color: var(--text-2);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: border-color .15s, color .15s;
+    }
+    .deck-image-btn:hover { border-color: var(--accent); color: var(--text); }
+    .deck-image-btn:disabled { opacity: 0.6; cursor: default; }
+
+    /* ── Slot counter ─────────────────────────────────── */
+    .slot-counter {
+      font-size: 12px;
+      color: var(--text-3);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .slot-pip {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--bg-4);
+      border: 1px solid var(--border);
+      transition: background .2s;
+    }
+    .slot-pip.filled { background: var(--accent); border-color: var(--accent); }
+
+    /* ── Back link ────────────────────────────────────── */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-3);
+      text-decoration: none;
+      margin-bottom: 1rem;
+      transition: color .15s;
+    }
+    .back-link:hover { color: var(--text); }
+
+    @keyframes popupIn {
+      from { opacity: 0; transform: scale(.94) translateY(12px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .inv-empty {
+      font-size: 12px;
+      color: var(--text-3);
+      padding: 0.5rem 0;
+    }
+
+    /* ── Skeleton ─────────────────────────────────────── */
+    .skel {
+      background: linear-gradient(90deg, var(--bg-3) 25%, var(--bg-4) 50%, var(--bg-3) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: var(--radius);
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main" style="max-width:860px;">
+
+    <a href="profile.html" class="back-link">← Back to Profile</a>
+
+    <!-- Loading -->
+    <div id="loading-state">
+      <div class="deck-page-card">
+        <div class="skel" style="width:180px;height:22px;margin-bottom:10px;"></div>
+        <div class="skel" style="width:120px;height:12px;margin-bottom:1.5rem;"></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;">
+          ${Array(9).fill('<div class="skel" style="aspect-ratio:5/7;border-radius:8px;"></div>').join('')}
+        </div>
+      </div>
+    </div>
+
+    <!-- Deck content -->
+    <div id="deck-content" style="display:none;">
+
+      <div class="deck-page-card fade-in">
+        <div class="deck-page-header">
+          <div>
+            <div class="deck-page-title">🎴 My Deck</div>
+            <div class="deck-page-subtitle" id="deck-subtitle">Arrange up to 9 cards for your showcase</div>
+          </div>
+          <button id="deck-image-btn" class="deck-image-btn" onclick="generateDeckImage()">📤 Update WhatsApp Image</button>
+        </div>
+
+        <!-- Slot pips -->
+        <div class="slot-counter">
+          <span id="slot-pips"></span>
+          <span id="slot-count-label"></span>
+        </div>
+
+        <!-- The grid -->
+        <div class="deck-grid" id="deck-grid"></div>
+        <div id="deck-image-status" style="margin-top:10px;font-size:12px;"></div>
+      </div>
+
+    </div>
+
+    <!-- Not found -->
+    <div id="not-found" style="display:none;" class="deck-page-card fade-in">
+      <div style="text-align:center;padding:3rem 1rem;">
+        <div style="font-size:48px;margin-bottom:1rem;">🔍</div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:.5rem;">Session expired</div>
+        <div style="font-size:13px;color:var(--text-3);margin-bottom:1.5rem;">Please log in again.</div>
+        <a href="member-login.html" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius);padding:.55rem 1.2rem;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;">Log in</a>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Card Picker Modal -->
+<div class="picker-overlay" id="picker-overlay" onclick="closeSlotPicker(event)">
+  <div class="picker-card">
+    <div class="picker-header">
+      <span>Choose a card</span>
+      <button onclick="closeSlotPicker()">✕</button>
+    </div>
+    <div id="picker-list"></div>
+  </div>
+</div>
+
+<script src="data/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script src="js/profile.js"></script>
+<script>
+  let currentUser = null;
+  const DECK_SIZE = 9;
+
+  function getDeckSlots(user) {
+    const saved = Array.isArray(user._raw?.deck?.slots) ? user._raw.deck.slots : [];
+    const slots = saved.slice(0, DECK_SIZE);
+    while (slots.length < DECK_SIZE) slots.push(null);
+    return slots;
+  }
+
+  async function saveDeckSlots(slots) {
+    if (!currentUser) return;
+    const updatedDeck = { ...(currentUser._raw.deck || {}), slots };
+    await API.updateUserData(currentUser._rowId, currentUser._raw, { deck: updatedDeck });
+    await loadDeckPage();
+  }
+
+  async function removeFromDeck(slotIndex) {
+    if (!currentUser) return;
+    const slots = getDeckSlots(currentUser);
+    slots[slotIndex] = null;
+    await saveDeckSlots(slots);
+  }
+
+  function renderDeck(user) {
+    const slots = getDeckSlots(user);
+    const filledCount = slots.filter(Boolean).length;
+
+    // Slot pips
+    document.getElementById('slot-pips').innerHTML =
+      slots.map((s, i) => `<span class="slot-pip ${s ? 'filled' : ''}"></span>`).join('');
+    document.getElementById('slot-count-label').textContent =
+      `${filledCount} / ${DECK_SIZE} slots filled`;
+
+    // Grid tiles
+    document.getElementById('deck-grid').innerHTML = slots.map((slotId, i) => {
+      const card = slotId ? user.cards.find(c => (typeof c === 'object' ? c.id : c) === slotId) : null;
+
+      if (!card) {
+        return `<div class="deck-tile empty" onclick="openSlotPicker(${i})"><span>+</span></div>`;
+      }
+
+      const safeJson = JSON.stringify(JSON.stringify(card));
+      return `
+        <div class="deck-tile filled" onclick="openCardModal(${safeJson})">
+          ${card.preRenderedUrl
+            ? `<img src="${card.preRenderedUrl}" alt="${card.name || 'Card'}">`
+            : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;">🃏</div>`
+          }
+          <div class="deck-tile-name">${card.name || 'Unknown'}</div>
+          <button class="deck-tile-remove" onclick="event.stopPropagation();removeFromDeck(${i})" title="Remove from deck">✕</button>
+        </div>`;
+    }).join('');
+  }
+
+  async function loadDeckPage() {
+    const phone = sessionStorage.getItem('agi_member_phone');
+    if (!phone) { window.location.href = 'member-login.html'; return; }
+
+    const raw  = await API.getUserByPhone(phone);
+    const user = App.parseUser(raw?.[0]);
+
+    document.getElementById('loading-state').style.display = 'none';
+
+    if (!user) {
+      document.getElementById('not-found').style.display = 'block';
+      return;
+    }
+
+    currentUser = user;
+    document.getElementById('deck-content').style.display = 'block';
+    document.title = `${user.name}'s Deck — AniGamble HQ`;
+    renderDeck(user);
+  }
+
+  /* ── Card Picker ──────────────────────────────────────── */
+  let pickerSlotIndex = null;
+
+  function openSlotPicker(slotIndex) {
+    if (!currentUser) return;
+    pickerSlotIndex = slotIndex;
+
+    const usedIds = new Set(getDeckSlots(currentUser).filter(Boolean));
+    const list = document.getElementById('picker-list');
+
+    if (!currentUser.cards.length) {
+      list.innerHTML = '<div class="inv-empty">You don\'t have any cards yet.</div>';
+    } else {
+      list.innerHTML = currentUser.cards.map(c => {
+        const card = typeof c === 'object' ? c : { name: c };
+        const inUse = card.id && usedIds.has(card.id);
+        const disabled = inUse || !card.id;
+        return `
+          <div class="picker-item ${disabled ? 'disabled' : ''}" ${disabled ? '' : `onclick="placeInSlot('${card.id}')"`}>
+            ${card.preRenderedUrl
+              ? `<img src="${card.preRenderedUrl}" alt="">`
+              : `<span style="font-size:18px;">🃏</span>`
+            }
+            <div style="min-width:0;flex:1;">
+              <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${card.name || 'Unknown'}</div>
+              <div style="font-size:10.5px;color:var(--text-3);">${inUse ? 'Already in deck' : (card.badge || card.tier || '')}</div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    document.getElementById('picker-overlay').classList.add('open');
+  }
+
+  function closeSlotPicker(e) {
+    if (e && e.target !== document.getElementById('picker-overlay')) return;
+    document.getElementById('picker-overlay').classList.remove('open');
+    pickerSlotIndex = null;
+  }
+
+  async function placeInSlot(cardId) {
+    if (pickerSlotIndex === null || !cardId) return;
+    const slots = getDeckSlots(currentUser);
+    slots[pickerSlotIndex] = cardId;
+    document.getElementById('picker-overlay').classList.remove('open');
+    pickerSlotIndex = null;
+    await saveDeckSlots(slots);
+  }
+
+  /* ── Deck Image Generator ─────────────────────────────── */
+  const IMGBB_API_KEY = 'ba6d759fc35fffdd47add56d2b529b03';
+  const TIER_COLORS = { C: '#9ca3af', R: '#60a5fa', SR: '#a78bfa', SSR: '#fbbf24', UR: '#f472b6' };
+
+  function loadImageSafe(url) {
+    return new Promise(resolve => {
+      if (!url) { resolve(null); return; }
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload  = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
+
+  async function generateDeckImage() {
+    if (!currentUser) return;
+    const btn    = document.getElementById('deck-image-btn');
+    const status = document.getElementById('deck-image-status');
+
+    btn.disabled = true;
+    btn.textContent = 'Rendering…';
+    status.innerHTML = '';
+
+    try {
+      const slots = getDeckSlots(currentUser);
+      const cards = slots.map(id => id ? currentUser.cards.find(c => (typeof c === 'object' ? c.id : c) === id) : null);
+
+      const COLS = 3, ROWS = 3;
+      const tileW = 220, tileH = 308, gap = 14, pad = 24;
+      const canvas = document.createElement('canvas');
+      canvas.width  = pad * 2 + tileW * COLS + gap * (COLS - 1);
+      canvas.height = pad * 2 + tileH * ROWS + gap * (ROWS - 1);
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#120c1f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const images = await Promise.all(cards.map(c => loadImageSafe(c?.preRenderedUrl)));
+
+      cards.forEach((card, i) => {
+        const row = Math.floor(i / COLS), col = i % COLS;
+        const x = pad + col * (tileW + gap);
+        const y = pad + row * (tileH + gap);
+        const img = images[i];
+
+        if (card && img) {
+          ctx.drawImage(img, x, y, tileW, tileH);
+          ctx.strokeStyle = TIER_COLORS[card.tier] || '#3a2f5c';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(x + 1.5, y + 1.5, tileW - 3, tileH - 3);
+        } else {
+          ctx.fillStyle = '#1a1330';
+          ctx.fillRect(x, y, tileW, tileH);
+          ctx.strokeStyle = '#3a2f5c';
+          ctx.setLineDash([8, 6]);
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x + 1, y + 1, tileW - 2, tileH - 2);
+          ctx.setLineDash([]);
+        }
+      });
+
+      let blob;
+      try {
+        blob = await new Promise((resolve, reject) => {
+          canvas.toBlob(b => b ? resolve(b) : reject(new Error('blob_null')), 'image/jpeg', 0.92);
+        });
+      } catch (e) { throw new Error('STEP_CANVAS: ' + e.message); }
+
+      let deckImageUrl;
+      try {
+        const form = new FormData();
+        form.append('image', blob, 'deck.jpg');
+        const uploadRes = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: form });
+        const json = await uploadRes.json();
+        if (!json.success || !json.data?.url) throw new Error('bad_response: ' + JSON.stringify(json).slice(0, 150));
+        deckImageUrl = json.data.url;
+      } catch (e) { throw new Error('STEP_UPLOAD: ' + e.message); }
+
+      try {
+        await API.updateUserData(currentUser._rowId, currentUser._raw, { webDeckUrl: deckImageUrl });
+        currentUser._raw.webDeckUrl = deckImageUrl;
+      } catch (e) { throw new Error('STEP_SAVE: ' + e.message); }
+
+      status.innerHTML = `<span style="color:var(--success);">✅ Saved!</span> <a href="${deckImageUrl}" target="_blank" rel="noopener" style="color:var(--accent);">View image</a>`;
+    } catch (err) {
+      console.error('[Deck Image]', err);
+      const msg = err?.message || '';
+      let display;
+      if (msg.startsWith('STEP_CANVAS'))       display = "Failed rendering — card art host may be blocking cross-origin canvas export (CORS).";
+      else if (msg.startsWith('STEP_UPLOAD'))  display = "Failed uploading to imgbb — check the API key. See console for details.";
+      else if (msg.startsWith('STEP_SAVE'))    display = 'Image uploaded, but saving the URL to Supabase failed. Check Supabase permissions.';
+      else                                     display = 'Something went wrong — check the browser console.';
+      status.innerHTML = `<span style="color:var(--danger);">❌ ${display}</span>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📤 Update WhatsApp Image';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    renderSidebar('deck');
+    loadDeckPage();
+  });
+</script>
+</body>
+</html>
+
