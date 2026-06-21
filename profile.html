@@ -452,6 +452,168 @@
       padding: 0.5rem 0;
     }
 
+    /* ── Deck Showcase ────────────────────────────────── */
+    .deck-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+      gap: 8px;
+    }
+
+    .deck-tile {
+      aspect-ratio: 5 / 7;
+      border-radius: var(--radius);
+      overflow: hidden;
+      position: relative;
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      transition: border-color .15s, transform .15s;
+    }
+
+    .deck-tile.filled { cursor: pointer; }
+    .deck-tile.filled:hover { transform: translateY(-2px); }
+
+    .deck-tile img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .deck-tile-name {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      padding: 4px 5px 5px;
+      font-size: 9.5px;
+      font-weight: 600;
+      color: #fff;
+      background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .deck-tile.empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-style: dashed;
+      cursor: pointer;
+    }
+
+    .deck-tile.empty:hover {
+      border-color: var(--border-2);
+      background: var(--bg-4);
+    }
+
+    .deck-tile.empty span {
+      font-size: 18px;
+      color: var(--text-3);
+      opacity: 0.5;
+    }
+
+    .deck-tile-remove {
+      position: absolute;
+      top: 3px; right: 3px;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      font-size: 10px;
+      line-height: 18px;
+      text-align: center;
+      cursor: pointer;
+      padding: 0;
+      z-index: 2;
+    }
+
+    .deck-tile-remove:hover { background: var(--danger); }
+
+    /* ── Card Picker ──────────────────────────────────── */
+    .picker-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 410;
+      background: rgba(0,0,0,.7);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      animation: fadeIn .2s ease;
+    }
+
+    .picker-overlay.open { display: flex; }
+
+    .picker-card {
+      background: var(--bg-2);
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius-xl, 20px);
+      width: 100%;
+      max-width: 420px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 80px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.04);
+      animation: popupIn .25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .picker-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.1rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .picker-header button {
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      width: 26px; height: 26px;
+      color: var(--text-2);
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    #picker-list {
+      overflow-y: auto;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .picker-item {
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 7px 9px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+
+    .picker-item img {
+      width: 30px; height: 42px;
+      object-fit: cover;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .picker-item:hover { border-color: var(--border-2); background: var(--bg-4); }
+
+    .picker-item.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
     /* ── Win rate bar ─────────────────────────────────── */
     .wr-bar-wrap {
       background: var(--bg-3);
@@ -763,11 +925,102 @@
   </div>
 </div>
 
+<!-- Deck Card Picker -->
+<div class="picker-overlay" id="picker-overlay" onclick="closeSlotPicker(event)">
+  <div class="picker-card">
+    <div class="picker-header">
+      <span>Choose a card</span>
+      <button onclick="closeSlotPicker()">✕</button>
+    </div>
+    <div id="picker-list"></div>
+  </div>
+</div>
+
 <script src="data/config.js"></script>
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
 <script src="js/profile.js"></script>
 <script>
+  // Holds the last-loaded profile so deck-builder click handlers (which are
+  // plain global onclick attributes) can read/write it without re-fetching.
+  let currentUser = null;
+  const DECK_SIZE = 9; // number of tiles in the deck grid
+
+  // Always returns an array of exactly DECK_SIZE entries (card id or null),
+  // padding/truncating whatever's actually saved in Supabase.
+  function getDeckSlots(user) {
+    const saved = Array.isArray(user._raw?.deck?.slots) ? user._raw.deck.slots : [];
+    const slots = saved.slice(0, DECK_SIZE);
+    while (slots.length < DECK_SIZE) slots.push(null);
+    return slots;
+  }
+
+  // Persists a full slots array to Supabase and refreshes the page from it
+  async function saveDeckSlots(slots) {
+    if (!currentUser) return;
+    const updatedDeck = { ...(currentUser._raw.deck || {}), slots };
+    await API.updateUserData(currentUser._rowId, currentUser._raw, { deck: updatedDeck });
+    await loadMyProfile(); // re-fetch so the grid reflects the saved state
+  }
+
+  async function removeFromDeck(slotIndex) {
+    if (!currentUser) return;
+    const slots = getDeckSlots(currentUser);
+    slots[slotIndex] = null;
+    await saveDeckSlots(slots);
+  }
+
+  /* ── Card Picker (place a card into an empty deck slot) ──────────── */
+  let pickerSlotIndex = null;
+
+  function openSlotPicker(slotIndex) {
+    if (!currentUser) return;
+    pickerSlotIndex = slotIndex;
+
+    const usedIds = new Set(getDeckSlots(currentUser).filter(Boolean));
+    const list = document.getElementById('picker-list');
+
+    if (!currentUser.cards.length) {
+      list.innerHTML = '<div class="inv-empty">You don\'t have any cards yet.</div>';
+    } else {
+      list.innerHTML = currentUser.cards.map(c => {
+        const card = typeof c === 'object' ? c : { name: c };
+        const inUse = card.id && usedIds.has(card.id);
+        const safeJson = JSON.stringify(JSON.stringify(card));
+        return `
+          <div class="picker-item ${inUse ? 'disabled' : ''}" ${inUse ? '' : `onclick="placeInSlot(${safeJson})"`}>
+            ${card.preRenderedUrl
+              ? `<img src="${card.preRenderedUrl}" alt="">`
+              : `<span style="font-size:18px;">🃏</span>`
+            }
+            <div style="min-width:0;flex:1;">
+              <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${card.name || 'Unknown'}</div>
+              <div style="font-size:10.5px;color:var(--text-3);">${inUse ? 'Already in deck' : (card.badge || card.tier || '')}</div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    document.getElementById('picker-overlay').classList.add('open');
+  }
+
+  function closeSlotPicker(e) {
+    if (e && e.target !== document.getElementById('picker-overlay')) return;
+    document.getElementById('picker-overlay').classList.remove('open');
+    pickerSlotIndex = null;
+  }
+
+  async function placeInSlot(cardJson) {
+    const card = JSON.parse(cardJson);
+    if (pickerSlotIndex === null || !card.id) return;
+
+    const slots = getDeckSlots(currentUser);
+    slots[pickerSlotIndex] = card.id;
+    document.getElementById('picker-overlay').classList.remove('open');
+    pickerSlotIndex = null;
+    await saveDeckSlots(slots);
+  }
+
   /* ── Auth & helpers ────────────────────────────────── */
   function memberLogout() {
     sessionStorage.removeItem('agi_member_phone');
@@ -937,6 +1190,28 @@
       ? user.souvenirs.map(s => `<div class="inv-item"><span>🎁</span><span>${s.name || s}</span></div>`).join('')
       : '<div class="inv-empty">No souvenirs yet</div>';
 
+    // Deck showcase — a fixed grid of slots. Empty slots open the card picker;
+    // filled slots open the card detail popup and carry a small remove button.
+    const deckSlots = getDeckSlots(user);
+    const deckTiles = deckSlots.map((slotId, i) => {
+      const card = slotId ? user.cards.find(c => (typeof c === 'object' ? c.id : c) === slotId) : null;
+
+      if (!card) {
+        return `<div class="deck-tile empty" onclick="openSlotPicker(${i})"><span>+</span></div>`;
+      }
+
+      const safeJson = JSON.stringify(JSON.stringify(card));
+      return `
+        <div class="deck-tile filled" onclick="openCardModal(${safeJson})">
+          ${card.preRenderedUrl
+            ? `<img src="${card.preRenderedUrl}" alt="${card.name || 'Card'}">`
+            : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:24px;">🃏</div>`
+          }
+          <div class="deck-tile-name">${card.name || 'Unknown'}</div>
+          <button class="deck-tile-remove" onclick="event.stopPropagation();removeFromDeck(${i})" title="Remove from deck">✕</button>
+        </div>`;
+    }).join('');
+
     const guildBadge = user.guild ? `<div class="hero-meta-item">⚔️ ${user.guild}</div>` : '';
     const joinDate   = user.joinedAt ? timeAgoFull(user.joinedAt) : null;
     const roleBadge  = user.role ? App.roleBadge(user.role) : '';
@@ -1072,6 +1347,12 @@
           <div class="pp-history-list">${recentPP}</div>
         </div>
 
+        <!-- Deck Showcase -->
+        <div class="profile-card full-width fade-in">
+          <div class="card-title">🎴 Deck</div>
+          <div class="deck-grid">${deckTiles}</div>
+        </div>
+
         <!-- Cards & Souvenirs -->
         <div class="profile-card fade-in">
           <div class="card-title">🃏 Cards (${user.cards.length})</div>
@@ -1098,6 +1379,8 @@
       document.getElementById('not-found').style.display = 'block';
       return;
     }
+
+    currentUser = user;
 
     const content = document.getElementById('profile-content');
     content.style.display = 'block';
