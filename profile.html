@@ -986,9 +986,9 @@
       list.innerHTML = currentUser.cards.map(c => {
         const card = typeof c === 'object' ? c : { name: c };
         const inUse = card.id && usedIds.has(card.id);
-        const safeJson = JSON.stringify(JSON.stringify(card));
+        const disabled = inUse || !card.id;
         return `
-          <div class="picker-item ${inUse ? 'disabled' : ''}" ${inUse ? '' : `onclick="placeInSlot(${safeJson})"`}>
+          <div class="picker-item ${disabled ? 'disabled' : ''}" ${disabled ? '' : `onclick="placeInSlot('${card.id}')"`}>
             ${card.preRenderedUrl
               ? `<img src="${card.preRenderedUrl}" alt="">`
               : `<span style="font-size:18px;">🃏</span>`
@@ -1010,12 +1010,11 @@
     pickerSlotIndex = null;
   }
 
-  async function placeInSlot(cardJson) {
-    const card = JSON.parse(cardJson);
-    if (pickerSlotIndex === null || !card.id) return;
+  async function placeInSlot(cardId) {
+    if (pickerSlotIndex === null || !cardId) return;
 
     const slots = getDeckSlots(currentUser);
-    slots[pickerSlotIndex] = card.id;
+    slots[pickerSlotIndex] = cardId;
     document.getElementById('picker-overlay').classList.remove('open');
     pickerSlotIndex = null;
     await saveDeckSlots(slots);
