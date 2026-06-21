@@ -511,11 +511,11 @@
 <script src="js/api.js"></script>
 <script>
   // Guard: if config.js or api.js failed to load (wrong path, 404), surface it instead of dying silently
-  if (typeof CONFIG === 'undefined' || typeof MongoAPI === 'undefined' || typeof API === 'undefined') {
+  if (typeof CONFIG === 'undefined' || typeof PPApi === 'undefined') {
     document.body.innerHTML = '<div style="padding:3rem;text-align:center;font-family:monospace;color:#e84f6b;">' +
       '⚠ Failed to load config.js or api.js — check the script paths at the bottom of admin.html match your real folder structure.' +
       '</div>';
-    throw new Error('CONFIG, API, or MongoAPI not loaded — aborting admin.html script');
+    throw new Error('CONFIG or PPApi not loaded — aborting admin.html script');
   }
 
   let mode = 'grant';
@@ -567,18 +567,25 @@
     btn.disabled = true;
     btn.textContent = 'Applying…';
 
-    const res = await MongoAPI.grantPP(phone, signedAmount, reason || (mode === 'grant' ? 'Admin grant' : 'Admin deduction'), 'admin');
+    // Look up the player by phone so we have their row id + current data to merge into
+    const rows = await API.getUserByPhone(phone);
+    const row  = rows?.[0];
 
-    btn.disabled = false;
-    btn.textContent = 'Apply';
-
-    if (!res) {
-      resultEl.textContent = 'Failed to update — check the phone number exists in the system.';
+    if (!row) {
+      btn.disabled = false;
+      btn.textContent = 'Apply';
+      resultEl.textContent = 'No player found with that phone number.';
       resultEl.classList.add('err');
       return;
     }
 
-    resultEl.textContent = `Done — ${phone} now has ${(res.prime_points ?? 0).toLocaleString()} PP.`;
+    const data = typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {});
+    const res  = await PPApi.adjustPP(row.id, data, signedAmount, reason || (mode === 'grant' ? 'Admin grant' : 'Admin deduction'), 'admin');
+
+    btn.disabled = false;
+    btn.textContent = 'Apply';
+
+    resultEl.textContent = `Done — ${phone} now has ${res.primePoints.toLocaleString()} PP (${res.rank}).`;
     resultEl.classList.add('ok');
     document.getElementById('pp-amount').value = '';
     document.getElementById('pp-reason').value = '';
@@ -598,17 +605,23 @@
 
     if (!phone) { resultEl.textContent = 'Enter a phone number.'; resultEl.classList.add('err'); return; }
 
-    const user = await MongoAPI.getUser(phone);
-    if (!user) {
+    const rows = await API.getUserByPhone(phone);
+    const row  = rows?.[0];
+    if (!row) {
       resultEl.textContent = 'No PP profile found for that number.';
       resultEl.classList.add('err');
       return;
     }
 
-    balanceEl.innerHTML = `<strong style="color:var(--text)">◈ ${(user.prime_points ?? 0).toLocaleString()}</strong> PP · 🪙 ${(user.coins ?? 0).toLocaleString()} coins · <span style="color:var(--text-3)">${user.name || phone}</span>`;
+    const data        = typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {});
+    const primePoints = data.primePoints || 0;
+    const rank         = data.rank || PPApi.calcRank(primePoints);
+    const coins         = data.primos || data.coins || 0;
 
-    const history = await MongoAPI.getPPHistory(phone);
-    if (!history || !history.length) {
+    balanceEl.innerHTML = `<strong style="color:var(--text)">◈ ${primePoints.toLocaleString()}</strong> · ${rank} · 🪙 ${coins.toLocaleString()} coins`;
+
+    const history = Array.isArray(data.ppHistory) ? data.ppHistory : [];
+    if (!history.length) {
       listEl.innerHTML = '<div class="pp-history-empty">No transactions yet</div>';
       return;
     }
@@ -620,9 +633,9 @@
         <div class="pp-history-row">
           <div>
             <div class="pp-history-reason">${h.reason || 'PP update'}</div>
-            <div class="pp-history-time">${timeStr} · by ${h.by || h.granted_by || 'system'}</div>
+            <div class="pp-history-time">${timeStr} · by ${h.granted_by || 'system'}</div>
           </div>
-          <div class="pp-history-amt ${(h.pts ?? h.amount ?? 0) > 0 ? 'gain' : 'loss'}">${(h.pts ?? h.amount ?? 0) > 0 ? '+' : ''}${h.pts ?? h.amount ?? 0} ◈</div>
+          <div class="pp-history-amt ${h.amount > 0 ? 'gain' : 'loss'}">${h.amount > 0 ? '+' : ''}${h.amount} ◈</div>
         </div>`;
     }).join('');
   }
@@ -668,4 +681,4 @@
   });
 </script>
 </body>
-</html>
+  </html>
