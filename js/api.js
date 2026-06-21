@@ -106,8 +106,7 @@ const PPApi = (() => {
   const CLAIM_AMOUNT      = 50;                   // PP awarded per daily claim
   const CLAIM_COOLDOWN_MS = 24 * 60 * 60 * 1000;  // 24h between claims
   const HISTORY_CAP       = 30;                   // PP history entries kept per user
-  const PP_TO_COIN_RATE   = 1000;                 // 1 PP = 1000 Prime Coins on withdrawal
-  const INSTANT_LIMIT     = 5000;                 // PP at/above this needs manual (WhatsApp) review
+  const PP_TO_COIN_RATE   = 1000;                 // 1 PP = 1000 Prime Coins (shown in the WhatsApp withdrawal request)
 
   function calcRank(pp) {
     pp = Number(pp) || 0;
@@ -162,32 +161,8 @@ const PPApi = (() => {
     return { claimed: true, amount: CLAIM_AMOUNT, primePoints: newPoints };
   }
 
-  // Convert PP straight into Prime Coins. Caller routes amounts >= INSTANT_LIMIT
-  // to the WhatsApp manual-review flow instead of calling this directly.
-  async function withdrawToCoins(id, data, ppAmount) {
-    data = data || {};
-    const current = data.primePoints || 0;
-    if (!ppAmount || ppAmount <= 0 || ppAmount > current) {
-      return { success: false, reason: 'insufficient_pp' };
-    }
-    const newPoints   = current - ppAmount;
-    const coinsGained = ppAmount * PP_TO_COIN_RATE;
-    const newCoins    = (data.primos || data.coins || 0) + coinsGained;
-    const history     = pushHistory(data, -ppAmount, 'Withdraw to Coins', 'system');
-
-    await API.updateUserData(id, data, {
-      primePoints: newPoints,
-      rank: calcRank(newPoints),
-      ppHistory: history,
-      primos: newCoins,
-      coins: newCoins,
-    });
-
-    return { success: true, primePoints: newPoints, rank: calcRank(newPoints), coinsGained, newCoins };
-  }
-
   return {
-    CLAIM_AMOUNT, CLAIM_COOLDOWN_MS, PP_TO_COIN_RATE, INSTANT_LIMIT,
-    calcRank, adjustPP, getClaimStatus, claimDailyPP, withdrawToCoins,
+    CLAIM_AMOUNT, CLAIM_COOLDOWN_MS, PP_TO_COIN_RATE,
+    calcRank, adjustPP, getClaimStatus, claimDailyPP,
   };
 })();
