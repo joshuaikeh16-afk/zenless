@@ -954,7 +954,7 @@
   }
 
   async function loadMyProfile() {
-    const phone = sessionStorage.getItem('agi_member_phone');
+    const phone = localStorage.getItem('agi_member_phone');
     if (!phone) { window.location.href = 'member-login.html'; return; }
 
     const raw  = await API.getUserByPhone(phone);
@@ -1014,7 +1014,7 @@
   }
 
   async function handleClaimPP() {
-    const phone = sessionStorage.getItem('agi_member_phone');
+    const phone = localStorage.getItem('agi_member_phone');
     const btn   = document.getElementById('claim-pp-btn');
     const label = document.getElementById('claim-pp-label');
     if (!phone || !btn) return;
@@ -1045,8 +1045,8 @@
 
   /* ── Auth & helpers ────────────────────────────────── */
   function memberLogout() {
-    sessionStorage.removeItem('agi_member_phone');
-    sessionStorage.removeItem('agi_member_name');
+    localStorage.removeItem('agi_member_phone');
+    localStorage.removeItem('agi_member_name');
     window.location.href = 'member-login.html';
   }
 
