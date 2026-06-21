@@ -201,7 +201,7 @@ function renderSidebar(activePage) {
     { id: 'guilds',      label: 'Guilds',      href: 'guilds.html' },
     { id: 'games',       label: 'Games',       href: 'games.html' },
     { id: 'staff',       label: 'Shop',       href: 'shop.html' },
-     { id: 'admin',       label: 'Admin',       href: 'admin.html' },
+     { id: 'admin',       label: 'Deck',       href: 'deck.html' },
   ];
  
   const el = document.getElementById('sidebar');
