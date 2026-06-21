@@ -529,6 +529,19 @@
 
     .deck-tile-remove:hover { background: var(--danger); }
 
+    .deck-image-btn {
+      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border-2);
+      background: var(--bg-3);
+      color: var(--text-2);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .deck-image-btn:hover { border-color: var(--accent); color: var(--text); }
+    .deck-image-btn:disabled { opacity: 0.6; cursor: default; }
+
     /* ── Card Picker ──────────────────────────────────── */
     .picker-overlay {
       display: none;
@@ -970,6 +983,95 @@
     await saveDeckSlots(slots);
   }
 
+  /* ── Deck Image (rendered + uploaded for the WhatsApp bot's .deck command) ── */
+  const TIER_COLORS = { C: '#9ca3af', R: '#60a5fa', SR: '#a78bfa', SSR: '#fbbf24', UR: '#f472b6' };
+
+  function loadImageSafe(url) {
+    return new Promise(resolve => {
+      if (!url) { resolve(null); return; }
+      const img = new Image();
+      img.crossOrigin = 'anonymous'; // required to read pixels back off the canvas later
+      img.onload  = () => resolve(img);
+      img.onerror = () => resolve(null); // broken/missing art — draw a placeholder tile instead
+      img.src = url;
+    });
+  }
+
+  async function generateDeckImage() {
+    if (!currentUser) return;
+    const btn    = document.getElementById('deck-image-btn');
+    const status = document.getElementById('deck-image-status');
+
+    btn.disabled = true;
+    btn.textContent = 'Rendering…';
+    status.innerHTML = '';
+
+    try {
+      const slots = getDeckSlots(currentUser);
+      const cards = slots.map(id => id ? currentUser.cards.find(c => (typeof c === 'object' ? c.id : c) === id) : null);
+
+      const COLS = 3, ROWS = 3;
+      const tileW = 220, tileH = 308, gap = 14, pad = 24;
+      const canvas = document.createElement('canvas');
+      canvas.width  = pad * 2 + tileW * COLS + gap * (COLS - 1);
+      canvas.height = pad * 2 + tileH * ROWS + gap * (ROWS - 1);
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#120c1f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Preload every card image in parallel before drawing anything
+      const images = await Promise.all(cards.map(c => loadImageSafe(c?.preRenderedUrl)));
+
+      cards.forEach((card, i) => {
+        const row = Math.floor(i / COLS), col = i % COLS;
+        const x = pad + col * (tileW + gap);
+        const y = pad + row * (tileH + gap);
+        const img = images[i];
+
+        if (card && img) {
+          ctx.drawImage(img, x, y, tileW, tileH);
+          ctx.strokeStyle = TIER_COLORS[card.tier] || '#3a2f5c';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(x + 1.5, y + 1.5, tileW - 3, tileH - 3);
+        } else {
+          ctx.fillStyle = '#1a1330';
+          ctx.fillRect(x, y, tileW, tileH);
+          ctx.strokeStyle = '#3a2f5c';
+          ctx.setLineDash([8, 6]);
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x + 1, y + 1, tileW - 2, tileH - 2);
+          ctx.setLineDash([]);
+        }
+      });
+
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+      if (!blob) throw new Error('canvas_blocked'); // most likely a CORS-tainted canvas
+
+      const form = new FormData();
+      form.append('reqtype', 'fileupload');
+      form.append('fileToUpload', blob, 'deck.jpg');
+
+      const uploadRes = await fetch('https://catbox.moe/user/api.php', { method: 'POST', body: form });
+      const deckImageUrl = (await uploadRes.text()).trim();
+      if (!deckImageUrl.startsWith('http')) throw new Error('upload_failed');
+
+      await API.updateUserData(currentUser._rowId, currentUser._raw, { webDeckUrl: deckImageUrl });
+      currentUser._raw.webDeckUrl = deckImageUrl;
+
+      status.innerHTML = `<span style="color:var(--success);">✅ Saved!</span> <a href="${deckImageUrl}" target="_blank" rel="noopener" style="color:var(--accent);">View image</a>`;
+    } catch (err) {
+      console.error('[Deck Image]', err);
+      const corsLikely = err?.name === 'SecurityError' || err?.message === 'canvas_blocked';
+      status.innerHTML = `<span style="color:var(--danger);">❌ ${corsLikely
+        ? "Failed — the card image host is blocking this (CORS). Can't render the image from the browser."
+        : 'Something went wrong — try again.'}</span>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '📤 Update WhatsApp Image';
+    }
+  }
+
   /* ── Card Picker (place a card into an empty deck slot) ──────────── */
   let pickerSlotIndex = null;
 
@@ -1348,8 +1450,12 @@
 
         <!-- Deck Showcase -->
         <div class="profile-card full-width fade-in">
-          <div class="card-title">🎴 Deck</div>
+          <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+            <span>🎴 Deck</span>
+            <button id="deck-image-btn" class="deck-image-btn" onclick="generateDeckImage()">📤 Update WhatsApp Image</button>
+          </div>
           <div class="deck-grid">${deckTiles}</div>
+          <div id="deck-image-status" style="margin-top:8px;font-size:12px;"></div>
         </div>
 
         <!-- Cards & Souvenirs -->
