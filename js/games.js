@@ -1,92 +1,30 @@
 // ════════════════════════════════════════════════════════════════
 //  games.js — AniGamble HQ · Prime Points Engine
-//  Prime Points: earned by winning games, persisted in MongoDB
-//  (via MongoAPI in api.js), separate from Prime Coins (Supabase wallet).
-//  Can be withdrawn by sending a WhatsApp DM to the admin.
+//  Prime Points live in Supabase now (the same `data` JSONB column as
+//  coins/cards/etc) via PPApi in api.js. No MongoDB involved anymore.
+//  Withdrawals under 5,000 PP convert to Coins instantly; 5,000+ still
+//  routes through a WhatsApp DM to the admin for manual review.
 // ════════════════════════════════════════════════════════════════
  
 'use strict';
- 
-// ────────────────────────────────────────────────────────────
-// PRIME POINTS STORE (MongoDB-backed, with a fast local cache)
-// Reads are instant (served from cache so gameplay stays snappy);
-// every change is also pushed to MongoDB immediately so PP is
-// never lost and is the same across devices.
-// ────────────────────────────────────────────────────────────
-const PP = (() => {
-  let cache = null; // { phone, points, wins, games, history }
-
-  // Load (or create) a player's PP profile from MongoDB and cache it locally
-  async function load(phone, name) {
-    const mu = await MongoAPI.ensureUser(phone, name || '');
-    if (!mu) {
-      // Mongo unreachable — fall back to a zeroed local-only record so the UI doesn't break
-      cache = { phone, points: 0, wins: 0, games: 0, history: [] };
-      return cache;
-    }
-    const history = await MongoAPI.getPPHistory(phone) || [];
-    cache = {
-      phone,
-      points: mu.prime_points || 0,
-      wins:   history.filter(h => h.amount > 0).length,
-      games:  history.length,
-      history: history.slice(0, 30).map(h => ({ points: h.amount, game: h.reason, time: h.timestamp ? new Date(h.timestamp).getTime() : Date.now() })),
-    };
-    return cache;
-  }
-
-  return {
-    // Synchronous — always reads from the local cache (instant, no network wait)
-    get(phone) {
-      if (!cache || cache.phone !== phone) {
-        // Not loaded yet — return a safe zeroed placeholder; load() should be awaited at login
-        return { points: 0, wins: 0, games: 0, history: [] };
-      }
-      return cache;
-    },
-    load,
-    // Apply a PP delta: update the cache instantly, then sync to MongoDB in the background
-    add(phone, points, gameLabel) {
-      if (!cache || cache.phone !== phone) cache = { phone, points: 0, wins: 0, games: 0, history: [] };
-      cache.points += points;
-      cache.games  += 1;
-      if (points > 0) cache.wins += 1;
-      cache.history.unshift({ points, game: gameLabel, time: Date.now() });
-      if (cache.history.length > 30) cache.history.pop();
-
-      // Fire-and-forget sync to MongoDB — UI already updated from cache above
-      MongoAPI.grantPP(phone, points, gameLabel || 'Game result', 'game').then(res => {
-        if (res && res.user) {
-          // Reconcile cache with the authoritative server balance in case of drift
-          cache.points = res.user.prime_points;
-        }
-      });
-
-      return cache;
-    },
-    leaderboard() {
-      // Live leaderboard now comes from MongoAPI.getPPLeaderboard() directly where needed (e.g. leaderboard.js).
-      // This local version only reflects the current player for the in-game sidebar widget.
-      return cache ? [{ phone: cache.phone, ...cache }] : [];
-    },
-    // Called when a cashout request is submitted — records it
-    async recordCashout(phone, amount) {
-      if (!cache || cache.points < amount) return false;
-      cache.points -= amount;
-      cache.history.unshift({ points: -amount, game: 'CASHOUT', time: Date.now() });
-      MongoAPI.grantPP(phone, -amount, 'Cashout request', 'system').then(res => {
-        if (res && res.user) cache.points = res.user.prime_points;
-      });
-      return true;
-    },
-  };
-})();
  
 // ────────────────────────────────────────────────────────────
 // PLAYER STATE
 // ────────────────────────────────────────────────────────────
 let currentPlayer = null;
 let gameActive    = false;
+
+// Chains every PP-affecting write (bets, payouts, withdrawals) so they hit
+// Supabase in order, each building on the previous write's confirmed state
+// instead of a possibly-stale local snapshot. Local UI updates instantly
+// either way — this only governs the order of the background sync.
+let ppSyncChain = Promise.resolve();
+
+function queuePPSync(fn) {
+  const result = ppSyncChain.then(fn);
+  ppSyncChain  = result.catch(() => {});
+  return result;
+}
  
 async function loadPlayer() {
   const phone = document.getElementById('hud-phone').value.trim().replace(/\s+/g, '');
@@ -110,9 +48,6 @@ async function loadPlayer() {
   sessionStorage.setItem('agi_member_phone', user.phone);
   sessionStorage.setItem('agi_member_name',  user.name);
 
-  // Load Prime Points from MongoDB — auto-creates a profile (with 100 PP starter bonus) on first visit
-  await PP.load(user.phone, user.name);
-
   btn.textContent = 'Load Player';
   btn.disabled    = false;
 
@@ -125,18 +60,21 @@ async function loadPlayer() {
  
 function refreshHUD() {
   if (!currentPlayer) return;
-  const pp = PP.get(currentPlayer.phone);
+  const points  = currentPlayer.primePoints || 0;
+  const history = currentPlayer.ppHistory || [];
+  const wins    = history.filter(h => h.amount > 0).length;
+  const games   = history.length;
   document.getElementById('hud-avatar').innerHTML    = App.renderAvatar(currentPlayer, 42);
   document.getElementById('hud-name').textContent    = currentPlayer.name;
   document.getElementById('hud-name').className      = 'hud-name';
   document.getElementById('hud-coins').textContent   = App.formatCoins(currentPlayer.coins);
-  document.getElementById('hud-pp').textContent      = pp.points.toLocaleString();
-  document.getElementById('hud-pp-wins').textContent = `${pp.wins}W / ${pp.games}G`;
+  document.getElementById('hud-pp').textContent      = points.toLocaleString();
+  document.getElementById('hud-pp-wins').textContent = `${wins}W / ${games}G`;
   // Show warning if PP is 0
   const ppEl = document.getElementById('hud-pp');
   if (ppEl) {
-    ppEl.style.color = pp.points === 0 ? 'var(--danger)' : '#a78bfa';
-    ppEl.title = pp.points === 0 ? 'No Prime Points — DM admin to buy some!' : `${pp.points} Prime Points available to gamble`;
+    ppEl.style.color = points === 0 ? 'var(--danger)' : '#a78bfa';
+    ppEl.title = points === 0 ? 'No Prime Points — DM admin to buy some!' : `${points} Prime Points available to gamble`;
   }
   renderPPLeaderboard();
 }
@@ -144,25 +82,46 @@ function refreshHUD() {
 async function syncCoins(delta) {
   if (!currentPlayer) return;
   const newCoins = Math.max(0, currentPlayer.coins + delta);
-  const updatedData = { ...currentPlayer.raw, primos: newCoins, coins: newCoins };
+  const updatedData = { ...currentPlayer._raw, primos: newCoins, coins: newCoins };
   await API.updateUser(currentPlayer.id, { data: updatedData });
+  currentPlayer._raw     = updatedData;
   currentPlayer.coins    = newCoins;
   currentPlayer.netWorth = newCoins + (currentPlayer.bank || 0);
   refreshHUD();
 }
 
-// Deduct / credit Prime Points for gambling (instant local update + background MongoDB sync)
-function syncPP(delta, gameLabel) {
+// Apply a PP delta: update currentPlayer instantly for snappy gameplay, then
+// queue the Supabase sync in the background (see queuePPSync / ppSyncChain above).
+function applyPPDelta(delta, reason, grantedBy) {
   if (!currentPlayer) return;
-  PP.add(currentPlayer.phone, delta, gameLabel || 'bet');
+
+  currentPlayer.primePoints = Math.max(0, (currentPlayer.primePoints || 0) + delta);
+  currentPlayer.ppHistory   = currentPlayer.ppHistory || [];
+  currentPlayer.ppHistory.unshift({ amount: delta, reason, granted_by: grantedBy, timestamp: new Date().toISOString() });
+  if (currentPlayer.ppHistory.length > 30) currentPlayer.ppHistory.length = 30;
+  currentPlayer.rank = PPApi.calcRank(currentPlayer.primePoints);
   refreshHUD();
+
+  queuePPSync(async () => {
+    if (!currentPlayer) return;
+    const res = await PPApi.adjustPP(currentPlayer.id, currentPlayer._raw, delta, reason, grantedBy);
+    if (res && currentPlayer) {
+      currentPlayer.primePoints = res.primePoints;
+      currentPlayer.rank        = res.rank;
+      currentPlayer.ppHistory   = res.ppHistory;
+      currentPlayer._raw        = { ...currentPlayer._raw, primePoints: res.primePoints, rank: res.rank, ppHistory: res.ppHistory };
+    }
+  });
+}
+
+// Deduct / credit Prime Points for gambling (instant local update + background Supabase sync)
+function syncPP(delta, gameLabel) {
+  applyPPDelta(delta, gameLabel || 'bet', 'game');
 }
  
-// Award Prime Points (instant local update + background MongoDB sync)
+// Award Prime Points (instant local update + background Supabase sync)
 function awardPP(points, gameLabel) {
-  if (!currentPlayer) return;
-  PP.add(currentPlayer.phone, points, gameLabel);
-  refreshHUD();
+  applyPPDelta(points, gameLabel, 'game');
   if (points > 0) {
     showPPFlash(`+${points} PP`);
   }
@@ -180,8 +139,7 @@ function checkBet(betId) {
   const bet = parseInt(document.getElementById(betId).value);
   if (!currentPlayer)             { App.showToast('Load your player first!', 'info'); return null; }
   if (isNaN(bet) || bet < 50)     { App.showToast('Minimum bet is 50 Prime Points', 'info'); return null; }
-  const pp = PP.get(currentPlayer.phone);
-  if (bet > pp.points) {
+  if (bet > (currentPlayer.primePoints || 0)) {
     App.showToast('Not enough Prime Points! Buy more via admin DM. ◈', 'info');
     return null;
   }
@@ -197,8 +155,8 @@ async function renderPPLeaderboard() {
   const list = document.getElementById('pp-lb-list');
   if (!list) return;
 
-  const res   = await MongoAPI.getPPLeaderboard(20);
-  const board = (res?.users || []).filter(u => u.prime_points > 0);
+  const rows  = await API.getPPLeaderboard(20);
+  const board = App.parseUsers(rows).filter(u => (u.primePoints || 0) > 0);
   const medals = ['🥇','🥈','🥉'];
  
   if (!board.length) {
@@ -210,10 +168,10 @@ async function renderPPLeaderboard() {
     <div class="pp-lb-row ${currentPlayer && entry.phone === currentPlayer.phone ? 'pp-lb-me' : ''}">
       <span class="pp-lb-rank">${medals[i] || (i + 1)}</span>
       <div class="pp-lb-info">
-        <div class="pp-lb-phone">${entry.display_name || entry.phone}</div>
-        <div class="pp-lb-sub">${entry.rank}</div>
+        <div class="pp-lb-phone">${entry.name || entry.phone}</div>
+        <div class="pp-lb-sub">${entry.rank || PPApi.calcRank(entry.primePoints)}</div>
       </div>
-      <div class="pp-lb-pts">${entry.prime_points.toLocaleString()} <span class="pp-unit">PP</span></div>
+      <div class="pp-lb-pts">${entry.primePoints.toLocaleString()} <span class="pp-unit">PP</span></div>
     </div>
   `).join('');
 }
@@ -223,11 +181,10 @@ async function renderPPLeaderboard() {
 // ────────────────────────────────────────────────────────────
 function openCashoutModal() {
   if (!currentPlayer) { App.showToast('Load your player first!', 'info'); return; }
-  const pp = PP.get(currentPlayer.phone);
   const overlay = document.getElementById('cashout-modal');
   document.getElementById('co-player-name').textContent  = currentPlayer.name;
   document.getElementById('co-player-phone').textContent = currentPlayer.phone;
-  document.getElementById('co-pp-balance').textContent   = pp.points.toLocaleString();
+  document.getElementById('co-pp-balance').textContent   = (currentPlayer.primePoints || 0).toLocaleString();
   document.getElementById('co-amount').value             = '';
   document.getElementById('co-result').innerHTML         = '';
   overlay.classList.add('open');
@@ -241,39 +198,86 @@ async function submitCashout() {
   const amount = parseInt(document.getElementById('co-amount').value);
   const note   = document.getElementById('co-note').value.trim();
   const resEl  = document.getElementById('co-result');
- 
+  const btn    = document.getElementById('co-submit-btn');
+
   if (!currentPlayer) return;
-  const pp = PP.get(currentPlayer.phone);
- 
-  if (isNaN(amount) || amount < 500) {
-    resEl.innerHTML = `<div class="co-error">Minimum cashout is 500 PP.</div>`;
+  const MIN_WITHDRAW = 500;
+  const points = currentPlayer.primePoints || 0;
+
+  if (isNaN(amount) || amount < MIN_WITHDRAW) {
+    resEl.innerHTML = `<div class="co-error">Minimum withdrawal is ${MIN_WITHDRAW} PP.</div>`;
     return;
   }
-  if (amount > pp.points) {
-    resEl.innerHTML = `<div class="co-error">You only have ${pp.points.toLocaleString()} PP.</div>`;
+  if (amount > points) {
+    resEl.innerHTML = `<div class="co-error">You only have ${points.toLocaleString()} PP.</div>`;
     return;
   }
- 
-  // Build WhatsApp deep link with pre-filled message to admin
+
+  btn.disabled = true;
+  btn.textContent = 'Processing…';
+
+  // Under the instant limit — convert PP straight into Coins, no admin needed
+  if (amount < PPApi.INSTANT_LIMIT) {
+    const result = await queuePPSync(() => PPApi.withdrawToCoins(currentPlayer.id, currentPlayer._raw, amount));
+    btn.disabled = false;
+    btn.textContent = 'Withdraw →';
+
+    if (!result || !result.success) {
+      resEl.innerHTML = `<div class="co-error">Something went wrong — try again.</div>`;
+      return;
+    }
+
+    currentPlayer.primePoints = result.primePoints;
+    currentPlayer.rank        = result.rank;
+    currentPlayer.coins       = result.newCoins;
+    currentPlayer.netWorth    = result.newCoins + (currentPlayer.bank || 0);
+    currentPlayer._raw        = {
+      ...currentPlayer._raw,
+      primePoints: result.primePoints,
+      rank: result.rank,
+      primos: result.newCoins,
+      coins: result.newCoins,
+    };
+    refreshHUD();
+
+    resEl.innerHTML = `
+      <div class="co-success">
+        <div class="co-success-title">✅ Converted instantly!</div>
+        <div class="co-success-sub">${amount.toLocaleString()} PP → ${App.formatCoins(result.coinsGained)} Coins added to your wallet.</div>
+      </div>`;
+    document.getElementById('co-amount').value = '';
+    return;
+  }
+
+  // 5,000 PP or more — deduct now, route to the admin via WhatsApp for manual review
+  const coinsEquivalent = amount * PPApi.PP_TO_COIN_RATE;
   const ADMIN_WHATSAPP = '2348123534689'; // ← replace with actual admin number
   const msg = encodeURIComponent(
-    `[PP CASHOUT REQUEST]\n` +
+    `[PP WITHDRAWAL — LARGE AMOUNT]\n` +
     `Name: ${currentPlayer.name}\n` +
     `Phone: ${currentPlayer.phone}\n` +
-    `Amount: ${amount} Prime Points\n` +
+    `Amount: ${amount.toLocaleString()} Prime Points (≈ ${coinsEquivalent.toLocaleString()} Coins)\n` +
     (note ? `Note: ${note}\n` : '') +
     `Time: ${new Date().toLocaleString()}`
   );
   const waLink = `https://wa.me/${ADMIN_WHATSAPP}?text=${msg}`;
- 
-  // Deduct PP (instant local update + background MongoDB sync)
-  await PP.recordCashout(currentPlayer.phone, amount);
-  refreshHUD();
+
+  const res = await queuePPSync(() => PPApi.adjustPP(currentPlayer.id, currentPlayer._raw, -amount, 'Withdraw (manual review)', 'system'));
+  btn.disabled = false;
+  btn.textContent = 'Withdraw →';
+
+  if (res) {
+    currentPlayer.primePoints = res.primePoints;
+    currentPlayer.rank        = res.rank;
+    currentPlayer.ppHistory   = res.ppHistory;
+    currentPlayer._raw        = { ...currentPlayer._raw, primePoints: res.primePoints, rank: res.rank, ppHistory: res.ppHistory };
+    refreshHUD();
+  }
  
   resEl.innerHTML = `
     <div class="co-success">
       <div class="co-success-title">✅ Request ready!</div>
-      <div class="co-success-sub">${amount} PP deducted from your balance. Send the pre-filled message to the admin to complete your cashout.</div>
+      <div class="co-success-sub">${amount.toLocaleString()} PP deducted — this amount needs manual review. Send the pre-filled message to the admin to complete it.</div>
       <a class="co-wa-btn" href="${waLink}" target="_blank" rel="noopener">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
         Open WhatsApp to send request
@@ -851,7 +855,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const user = App.parseUser(raw?.[0]);
     if (user) {
       currentPlayer = user;
-      await PP.load(user.phone, user.name);
       refreshHUD();
       const loadSection = document.getElementById('hud-load-section');
       if (loadSection) loadSection.style.display = 'none';
