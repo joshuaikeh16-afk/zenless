@@ -443,6 +443,7 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="data/config.js"></script>
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
@@ -482,7 +483,12 @@
     const grid = document.getElementById('deck-grid');
     if (!grid) return;
     const preset = BG_PRESETS.find(p => p.key === key);
-    if (!preset || ppPoints < preset.price) { grid.style.background = ''; return; }
+    if (!preset) return;
+
+    const owned = currentUser ? getOwnedBgs(currentUser) : new Set();
+    const unlocked = preset.price === 0 || owned.has(key);
+    if (!unlocked) { grid.style.background = ''; return; }
+
     if (key === 'custom') {
       const phone = sessionStorage.getItem('agi_member_phone');
       grid.style.background = localStorage.getItem(bgKey(phone) + '_custom') || '#1a1040';
@@ -494,30 +500,84 @@
   function rebuildBgOptions(ppPoints, current) {
     const container = document.getElementById('bg-options-row');
     if (!container) return;
+    const owned = currentUser ? getOwnedBgs(currentUser) : new Set();
     container.innerHTML = BG_PRESETS.map(p => {
-      const locked = ppPoints < p.price;
-      const priceLabel = p.price > 0 ? `◈ ${(p.price / 1000).toFixed(0)}k` : 'Free';
+      const unlocked  = p.price === 0 || owned.has(p.key);
+      const affordable = ppPoints >= p.price;
+      const locked    = !unlocked;
+      const priceLabel = p.price > 0
+        ? (unlocked ? '✓ Owned' : `◈ ${(p.price / 1000).toFixed(0)}k`)
+        : 'Free';
       return `
         <div class="bg-option ${current === p.key ? 'active' : ''}" onclick="chooseBg('${p.key}')">
           <div class="bg-option-swatch" style="${p.swatch}">
             ${locked ? '<div class="swatch-locked-overlay">🔒</div>' : ''}
           </div>
           <div class="bg-option-label">${p.label}</div>
-          <div class="bg-option-price">${priceLabel}</div>
+          <div class="bg-option-price" style="${unlocked && p.price > 0 ? 'color:var(--success)' : ''}">${priceLabel}</div>
         </div>`;
     }).join('');
   }
 
-  function chooseBg(key) {
+  // Returns the set of background keys the user has already purchased (stored in their data)
+  function getOwnedBgs(user) {
+    const owned = user._raw?.deckBgsOwned;
+    if (Array.isArray(owned)) return new Set(owned);
+    return new Set(); // free ones are always accessible, no need to list them
+  }
+
+  async function chooseBg(key) {
     if (!currentUser) return;
     const ppPoints = currentUser.primePoints || 0;
     const preset   = BG_PRESETS.find(p => p.key === key);
     if (!preset) return;
 
-    if (ppPoints < preset.price) {
-      const need = (preset.price - ppPoints).toLocaleString();
-      App.showToast(`◈ ${need} Prime Points needed to unlock ${preset.label.replace(/\s*[^\w\s].*/,'')}.`, 'error');
-      return;
+    const owned = getOwnedBgs(currentUser);
+    const alreadyOwned = preset.price === 0 || owned.has(key);
+
+    // Locked and not yet purchased — deduct PP first
+    if (!alreadyOwned) {
+      if (ppPoints < preset.price) {
+        const need = (preset.price - ppPoints).toLocaleString();
+        App.showToast(`◈ ${need} Prime Points needed to unlock ${preset.label.replace(/\s*[\u{1F000}-\u{1FFFF}✨💗].*/u, '').trim()}.`, 'error');
+        return;
+      }
+
+      // Confirm purchase then deduct
+      const confirmed = confirm(`Purchase ${preset.label.replace(/\s*[\u{1F000}-\u{1FFFF}✨💗].*/u, '').trim()} background for ◈ ${preset.price.toLocaleString()} Prime Points?`);
+      if (!confirmed) return;
+
+      try {
+        // Deduct PP and record history entry
+        const raw  = currentUser._raw;
+        const data = typeof raw.data === 'string' ? JSON.parse(raw.data) : { ...(raw.data || {}) };
+
+        const currentPP   = data.primePoints ?? 0;
+        const newPP       = currentPP - preset.price;
+        const histEntry   = { amount: -preset.price, reason: `Bought ${preset.label.replace(/\s*[\u{1F000}-\u{1FFFF}✨💗].*/u, '').trim()} deck background`, timestamp: Date.now() };
+        const newHistory  = [histEntry, ...(data.ppHistory || [])];
+        const newOwned    = [...Array.from(owned), key];
+
+        await API.updateUserData(currentUser._rowId, raw, {
+          primePoints:   newPP,
+          ppHistory:     newHistory,
+          deckBgsOwned:  newOwned,
+        });
+
+        // Update local currentUser so the UI reflects new balance immediately
+        currentUser._raw.deckBgsOwned = newOwned;
+        if (typeof currentUser._raw.data === 'object') {
+          currentUser._raw.data.primePoints = newPP;
+          currentUser._raw.data.ppHistory   = newHistory;
+        }
+        currentUser.primePoints = newPP;
+
+        App.showToast(`${preset.label} background unlocked! ◈ ${preset.price.toLocaleString()} spent.`, 'success');
+      } catch (e) {
+        console.error('[BG Purchase]', e);
+        App.showToast('Purchase failed — try again.', 'error');
+        return;
+      }
     }
 
     if (key === 'custom') {
@@ -536,6 +596,8 @@
       } else {
         picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
       }
+      // Rebuild so lock icon updates after purchase
+      rebuildBgOptions(currentUser.primePoints || 0, key);
       return;
     }
 
@@ -545,14 +607,14 @@
 
     const phone = sessionStorage.getItem('agi_member_phone');
     localStorage.setItem(bgKey(phone), key);
-    applyDeckBackground(key, ppPoints);
-    rebuildBgOptions(ppPoints, key);
+    applyDeckBackground(key, currentUser.primePoints || 0);
+    rebuildBgOptions(currentUser.primePoints || 0, key);
   }
 
   function applyCustomColor() {
     if (!currentUser) return;
-    const ppPoints = currentUser.primePoints || 0;
-    if (ppPoints < 250000) return;
+    const owned = getOwnedBgs(currentUser);
+    if (!owned.has('custom')) return; // shouldn't happen but guard it
     const inp = document.getElementById('custom-color-input');
     if (!inp) return;
     const hex   = inp.value;
@@ -561,7 +623,7 @@
     localStorage.setItem(bgKey(phone) + '_custom', hex);
     const grid = document.getElementById('deck-grid');
     if (grid) grid.style.background = hex;
-    rebuildBgOptions(ppPoints, 'custom');
+    rebuildBgOptions(currentUser.primePoints || 0, 'custom');
   }
 
   function getDeckSlots(user) {
@@ -703,103 +765,66 @@
     await saveDeckSlots(slots);
   }
 
-  /* ── Deck Image Generator ─────────────────────────────── */
-  const IMGBB_API_KEY = 'ba6d759fc35fffdd47add56d2b529b03';
-  const TIER_COLORS = { C: '#9ca3af', R: '#60a5fa', SR: '#a78bfa', SSR: '#fbbf24', UR: '#f472b6' };
-
-  function loadImageSafe(url) {
-    return new Promise(resolve => {
-      if (!url) { resolve(null); return; }
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload  = () => resolve(img);
-      img.onerror = () => resolve(null);
-      img.src = url;
-    });
-  }
-
+  /* ── Deck Image Generator (html2canvas HD) ───────────── */
   async function generateDeckImage() {
     if (!currentUser) return;
-    const btn    = document.getElementById('deck-image-btn');
-    const status = document.getElementById('deck-image-status');
+    const btn     = document.getElementById('deck-image-btn');
+    const status  = document.getElementById('deck-image-status');
+    const deckGrid = document.getElementById('deck-grid');
+    if (!deckGrid) return;
 
     btn.disabled = true;
     btn.textContent = 'Rendering…';
-    status.innerHTML = '';
+    status.innerHTML = '⏳ Generating high-res showcase...';
 
     try {
-      const slots = getDeckSlots(currentUser);
-      const cards = Array.from({ length: DECK_SIZE }, (_, i) => {
-        const id = slots[i + 1];
-        return id ? currentUser.cards.find(c => (typeof c === 'object' ? c.id : c) === id) : null;
+      // Render the live DOM grid at 3× for crisp HD output
+      const canvas = await html2canvas(deckGrid, {
+        scale:        3,
+        useCORS:      true,
+        allowTaint:   false,
+        logging:      false,
+        imageTimeout: 0,
       });
 
-      const COLS = 3, ROWS = 3;
-      const tileW = 220, tileH = 308, gap = 14, pad = 24;
-      const canvas = document.createElement('canvas');
-      canvas.width  = pad * 2 + tileW * COLS + gap * (COLS - 1);
-      canvas.height = pad * 2 + tileH * ROWS + gap * (ROWS - 1);
-      const ctx = canvas.getContext('2d');
-
-      ctx.fillStyle = '#120c1f';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      const images = await Promise.all(cards.map(c => loadImageSafe(c?.preRenderedUrl)));
-
-      cards.forEach((card, i) => {
-        const row = Math.floor(i / COLS), col = i % COLS;
-        const x = pad + col * (tileW + gap);
-        const y = pad + row * (tileH + gap);
-        const img = images[i];
-
-        if (card && img) {
-          ctx.drawImage(img, x, y, tileW, tileH);
-          ctx.strokeStyle = TIER_COLORS[card.tier] || '#3a2f5c';
-          ctx.lineWidth = 3;
-          ctx.strokeRect(x + 1.5, y + 1.5, tileW - 3, tileH - 3);
-        } else {
-          ctx.fillStyle = '#1a1330';
-          ctx.fillRect(x, y, tileW, tileH);
-          ctx.strokeStyle = '#3a2f5c';
-          ctx.setLineDash([8, 6]);
-          ctx.lineWidth = 2;
-          ctx.strokeRect(x + 1, y + 1, tileW - 2, tileH - 2);
-          ctx.setLineDash([]);
-        }
+      // Export as lossless PNG blob
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob(b => b ? resolve(b) : reject(new Error('blob_null')), 'image/png');
       });
 
-      let blob;
-      try {
-        blob = await new Promise((resolve, reject) => {
-          canvas.toBlob(b => b ? resolve(b) : reject(new Error('blob_null')), 'image/jpeg', 0.92);
-        });
-      } catch (e) { throw new Error('STEP_CANVAS: ' + e.message); }
+      status.innerHTML = '📤 Uploading HD image...';
 
-      let deckImageUrl;
-      try {
-        const form = new FormData();
-        form.append('image', blob, 'deck.jpg');
-        const uploadRes = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: form });
-        const json = await uploadRes.json();
-        if (!json.success || !json.data?.url) throw new Error('bad_response: ' + JSON.stringify(json).slice(0, 150));
-        deckImageUrl = json.data.url;
-      } catch (e) { throw new Error('STEP_UPLOAD: ' + e.message); }
+      // Upload to your bot's endpoint
+      const phone    = sessionStorage.getItem('agi_member_phone') || 'unknown';
+      const formData = new FormData();
+      formData.append('deck_image', blob, `deck_${phone}_${Date.now()}.png`);
+      formData.append('phone', phone);
 
+      const response = await fetch('/api/upload-deck-image', {
+        method: 'POST',
+        body:   formData,
+      });
+
+      if (!response.ok) throw new Error(`Server error: ${response.status}`);
+
+      // Also save the URL back to Supabase if the server returns one
+      let deckImageUrl = null;
       try {
+        const json = await response.json();
+        deckImageUrl = json?.url || json?.data?.url || null;
+      } catch (_) { /* server returned no JSON body — that's fine */ }
+
+      if (deckImageUrl) {
         await API.updateUserData(currentUser._rowId, currentUser._raw, { webDeckUrl: deckImageUrl });
         currentUser._raw.webDeckUrl = deckImageUrl;
-      } catch (e) { throw new Error('STEP_SAVE: ' + e.message); }
+        status.innerHTML = `<span style="color:var(--success);">✨ Synced in HD!</span> <a href="${deckImageUrl}" target="_blank" rel="noopener" style="color:var(--accent);">View image</a>`;
+      } else {
+        status.innerHTML = `<span style="color:var(--success);">✨ WhatsApp image synced in perfect HD!</span>`;
+      }
 
-      status.innerHTML = `<span style="color:var(--success);">✅ Saved!</span> <a href="${deckImageUrl}" target="_blank" rel="noopener" style="color:var(--accent);">View image</a>`;
     } catch (err) {
       console.error('[Deck Image]', err);
-      const msg = err?.message || '';
-      let display;
-      if (msg.startsWith('STEP_CANVAS'))       display = "Failed rendering — card art host may be blocking cross-origin canvas export (CORS).";
-      else if (msg.startsWith('STEP_UPLOAD'))  display = "Failed uploading to imgbb — check the API key. See console for details.";
-      else if (msg.startsWith('STEP_SAVE'))    display = 'Image uploaded, but saving the URL to Supabase failed. Check Supabase permissions.';
-      else                                     display = 'Something went wrong — check the browser console.';
-      status.innerHTML = `<span style="color:var(--danger);">❌ ${display}</span>`;
+      status.innerHTML = `<span style="color:var(--danger);">❌ ${err.message || 'Failed to generate image — check console.'}</span>`;
     } finally {
       btn.disabled = false;
       btn.textContent = '📤 Update WhatsApp Image';
