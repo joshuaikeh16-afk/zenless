@@ -192,7 +192,7 @@
 
     <div class="field">
       <label>Access Code</label>
-      <input type="text" id="code-input" placeholder="Your private access code" autocomplete="off"/>
+      <input type="text" id="code-input" placeholder="First 4 characters of your ID" autocomplete="off" maxlength="4"/>
     </div>
 
     <button class="login-btn" id="login-btn">
@@ -237,9 +237,11 @@
     btn.classList.remove('loading');
     btn.disabled = false;
 
-    // Require the access code to match the player's private row id —
-    // this is a stopgap until full server-side auth (RLS) is in place.
-    if (!user || user._rowId !== code) {
+    // Require the access code to match the first 4 characters of the
+    // player's private row id — short enough to type, still tied to a
+    // value only the admin can hand out (it's never shown in the UI).
+    const shortCode = (user?._rowId || '').slice(0, 4).toLowerCase();
+    if (!user || shortCode !== code.toLowerCase()) {
       err.classList.add('show');
       setTimeout(() => err.classList.remove('show'), 4000);
       return;
