@@ -1033,7 +1033,7 @@
   <div class="cashout-modal">
     <button class="co-close-btn" onclick="closeCashoutModal()">✕</button>
     <div class="cashout-modal-title">◈ Withdraw Prime Points</div>
-    <div class="cashout-modal-sub">Prime Points are redeemed by sending a DM to the WhatsApp admin. Enter the amount below and tap the button — it will open a pre-filled WhatsApp message.</div>
+    <div class="cashout-modal-sub">1 PP = 1,000 🪙 Coins. Under 5,000 PP converts instantly. 5,000 PP or more goes to the admin for manual review via WhatsApp.</div>
 
     <div class="co-player-info">
       <div>
@@ -1051,11 +1051,11 @@
       <input type="number" id="co-amount" placeholder="e.g. 500" min="500" />
     </div>
     <div class="co-field">
-      <label>Optional note to admin</label>
-      <textarea id="co-note" placeholder="I would like to convert my Coins"></textarea>
+      <label>Optional note (used for WhatsApp requests only)</label>
+      <textarea id="co-note" placeholder="I would like to convert my PP"></textarea>
     </div>
 
-    <button class="co-submit-btn" onclick="submitCashout()">Generate WhatsApp Request →</button>
+    <button class="co-submit-btn" id="co-submit-btn" onclick="submitCashout()">Withdraw →</button>
     <div id="co-result"></div>
   </div>
 </div>
@@ -1066,4 +1066,4 @@
 <script src="js/games.js"></script>
 <script src="js/celebrate.js"></script>
 </body>
-</html>
+                  </html>
