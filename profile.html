@@ -984,6 +984,7 @@
   }
 
   /* ── Deck Image (rendered + uploaded for the WhatsApp bot's .deck command) ── */
+  const IMGBB_API_KEY = 'ba6d759fc35fffdd47add56d2b529b03';
   const TIER_COLORS = { C: '#9ca3af', R: '#60a5fa', SR: '#a78bfa', SSR: '#fbbf24', UR: '#f472b6' };
 
   function loadImageSafe(url) {
@@ -1055,17 +1056,19 @@
         throw new Error('STEP_CANVAS: ' + e.message);
       }
 
-      // Step 2: upload to catbox — fails here if catbox blocks browser-side CORS,
+      // Step 2: upload to imgbb — fails here if the API key is missing/wrong,
       // or if the network request itself is blocked/refused
       let deckImageUrl;
       try {
         const form = new FormData();
-        form.append('reqtype', 'fileupload');
-        form.append('fileToUpload', blob, 'deck.jpg');
-        const uploadRes = await fetch('https://catbox.moe/user/api.php', { method: 'POST', body: form });
-        const text = (await uploadRes.text()).trim();
-        if (!uploadRes.ok || !text.startsWith('http')) throw new Error('bad_response: ' + text.slice(0, 120));
-        deckImageUrl = text;
+        form.append('image', blob, 'deck.jpg');
+        const uploadRes = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+          method: 'POST',
+          body: form,
+        });
+        const json = await uploadRes.json();
+        if (!json.success || !json.data?.url) throw new Error('bad_response: ' + JSON.stringify(json).slice(0, 150));
+        deckImageUrl = json.data.url;
       } catch (e) {
         throw new Error('STEP_UPLOAD: ' + e.message);
       }
@@ -1086,7 +1089,7 @@
       if (msg.startsWith('STEP_CANVAS')) {
         display = "Failed rendering the image — the card art host (cdn7.mazoku.cc) is likely blocking cross-origin canvas export (CORS). Can't fix this from the browser alone.";
       } else if (msg.startsWith('STEP_UPLOAD')) {
-        display = "Failed uploading to catbox.moe — either it's blocking direct browser requests (CORS) or the upload itself failed. Check the console for the exact response.";
+        display = "Failed uploading to imgbb — check that the API key is set correctly. Check the console for the exact response.";
       } else if (msg.startsWith('STEP_SAVE')) {
         display = 'Image uploaded, but saving the URL to Supabase failed. The image itself was generated fine — check Supabase permissions.';
       } else {
