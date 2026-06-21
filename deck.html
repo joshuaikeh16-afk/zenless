@@ -273,7 +273,7 @@
     @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 
     /* ══════════════════════════════════════════════════════
-       BACKGROUND CHANGER
+       BACKGROUND CHANGER  — applies to the deck grid only
     ══════════════════════════════════════════════════════ */
     .bg-changer-card {
       background: var(--bg-2);
@@ -303,7 +303,7 @@
 
     .bg-options {
       display: flex;
-      gap: 12px;
+      gap: 10px;
       flex-wrap: wrap;
     }
 
@@ -311,13 +311,13 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       cursor: pointer;
     }
 
     .bg-option-swatch {
-      width: 52px;
-      height: 52px;
+      width: 48px;
+      height: 48px;
       border-radius: var(--radius);
       border: 2px solid var(--border);
       transition: border-color .15s, transform .15s, box-shadow .15s;
@@ -336,85 +336,38 @@
     }
 
     .bg-option-label {
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 600;
       color: var(--text-3);
       text-transform: uppercase;
       letter-spacing: 0.4px;
       text-align: center;
+      line-height: 1.3;
+    }
+    .bg-option-price {
+      font-size: 9px;
+      color: var(--pp-color);
+      font-weight: 700;
+      text-align: center;
     }
     .bg-option.active .bg-option-label { color: var(--accent); }
-
-    /* Swatch visuals */
-    .swatch-white { background: #ffffff; }
-    .swatch-blue  { background: linear-gradient(135deg, #0f1a35 0%, #162647 50%, #0a1628 100%); }
-    .swatch-black { background: #0a0a0a; }
-    .swatch-custom {
-      background: conic-gradient(#f472b6, #a78bfa, #60a5fa, #34d399, #fbbf24, #f472b6);
-    }
 
     .swatch-locked-overlay {
       position: absolute;
       inset: 0;
-      background: rgba(0,0,0,0.55);
+      background: rgba(0,0,0,0.5);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 18px;
+      font-size: 16px;
     }
 
-    /* Custom color picker row */
-    .custom-picker-row {
-      display: none;
-      align-items: center;
-      gap: 10px;
-      margin-top: 0.85rem;
-      padding: 0.75rem;
-      background: var(--bg-3);
+    /* The deck grid gets the background, not the page */
+    #deck-grid {
       border-radius: var(--radius);
-      border: 1px solid var(--border);
+      padding: 10px;
+      transition: background 0.3s ease;
     }
-    .custom-picker-row.visible { display: flex; }
-
-    #custom-color-input {
-      width: 44px; height: 44px;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      padding: 2px;
-      cursor: pointer;
-      background: none;
-    }
-
-    .custom-picker-label {
-      font-size: 12.5px;
-      color: var(--text-2);
-      flex: 1;
-    }
-
-    .custom-apply-btn {
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: var(--radius);
-      padding: 0.4rem 0.9rem;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: var(--font-display);
-      transition: opacity .15s;
-    }
-    .custom-apply-btn:hover { opacity: 0.85; }
-
-    .pp-gate-note {
-      font-size: 11.5px;
-      color: var(--text-3);
-      margin-top: 0.65rem;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      flex-wrap: wrap;
-    }
-    .pp-gate-note .pp-val { color: var(--pp-color); font-weight: 700; }
   </style>
 </head>
 <body>
@@ -440,14 +393,8 @@
 
       <!-- Background Changer -->
       <div class="bg-changer-card fade-in">
-        <div class="bg-changer-title">🎨 Deck Page Background</div>
+        <div class="bg-changer-title">🎨 Deck Background</div>
         <div class="bg-options" id="bg-options-row"></div>
-        <div class="custom-picker-row" id="custom-picker-row">
-          <input type="color" id="custom-color-input" value="#1a1040" title="Pick a color"/>
-          <span class="custom-picker-label">Choose any background color</span>
-          <button class="custom-apply-btn" onclick="applyCustomColor()">Apply</button>
-        </div>
-        <div class="pp-gate-note" id="pp-gate-note" style="display:none;"></div>
       </div>
 
       <div class="deck-page-card fade-in">
@@ -503,116 +450,134 @@
 <script>
   let currentUser = null;
   const DECK_SIZE = 9;
-  const PP_COST_CUSTOM = 250000;
 
-  /* ── Background Changer ──────────────────────────────── */
+  /* ── Background Changer (deck grid only) ────────────── */
   function bgKey(phone) { return `agi_deck_bg_${phone}`; }
 
-  function applyBackground(setting, ppPoints) {
-    const body   = document.body;
-    const layout = document.querySelector('.layout');
-    body.style.background   = '';
-    if (layout) layout.style.background = '';
+  // price: 0 = free. bg: CSS value applied to #deck-grid background.
+  const BG_PRESETS = [
+    { key: 'default', label: 'Default', price: 0,      bg: '',
+      swatch: 'background:var(--bg-3);' },
+    { key: 'white',   label: 'White',   price: 0,      bg: '#ffffff',
+      swatch: 'background:#ffffff;' },
+    { key: 'black',   label: 'Black',   price: 0,      bg: '#0a0a0a',
+      swatch: 'background:#0a0a0a;' },
+    { key: 'pink',    label: 'Pink 💗', price: 67000,  bg: 'linear-gradient(135deg,#fce4ec,#f48fb1)',
+      swatch: 'background:linear-gradient(135deg,#fce4ec,#f48fb1);' },
+    { key: 'red',     label: 'Red',     price: 80000,  bg: 'linear-gradient(135deg,#1a0000,#4a0000)',
+      swatch: 'background:linear-gradient(135deg,#3a0000,#7a0000);' },
+    { key: 'green',   label: 'Green',   price: 80000,  bg: 'linear-gradient(135deg,#001a00,#003a00)',
+      swatch: 'background:linear-gradient(135deg,#003a00,#006600);' },
+    { key: 'gold',    label: 'Gold ✨', price: 120000, bg: 'linear-gradient(135deg,#1a1000,#4a3500,#8a6200)',
+      swatch: 'background:linear-gradient(135deg,#4a3500,#c8860a);' },
+    { key: 'galaxy',  label: 'Galaxy',  price: 150000, bg: 'linear-gradient(135deg,#0d001a,#1a0040,#000d2e)',
+      swatch: 'background:linear-gradient(135deg,#1a0040,#000d2e);' },
+    { key: 'sunset',  label: 'Sunset',  price: 150000, bg: 'linear-gradient(135deg,#3d1500,#7a2800,#3d0a1a)',
+      swatch: 'background:linear-gradient(135deg,#ff6b35,#e84393);' },
+    { key: 'custom',  label: 'Custom',  price: 250000, bg: null,
+      swatch: 'background:conic-gradient(#f472b6,#a78bfa,#60a5fa,#34d399,#fbbf24,#f472b6);' },
+  ];
 
-    if (!setting || setting === 'blue') return; // default CSS handles it
-    if (setting === 'white') {
-      body.style.background = '#f0f0f0';
-      if (layout) layout.style.background = '#f0f0f0';
-    } else if (setting === 'black') {
-      body.style.background = '#0a0a0a';
-      if (layout) layout.style.background = '#0a0a0a';
-    } else if (setting.startsWith('#') && ppPoints >= PP_COST_CUSTOM) {
-      body.style.background = setting;
-      if (layout) layout.style.background = setting;
+  function applyDeckBackground(key, ppPoints) {
+    const grid = document.getElementById('deck-grid');
+    if (!grid) return;
+    const preset = BG_PRESETS.find(p => p.key === key);
+    if (!preset || ppPoints < preset.price) { grid.style.background = ''; return; }
+    if (key === 'custom') {
+      const phone = sessionStorage.getItem('agi_member_phone');
+      grid.style.background = localStorage.getItem(bgKey(phone) + '_custom') || '#1a1040';
+    } else {
+      grid.style.background = preset.bg;
     }
   }
 
   function rebuildBgOptions(ppPoints, current) {
     const container = document.getElementById('bg-options-row');
-    const customRow = document.getElementById('custom-picker-row');
-    const gateNote  = document.getElementById('pp-gate-note');
     if (!container) return;
-
-    const hasCustom = ppPoints >= PP_COST_CUSTOM;
-    const isCustomColor = current && current.startsWith('#');
-
-    const presets = [
-      { key: 'white', label: 'White',   cls: 'swatch-white' },
-      { key: 'blue',  label: 'Blue',    cls: 'swatch-blue'  },
-      { key: 'black', label: 'Black',   cls: 'swatch-black' },
-    ];
-
-    container.innerHTML = presets.map(p => `
-      <div class="bg-option ${current === p.key ? 'active' : ''}" onclick="chooseBg('${p.key}')">
-        <div class="bg-option-swatch ${p.cls}"></div>
-        <div class="bg-option-label">${p.label}</div>
-      </div>
-    `).join('') + `
-      <div class="bg-option ${isCustomColor ? 'active' : ''}" onclick="openCustomPicker()">
-        <div class="bg-option-swatch swatch-custom">
-          ${!hasCustom ? '<div class="swatch-locked-overlay">🔒</div>' : ''}
-        </div>
-        <div class="bg-option-label">Custom</div>
-      </div>
-    `;
-
-    if (gateNote) {
-      if (hasCustom) {
-        gateNote.style.display = 'none';
-      } else {
-        const need = (PP_COST_CUSTOM - ppPoints).toLocaleString();
-        gateNote.style.display = 'flex';
-        gateNote.innerHTML = `🔒 Custom colors unlock at <span class="pp-val">◈ ${PP_COST_CUSTOM.toLocaleString()}</span> Prime Points — you need <span class="pp-val">◈ ${need}</span> more.`;
-      }
-    }
-
-    if (customRow) {
-      customRow.classList.toggle('visible', isCustomColor);
-      if (isCustomColor) {
-        const inp = document.getElementById('custom-color-input');
-        if (inp) inp.value = current;
-      }
-    }
+    container.innerHTML = BG_PRESETS.map(p => {
+      const locked = ppPoints < p.price;
+      const priceLabel = p.price > 0 ? `◈ ${(p.price / 1000).toFixed(0)}k` : 'Free';
+      return `
+        <div class="bg-option ${current === p.key ? 'active' : ''}" onclick="chooseBg('${p.key}')">
+          <div class="bg-option-swatch" style="${p.swatch}">
+            ${locked ? '<div class="swatch-locked-overlay">🔒</div>' : ''}
+          </div>
+          <div class="bg-option-label">${p.label}</div>
+          <div class="bg-option-price">${priceLabel}</div>
+        </div>`;
+    }).join('');
   }
 
   function chooseBg(key) {
     if (!currentUser) return;
-    const phone = sessionStorage.getItem('agi_member_phone');
-    localStorage.setItem(bgKey(phone), key);
-    applyBackground(key, currentUser.primePoints || 0);
-    rebuildBgOptions(currentUser.primePoints || 0, key);
-    const customRow = document.getElementById('custom-picker-row');
-    if (customRow) customRow.classList.remove('visible');
-  }
-
-  function openCustomPicker() {
-    if (!currentUser) return;
     const ppPoints = currentUser.primePoints || 0;
-    if (ppPoints < PP_COST_CUSTOM) {
-      App.showToast(`You need ◈ ${PP_COST_CUSTOM.toLocaleString()} Prime Points for custom backgrounds.`, 'error');
+    const preset   = BG_PRESETS.find(p => p.key === key);
+    if (!preset) return;
+
+    if (ppPoints < preset.price) {
+      const need = (preset.price - ppPoints).toLocaleString();
+      App.showToast(`◈ ${need} Prime Points needed to unlock ${preset.label.replace(/\s*[^\w\s].*/,'')}.`, 'error');
       return;
     }
-    const customRow = document.getElementById('custom-picker-row');
-    if (customRow) customRow.classList.toggle('visible');
+
+    if (key === 'custom') {
+      // Toggle inline color picker
+      let picker = document.getElementById('custom-inline-picker');
+      if (!picker) {
+        picker = document.createElement('div');
+        picker.id = 'custom-inline-picker';
+        picker.style.cssText = 'display:flex;align-items:center;gap:10px;margin-top:0.85rem;padding:0.75rem;background:var(--bg-3);border-radius:var(--radius);border:1px solid var(--border);';
+        picker.innerHTML = `
+          <input type="color" id="custom-color-input" value="#1a1040"
+            style="width:44px;height:44px;border-radius:var(--radius);border:1px solid var(--border);cursor:pointer;padding:2px;" />
+          <span style="font-size:12.5px;color:var(--text-2);flex:1;">Pick any color for your deck</span>
+          <button onclick="applyCustomColor()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius);padding:0.4rem 0.9rem;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-display);">Apply</button>`;
+        document.getElementById('bg-options-row').after(picker);
+      } else {
+        picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
+      }
+      return;
+    }
+
+    // Hide custom picker if switching to a preset
+    const picker = document.getElementById('custom-inline-picker');
+    if (picker) picker.style.display = 'none';
+
+    const phone = sessionStorage.getItem('agi_member_phone');
+    localStorage.setItem(bgKey(phone), key);
+    applyDeckBackground(key, ppPoints);
+    rebuildBgOptions(ppPoints, key);
   }
 
   function applyCustomColor() {
     if (!currentUser) return;
-    if ((currentUser.primePoints || 0) < PP_COST_CUSTOM) return;
+    const ppPoints = currentUser.primePoints || 0;
+    if (ppPoints < 250000) return;
     const inp = document.getElementById('custom-color-input');
     if (!inp) return;
     const hex   = inp.value;
     const phone = sessionStorage.getItem('agi_member_phone');
-    localStorage.setItem(bgKey(phone), hex);
-    applyBackground(hex, currentUser.primePoints || 0);
-    rebuildBgOptions(currentUser.primePoints || 0, hex);
+    localStorage.setItem(bgKey(phone), 'custom');
+    localStorage.setItem(bgKey(phone) + '_custom', hex);
+    const grid = document.getElementById('deck-grid');
+    if (grid) grid.style.background = hex;
+    rebuildBgOptions(ppPoints, 'custom');
   }
 
   function getDeckSlots(user) {
+    // Slots are stored 1-indexed: slots[1] = card in position 1, slots[9] = last.
+    // Index 0 is always null so slot numbers match array indices directly.
     const saved = Array.isArray(user._raw?.deck?.slots) ? user._raw.deck.slots : [];
-    const slots = saved.slice(0, DECK_SIZE);
-    while (slots.length < DECK_SIZE) slots.push(null);
-    return slots;
+
+    // Detect if data is old 0-indexed format (no null at index 0, length <= 9)
+    // vs new 1-indexed format (null at index 0, length <= 10)
+    const isOldFormat = saved.length > 0 && saved[0] !== null && saved.length <= DECK_SIZE;
+
+    const slots = [null]; // index 0 always empty
+    for (let i = 1; i <= DECK_SIZE; i++) {
+      slots[i] = isOldFormat ? (saved[i - 1] ?? null) : (saved[i] ?? null);
+    }
+    return slots; // length 10: slots[1..9] are the deck positions
   }
 
   async function saveDeckSlots(slots) {
@@ -631,33 +596,36 @@
 
   function renderDeck(user) {
     const slots = getDeckSlots(user);
-    const filledCount = slots.filter(Boolean).length;
+    const filledCount = slots.slice(1).filter(Boolean).length;
 
-    // Slot pips
+    // Slot pips (positions 1–9)
     document.getElementById('slot-pips').innerHTML =
-      slots.map((s, i) => `<span class="slot-pip ${s ? 'filled' : ''}"></span>`).join('');
+      Array.from({ length: DECK_SIZE }, (_, i) => i + 1)
+        .map(i => `<span class="slot-pip ${slots[i] ? 'filled' : ''}"></span>`).join('');
     document.getElementById('slot-count-label').textContent =
       `${filledCount} / ${DECK_SIZE} slots filled`;
 
-    // Grid tiles
-    document.getElementById('deck-grid').innerHTML = slots.map((slotId, i) => {
-      const card = slotId ? user.cards.find(c => (typeof c === 'object' ? c.id : c) === slotId) : null;
+    // Grid tiles (positions 1–9)
+    document.getElementById('deck-grid').innerHTML =
+      Array.from({ length: DECK_SIZE }, (_, i) => i + 1).map(i => {
+        const slotId = slots[i];
+        const card = slotId ? user.cards.find(c => (typeof c === 'object' ? c.id : c) === slotId) : null;
 
-      if (!card) {
-        return `<div class="deck-tile empty" onclick="openSlotPicker(${i})"><span>+</span></div>`;
-      }
+        if (!card) {
+          return `<div class="deck-tile empty" onclick="openSlotPicker(${i})"><span>+</span></div>`;
+        }
 
-      const safeJson = JSON.stringify(JSON.stringify(card));
-      return `
-        <div class="deck-tile filled" onclick="openCardModal(${safeJson})">
-          ${card.preRenderedUrl
-            ? `<img src="${card.preRenderedUrl}" alt="${card.name || 'Card'}">`
-            : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;">🃏</div>`
-          }
-          <div class="deck-tile-name">${card.name || 'Unknown'}</div>
-          <button class="deck-tile-remove" onclick="event.stopPropagation();removeFromDeck(${i})" title="Remove from deck">✕</button>
-        </div>`;
-    }).join('');
+        const safeJson = JSON.stringify(JSON.stringify(card));
+        return `
+          <div class="deck-tile filled" onclick="openCardModal(${safeJson})">
+            ${card.preRenderedUrl
+              ? `<img src="${card.preRenderedUrl}" alt="${card.name || 'Card'}">`
+              : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;">🃏</div>`
+            }
+            <div class="deck-tile-name">${card.name || 'Unknown'}</div>
+            <button class="deck-tile-remove" onclick="event.stopPropagation();removeFromDeck(${i})" title="Remove from deck">✕</button>
+          </div>`;
+      }).join('');
   }
 
   async function loadDeckPage() {
@@ -678,9 +646,9 @@
     document.getElementById('deck-content').style.display = 'block';
     document.title = `${user.name}'s Deck — AniGamble HQ`;
 
-    // Apply saved background
-    const savedBg = localStorage.getItem(bgKey(phone)) || 'blue';
-    applyBackground(savedBg, user.primePoints || 0);
+    // Apply saved background to deck grid
+    const savedBg = localStorage.getItem(bgKey(phone)) || 'default';
+    applyDeckBackground(savedBg, user.primePoints || 0);
     rebuildBgOptions(user.primePoints || 0, savedBg);
 
     renderDeck(user);
@@ -693,7 +661,7 @@
     if (!currentUser) return;
     pickerSlotIndex = slotIndex;
 
-    const usedIds = new Set(getDeckSlots(currentUser).filter(Boolean));
+    const usedIds = new Set(getDeckSlots(currentUser).slice(1).filter(Boolean));
     const list = document.getElementById('picker-list');
 
     if (!currentUser.cards.length) {
@@ -761,7 +729,10 @@
 
     try {
       const slots = getDeckSlots(currentUser);
-      const cards = slots.map(id => id ? currentUser.cards.find(c => (typeof c === 'object' ? c.id : c) === id) : null);
+      const cards = Array.from({ length: DECK_SIZE }, (_, i) => {
+        const id = slots[i + 1];
+        return id ? currentUser.cards.find(c => (typeof c === 'object' ? c.id : c) === id) : null;
+      });
 
       const COLS = 3, ROWS = 3;
       const tileW = 220, tileH = 308, gap = 14, pad = 24;
