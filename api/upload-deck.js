@@ -8,6 +8,14 @@ const WIDTH  = COLS * TILE_W + (COLS - 1) * GAP;
 const HEIGHT = ROWS * TILE_H + (ROWS - 1) * GAP;
 const BG_COLOR = 0x1a1a24ff;
 
+async function fetchImageBuffer(url) {
+  // Fetch the raw image bytes directly (server-side — no CORS restriction)
+  const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const arrayBuffer = await r.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).send('Method Not Allowed'); return; }
 
@@ -20,11 +28,16 @@ module.exports = async function handler(req, res) {
     res.status(400).json({ error: 'Missing or invalid cards/imgbbKey' }); return;
   }
 
-  // Fetch all card images in parallel
+  // Fetch all card images in parallel directly — no proxy needed server-side
   const images = await Promise.all(cards.map(async card => {
     if (!card?.preRenderedUrl) return null;
-    try { return await Jimp.read(card.preRenderedUrl); }
-    catch (e) { console.error('[upload-deck] Failed to fetch image:', card.preRenderedUrl, e.message); return null; }
+    try {
+      const buffer = await fetchImageBuffer(card.preRenderedUrl);
+      return await Jimp.read(buffer);
+    } catch (e) {
+      console.error('[upload-deck] Failed:', card.preRenderedUrl, e.message);
+      return null;
+    }
   }));
 
   // Composite
@@ -45,10 +58,8 @@ module.exports = async function handler(req, res) {
     }
   });
 
-  // Encode to JPEG instead of PNG — much smaller, imgbb handles it fine
   const buffer = await canvas.quality(85).getBufferAsync(Jimp.MIME_JPEG);
   const base64 = buffer.toString('base64');
-  console.log('[upload-deck] Image size (bytes):', buffer.length, 'base64 length:', base64.length);
 
   const params = new URLSearchParams({ key: imgbbKey, image: base64 });
   const upload = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: params });
