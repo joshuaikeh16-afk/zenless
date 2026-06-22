@@ -818,7 +818,29 @@
   // fixes this without needing a backend of our own.
   function corsSafeImg(url) {
     if (!url) return '';
-    return `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
+    return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+  }
+
+  // Tries proxies in order; resolves with the first URL whose image actually loads.
+  function loadViaProxyChain(originalUrl) {
+    const proxies = [
+      u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+      u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+      u => `https://images.weserv.nl/?url=${encodeURIComponent(u.replace(/^https?:\/\//, ''))}`,
+    ];
+    return new Promise(resolve => {
+      let i = 0;
+      const tryNext = () => {
+        if (i >= proxies.length) { resolve(null); return; } // all failed
+        const candidate = proxies[i++](originalUrl);
+        const test = new Image();
+        test.crossOrigin = 'anonymous';
+        test.onload = () => resolve(candidate);
+        test.onerror = tryNext;
+        test.src = candidate;
+      };
+      tryNext();
+    });
   }
 
   async function generateDeckImage() {
@@ -846,17 +868,19 @@
     const tileRestores = [];
 
     try {
-      imgs.forEach(img => { img.crossOrigin = 'anonymous'; img.src = corsSafeImg(img.src); });
-
-      // Wait for the swapped images to load — track failures instead of
-      // silently treating onerror as "done", so broken proxy fetches are visible.
+      // Try each proxy per-image until one actually loads; skip art that fails all of them.
+      const resolvedSrcs = await Promise.all(imgs.map(img => loadViaProxyChain(originalSrcs[imgs.indexOf(img)] || img.src)));
       const failed = [];
-      await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => {
-        img.onload = res;
-        img.onerror = () => { failed.push(img.src); res(); };
-      })));
+      imgs.forEach((img, i) => {
+        if (resolvedSrcs[i]) {
+          img.crossOrigin = 'anonymous';
+          img.src = resolvedSrcs[i];
+        } else {
+          failed.push(originalSrcs[i]);
+        }
+      });
       if (failed.length) {
-        console.warn('[Deck Image] Failed to load via proxy:', failed);
+        console.warn('[Deck Image] All proxies failed for:', failed);
       }
 
       // Paint each tile's art as a background-image and hide the <img>
