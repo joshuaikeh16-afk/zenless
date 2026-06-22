@@ -450,17 +450,6 @@
 <script src="js/profile.js"></script>
 <script>
   let currentUser = null;
-
-  /**
-   * Route card images through a CORS-friendly proxy so html2canvas
-   * can read their pixels without being blocked.
-   */
-  function proxyImg(url) {
-    if (!url) return url;
-    if (url.startsWith("/") || url.startsWith(location.origin)) return url;
-    return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-  }
-
   const DECK_SIZE = 9;
 
   /* ── Background Changer (deck grid only) ────────────── */
@@ -700,12 +689,10 @@
         }
 
         const safeJson = JSON.stringify(JSON.stringify(card));
-        const imgSrc = card.preRenderedUrl ? proxyImg(card.preRenderedUrl) : null;
         return `
           <div class="deck-tile filled" onclick="openCardModal(${safeJson})">
-            ${imgSrc
-              ? `<img src="${imgSrc}" alt="${card.name || 'Card'}" crossorigin="anonymous" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-                 <div style="display:none;align-items:center;justify-content:center;height:100%;font-size:28px;">🃏</div>`
+            ${card.preRenderedUrl
+              ? `<img src="${card.preRenderedUrl}" alt="${card.name || 'Card'}">`
               : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;">🃏</div>`
             }
             <div class="deck-tile-name">${card.name || 'Unknown'}</div>
@@ -764,7 +751,7 @@
         return `
           <div class="picker-item ${disabled ? 'disabled' : ''}" ${disabled ? '' : `onclick="placeInSlot('${card.id}')"`}>
             ${card.preRenderedUrl
-              ? `<img src="${proxyImg(card.preRenderedUrl)}" alt="" crossorigin="anonymous" onerror="this.style.display='none'">`
+              ? `<img src="${card.preRenderedUrl}" alt="">`
               : `<span style="font-size:18px;">🃏</span>`
             }
             <div style="min-width:0;flex:1;">
@@ -810,8 +797,7 @@
       const canvas = await html2canvas(deckGrid, {
         scale:        3,
         useCORS:      true,
-        proxy:        null,
-        allowTaint:   true,
+        allowTaint:   false,
         logging:      false,
         imageTimeout: 0,
       });
