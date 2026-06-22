@@ -78,46 +78,42 @@ async function loadPPLeaderboard() {
   }
 
   try {
-    // PP balances + rank now live in MongoDB, keyed by phone
-    const mongoRes = await MongoAPI.getPPLeaderboard(50);
-    const mongoUsers = (mongoRes?.users || []).filter(u => u.prime_points > 0);
+    // PP balances, history, and rank live in Supabase now (same `data`
+    // JSONB column as coins/cards/etc — see PPApi in api.js). One query
+    // gets us everything, already sorted server-side by primePoints desc.
+    const raw   = await API.getPPLeaderboard(50);
+    const users = App.parseUsers(raw).filter(u => u.primePoints > 0);
 
     const countEl = document.getElementById('pp-lb-count');
-    if (countEl) countEl.textContent = mongoUsers.length;
+    if (countEl) countEl.textContent = users.length;
 
-    if (!mongoUsers.length) {
+    if (!users.length) {
       el.innerHTML = `<tr><td colspan="4"><div class="empty"><div class="empty-icon">◈</div><div class="empty-text">No Prime Points earned yet — win games to appear here!</div></div></td></tr>`;
       ppLeaderboardLoadedOnce = true;
       return;
     }
 
-    // Merge in name/avatar/guild from Supabase so the leaderboard still looks rich
-    const supabaseRaw = await API.getAllUsers();
-    const supabaseUsers = App.parseUsers(supabaseRaw);
-    const byPhone = {};
-    supabaseUsers.forEach(u => { if (u.phone) byPhone[u.phone] = u; });
-
     const medals = { 1: '🥇', 2: '🥈', 3: '🥉' };
-    el.innerHTML = mongoUsers.map((mu, i) => {
-      const profile   = byPhone[mu.phone] || { name: mu.display_name || mu.phone, phone: mu.phone, role: null, guild: null };
-      const rank      = i + 1;
-      const rankClass = rank <= 3 ? `top${rank}` : '';
-      const medal     = medals[rank] || '';
+    el.innerHTML = users.map((u, i) => {
+      const phone     = u.phone || u.id;
+      const rankNum   = i + 1;
+      const rankClass = rankNum <= 3 ? `top${rankNum}` : '';
+      const medal     = medals[rankNum] || '';
 
       return `
-        <tr onclick="openProfileModal('${mu.phone}')" style="cursor:pointer">
-          <td><span class="rank-num ${rankClass}">${medal || rank}</span></td>
+        <tr onclick="openProfileModal('${phone}')" style="cursor:pointer">
+          <td><span class="rank-num ${rankClass}">${medal || rankNum}</span></td>
           <td>
             <div class="user-cell">
-              ${App.renderAvatar(profile, 34)}
+              ${App.renderAvatar(u, 34)}
               <div class="user-cell-info">
-                <div class="user-cell-name">${profile.name}</div>
-                <div class="user-cell-phone">${mu.phone} · ${mu.rank}</div>
+                <div class="user-cell-name">${u.name}${u.role ? App.roleBadge(u.role) : ''}</div>
+                <div class="user-cell-phone">${phone}${u.guild ? ` · ⚔️ ${u.guild}` : ''}</div>
               </div>
             </div>
           </td>
-          <td style="font-family:var(--font-display);font-weight:700;color:#a78bfa">◈ ${mu.prime_points.toLocaleString()}</td>
-          <td><span class="badge badge-green">${mu.rank}</span></td>
+          <td style="font-family:var(--font-display);font-weight:700;color:#a78bfa">◈ ${u.primePoints.toLocaleString()}</td>
+          <td><span class="badge badge-green">${u.rank || '—'}</span></td>
         </tr>
       `;
     }).join('');
