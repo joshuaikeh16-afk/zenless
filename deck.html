@@ -720,7 +720,7 @@
         return `
           <div class="deck-tile filled" onclick="openCardModal(${safeJson})">
             ${card.preRenderedUrl
-              ? `<img src="${card.preRenderedUrl}" alt="${card.name || 'Card'}">`
+              ? `<img src="${corsSafeImg(card.preRenderedUrl)}" alt="${card.name || 'Card'}" onerror="this.style.display='none'">`
               : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;">🃏</div>`
             }
             <div class="deck-tile-name">${card.name || 'Unknown'}</div>
@@ -779,7 +779,7 @@
         return `
           <div class="picker-item ${disabled ? 'disabled' : ''}" ${disabled ? '' : `onclick="placeInSlot('${card.id}')"`}>
             ${card.preRenderedUrl
-              ? `<img src="${card.preRenderedUrl}" alt="">`
+              ? `<img src="${corsSafeImg(card.preRenderedUrl)}" alt="">`
               : `<span style="font-size:18px;">🃏</span>`
             }
             <div style="min-width:0;flex:1;">
@@ -828,7 +828,6 @@
       // Same-origin means no CORS restriction applies at all, regardless of the upstream CDN.
       u => `/api/proxy-image?url=${encodeURIComponent(u)}`,
       u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-      u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
       u => `https://images.weserv.nl/?url=${encodeURIComponent(u.replace(/^https?:\/\//, ''))}`,
     ];
     const PER_PROXY_TIMEOUT_MS = 6000;
