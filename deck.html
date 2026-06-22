@@ -720,7 +720,7 @@
         return `
           <div class="deck-tile filled" onclick="openCardModal(${safeJson})">
             ${card.preRenderedUrl
-              ? `<img src="${card.preRenderedUrl}" alt="${card.name || 'Card'}">`
+              ? `<img src="${corsSafeImg(card.preRenderedUrl)}" alt="${card.name || 'Card'}" crossorigin="anonymous">`
               : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;">🃏</div>`
             }
             <div class="deck-tile-name">${card.name || 'Unknown'}</div>
@@ -810,6 +810,17 @@
 
   /* ── Deck Image Generator (html2canvas HD) ───────────── */
   const IMGBB_API_KEY = 'ba6d759fc35fffdd47add56d2b529b03';
+
+  // html2canvas needs to actually read pixel data from card images, but card
+  // art CDNs (e.g. cdn7.mazoku.cc) often don't send CORS headers — without
+  // them the browser silently skips that image when capturing the canvas.
+  // Routing through images.weserv.nl (a free, CORS-friendly image proxy)
+  // fixes this without needing a backend of our own.
+  function corsSafeImg(url) {
+    if (!url) return '';
+    const stripped = url.replace(/^https?:\/\//, '');
+    return `https://images.weserv.nl/?url=${encodeURIComponent(stripped)}`;
+  }
 
   async function generateDeckImage() {
     if (!currentUser) return;
