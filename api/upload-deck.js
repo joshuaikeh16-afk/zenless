@@ -8,11 +8,23 @@ const WIDTH  = COLS * TILE_W + (COLS - 1) * GAP;
 const HEIGHT = ROWS * TILE_H + (ROWS - 1) * GAP;
 const BG_COLOR = 0x1a1a24ff;
 
+function parseBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', chunk => { data += chunk; });
+    req.on('end', () => {
+      try { resolve(JSON.parse(data)); }
+      catch (e) { reject(e); }
+    });
+    req.on('error', reject);
+  });
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).send('Method Not Allowed'); return; }
 
   let body;
-  try { body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body; }
+  try { body = await parseBody(req); }
   catch { res.status(400).json({ error: 'Invalid JSON' }); return; }
 
   const { cards, imgbbKey, host } = body;
@@ -20,7 +32,6 @@ module.exports = async function handler(req, res) {
     res.status(400).json({ error: 'Missing cards, imgbbKey, or host' }); return;
   }
 
-  // Fetch via our own proxy-image function — same origin, no CDN blocking
   const images = await Promise.all(cards.map(async card => {
     if (!card?.preRenderedUrl) return null;
     try {
