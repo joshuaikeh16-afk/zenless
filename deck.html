@@ -720,7 +720,7 @@
         return `
           <div class="deck-tile filled" onclick="openCardModal(${safeJson})">
             ${card.preRenderedUrl
-              ? `<img src="${card.preRenderedUrl}" alt="${card.name || 'Card'}" crossorigin="anonymous">`
+              ? `<img src="${card.preRenderedUrl}" alt="${card.name || 'Card'}">`
               : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;">🃏</div>`
             }
             <div class="deck-tile-name">${card.name || 'Unknown'}</div>
@@ -840,7 +840,7 @@
     const originalSrcs = imgs.map(img => img.src);
 
     try {
-      imgs.forEach(img => { img.src = corsSafeImg(img.src); });
+      imgs.forEach(img => { img.crossOrigin = 'anonymous'; img.src = corsSafeImg(img.src); });
 
       // Wait for the swapped images to actually finish loading before capture
       await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => {
@@ -886,7 +886,7 @@
       console.error('[Deck Image]', err);
       status.innerHTML = `<span style="color:var(--danger);">❌ ${err.message || 'Failed to generate image — check console.'}</span>`;
     } finally {
-      imgs.forEach((img, i) => { img.src = originalSrcs[i]; });
+      imgs.forEach((img, i) => { img.src = originalSrcs[i]; img.removeAttribute('crossorigin'); });
       btn.disabled = false;
       btn.textContent = '📤 Update WhatsApp Image';
     }
