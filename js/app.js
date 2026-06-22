@@ -189,6 +189,7 @@ function renderSidebar(activePage) {
     profile:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>`,
     guilds:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
     games:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="3"/><path d="M8 12h2m-1-1v2"/><circle cx="15" cy="11" r="0.8" fill="currentColor"/><circle cx="17" cy="13" r="0.8" fill="currentColor"/></svg>`,
+    forex:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/></svg>`,
     staff:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
     admin:       `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 1 0 4.93 19.07 10 10 0 0 0 19.07 4.93Z"/></svg>`,
     settings:    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 1 0 4.93 19.07 10 10 0 1 0 19.07 4.93Z"/></svg>`,
@@ -200,6 +201,7 @@ function renderSidebar(activePage) {
     { id: 'profile',     label: 'Profile', href: 'profile.html' },
     { id: 'guilds',      label: 'Guilds',      href: 'guilds.html' },
     { id: 'games',       label: 'Games',       href: 'games.html' },
+    { id: 'forex',       label: 'Markets',     href: 'forex.html' },
     { id: 'staff',       label: 'Shop',       href: 'shop.html' },
      { id: 'admin',       label: 'Deck',       href: 'deck.html' },
   ];
