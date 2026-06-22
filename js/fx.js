@@ -1,0 +1,258 @@
+// fx.js — AniGamble HQ Forex & Markets engine
+//
+// Adds a self-contained "FX Credits" minigame economy on top of the existing
+// Prime Points system. Players convert PP -> FX Credits, then trade forex
+// pairs (real hourly rates via the free Frankfurter API) and a handful of
+// hardcoded stocks/gold/land assets (hourly random-walk price nudges) using
+// flat 10x leverage. Everything persists into the same per-user `data` JSONB
+// blob Supabase already stores PP/cards/etc in, under two new fields:
+//
+//   data.fxCredits    -> number, the player's FX Credit balance
+//   data.fxPositions  -> array of open positions, each:
+//       { id, kind: 'forex'|'asset', symbol, side: 'buy'|'sell',
+//         stake, leverage, entryPrice, openedAt }
+//
+// Closed trades are folded into ppHistory-style records under:
+//   data.fxHistory -> array of { symbol, side, stake, pnl, closedAt }
+//
+// This module does NOT touch Supabase directly — same pattern as PPApi in
+// api.js. Callers pass in the user's row id + current raw data object and
+// get back the new values to merge, then call API.updateUserData themselves
+// (or use the convenience wrappers below, which do it for you).
+
+const FxApi = (() => {
+  const CONVERSION_RATE   = 1;    // 1 PP = 1 FX Credit
+  const LEVERAGE          = 10;   // flat leverage for every trade
+  const HISTORY_CAP       = 40;
+  const ASSET_NUDGE_PCT   = 0.015; // max ±1.5% hourly random nudge for hardcoded assets
+
+  // ── Hardcoded assets ────────────────────────────────────────────
+  // Invented companies/assets styled like real tickers — not real entities,
+  // not real market data. Prices nudge once per hour (see priceForHour).
+  const ASSETS = [
+    { symbol: 'ORN', name: 'Orion Dynamics',      type: 'stock', basePrice: 142.50 },
+    { symbol: 'VXL', name: 'Vexel Technologies',  type: 'stock', basePrice: 88.20  },
+    { symbol: 'CRB', name: 'Crimson Robotics',    type: 'stock', basePrice: 215.75 },
+    { symbol: 'HLC', name: 'Halcyon Biotech',     type: 'stock', basePrice: 64.10  },
+    { symbol: 'NWE', name: 'Northwind Energy',    type: 'stock', basePrice: 51.30  },
+    { symbol: 'QTZ', name: 'Quartz Interactive',  type: 'stock', basePrice: 176.90 },
+    { symbol: 'FRO', name: 'Ferro Industrial',    type: 'stock', basePrice: 39.45  },
+    { symbol: 'LUM', name: 'Lumen Aerospace',     type: 'stock', basePrice: 301.60 },
+    { symbol: 'XAU', name: 'Gold (oz)',           type: 'metal', basePrice: 2380.00 },
+    { symbol: 'MRD', name: 'Coastal Plot — Meridian Bay',   type: 'land', basePrice: 18500 },
+    { symbol: 'THN', name: 'Highland Acreage — Thornfield', type: 'land', basePrice: 9200  },
+    { symbol: 'SBL', name: 'Desert Parcel — Sable Dunes',   type: 'land', basePrice: 5400  },
+  ];
+
+  const FOREX_PAIRS = [
+    { symbol: 'EUR/USD', base: 'EUR', quote: 'USD' },
+    { symbol: 'GBP/USD', base: 'GBP', quote: 'USD' },
+    { symbol: 'USD/JPY', base: 'USD', quote: 'JPY' },
+    { symbol: 'AUD/USD', base: 'AUD', quote: 'USD' },
+    { symbol: 'USD/CAD', base: 'USD', quote: 'CAD' },
+    { symbol: 'USD/CHF', base: 'USD', quote: 'CHF' },
+    { symbol: 'NZD/USD', base: 'NZD', quote: 'USD' },
+  ];
+
+  // Deterministic seeded "random" per hour so every player sees the same
+  // nudged price in a given hour, without needing a server to broadcast it.
+  // Seed = symbol + current hour bucket (UTC).
+  function seededRandom(seed) {
+    let h = 0;
+    for (let i = 0; i < seed.length; i++) {
+      h = (h * 31 + seed.charCodeAt(i)) & 0xffffffff;
+    }
+    // xorshift-ish scramble, returns 0..1
+    h ^= h << 13; h ^= h >>> 17; h ^= h << 5;
+    return ((h >>> 0) % 100000) / 100000;
+  }
+
+  function currentHourBucket() {
+    const d = new Date();
+    return `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}-${d.getUTCHours()}`;
+  }
+
+  // Walk the asset's price forward one hourly nudge per hour elapsed since
+  // a fixed epoch, compounding deterministically — so the "current" price
+  // is stable within an hour and consistent for every player.
+  function assetPrice(symbol, basePrice) {
+    const bucket = currentHourBucket();
+    const seed = symbol + ':' + bucket;
+    const r = seededRandom(seed); // 0..1
+    const pct = (r * 2 - 1) * ASSET_NUDGE_PCT; // -1.5%..+1.5%
+
+    // Combine with a slower-moving secondary seed (per-day) so price drifts
+    // across hours rather than just jittering around basePrice forever.
+    const d = new Date();
+    const dayBucket = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
+    const driftSeed = seededRandom(symbol + ':drift:' + dayBucket);
+    const driftPct = (driftSeed * 2 - 1) * 0.04; // up to ±4% drift for the day
+
+    const price = basePrice * (1 + driftPct) * (1 + pct);
+    return Math.max(0.01, price);
+  }
+
+  function getAssets() {
+    return ASSETS.map(a => ({ ...a, price: assetPrice(a.symbol, a.basePrice) }));
+  }
+
+  function getAsset(symbol) {
+    const a = ASSETS.find(x => x.symbol === symbol);
+    if (!a) return null;
+    return { ...a, price: assetPrice(a.symbol, a.basePrice) };
+  }
+
+  // ── Forex rates (real, via Frankfurter — free, no key, updates hourly) ──
+  const _forexCache = { data: null, fetchedAt: 0 };
+
+  async function getForexRates() {
+    const now = Date.now();
+    if (_forexCache.data && (now - _forexCache.fetchedAt) < 5 * 60 * 1000) {
+      return _forexCache.data; // serve from cache for 5 min to avoid hammering the API
+    }
+    try {
+      const res = await fetch('https://api.frankfurter.dev/v2/rates?base=USD');
+      if (!res.ok) throw new Error('rate fetch failed');
+      const json = await res.json();
+      const usdRates = json.rates || {};
+
+      const pairs = FOREX_PAIRS.map(p => {
+        let rate;
+        if (p.base === 'USD') {
+          rate = usdRates[p.quote];
+        } else if (p.quote === 'USD') {
+          rate = usdRates[p.base] ? 1 / usdRates[p.base] : null;
+        } else {
+          rate = (usdRates[p.quote] && usdRates[p.base]) ? usdRates[p.quote] / usdRates[p.base] : null;
+        }
+        return { symbol: p.symbol, price: rate };
+      }).filter(p => p.price != null);
+
+      _forexCache.data = pairs;
+      _forexCache.fetchedAt = now;
+      return pairs;
+    } catch (e) {
+      console.error('[FxApi] forex rate fetch failed', e);
+      return _forexCache.data || [];
+    }
+  }
+
+  async function getForexRate(symbol) {
+    const rates = await getForexRates();
+    return rates.find(r => r.symbol === symbol) || null;
+  }
+
+  // ── Credits & positions ─────────────────────────────────────────
+  function getCredits(data) {
+    return Number(data?.fxCredits || 0);
+  }
+
+  function getPositions(data) {
+    return Array.isArray(data?.fxPositions) ? data.fxPositions : [];
+  }
+
+  function getHistory(data) {
+    return Array.isArray(data?.fxHistory) ? data.fxHistory : [];
+  }
+
+  function pushFxHistory(data, entry) {
+    const history = getHistory(data).slice();
+    history.unshift({ ...entry, closedAt: new Date().toISOString() });
+    if (history.length > HISTORY_CAP) history.length = HISTORY_CAP;
+    return history;
+  }
+
+  // Convert PP -> FX Credits. Caller must have already deducted the PP
+  // amount from primePoints if PP loss should be enforced; this just adds
+  // the credit side. Kept separate so callers can validate PP balance first.
+  function buyCredits(data, ppAmount) {
+    ppAmount = Math.max(0, Number(ppAmount) || 0);
+    const creditsGained = ppAmount * CONVERSION_RATE;
+    const newCredits = getCredits(data) + creditsGained;
+    return { fxCredits: newCredits, creditsGained };
+  }
+
+  // Convert FX Credits -> PP (cash out).
+  function sellCredits(data, creditAmount) {
+    creditAmount = Math.max(0, Number(creditAmount) || 0);
+    const have = getCredits(data);
+    const amount = Math.min(have, creditAmount);
+    const ppGained = amount / CONVERSION_RATE;
+    return { fxCredits: have - amount, ppGained };
+  }
+
+  // Open a position. `entryPrice` must be the current price/rate the caller
+  // already fetched (from getAsset or getForexRate) at time of opening.
+  function openPosition(data, { kind, symbol, side, stake, entryPrice }) {
+    stake = Number(stake) || 0;
+    const credits = getCredits(data);
+    if (stake <= 0) throw new Error('Stake must be greater than 0');
+    if (stake > credits) throw new Error('Not enough FX Credits');
+    if (!entryPrice || entryPrice <= 0) throw new Error('Invalid entry price');
+
+    const position = {
+      id: 'fx_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      kind,          // 'forex' | 'asset'
+      symbol,
+      side,          // 'buy' | 'sell'
+      stake,
+      leverage: LEVERAGE,
+      entryPrice,
+      openedAt: new Date().toISOString(),
+    };
+
+    const positions = getPositions(data).concat(position);
+    const newCredits = credits - stake;
+    return { fxCredits: newCredits, fxPositions: positions, position };
+  }
+
+  // Compute live P/L for a position given the current price.
+  function calcPnL(position, currentPrice) {
+    if (!currentPrice || currentPrice <= 0) return 0;
+    const pctMove = (currentPrice - position.entryPrice) / position.entryPrice;
+    const directional = position.side === 'sell' ? -pctMove : pctMove;
+    return position.stake * directional * position.leverage;
+  }
+
+  // Close a position: credits the stake back plus/minus P/L (P/L can exceed
+  // -stake in theory at 10x, so floor the loss at -stake to avoid negative
+  // balances — same "can't lose more than you put in" guarantee real margin
+  // accounts enforce via stop-outs).
+  function closePosition(data, positionId, currentPrice) {
+    const positions = getPositions(data);
+    const idx = positions.findIndex(p => p.id === positionId);
+    if (idx === -1) throw new Error('Position not found');
+
+    const position = positions[idx];
+    let pnl = calcPnL(position, currentPrice);
+    if (pnl < -position.stake) pnl = -position.stake; // floor loss at stake
+
+    const remaining = positions.slice();
+    remaining.splice(idx, 1);
+
+    const newCredits = getCredits(data) + position.stake + pnl;
+    const history = pushFxHistory(data, {
+      symbol: position.symbol,
+      side: position.side,
+      stake: position.stake,
+      pnl: Math.round(pnl * 100) / 100,
+    });
+
+    return {
+      fxCredits: Math.max(0, newCredits),
+      fxPositions: remaining,
+      fxHistory: history,
+      pnl,
+    };
+  }
+
+  return {
+    CONVERSION_RATE, LEVERAGE,
+    ASSETS, FOREX_PAIRS,
+    getAssets, getAsset,
+    getForexRates, getForexRate,
+    getCredits, getPositions, getHistory,
+    buyCredits, sellCredits,
+    openPosition, closePosition, calcPnL,
+  };
+})();
