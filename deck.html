@@ -720,13 +720,30 @@
         return `
           <div class="deck-tile filled" onclick="openCardModal(${safeJson})">
             ${card.preRenderedUrl
-              ? `<img src="${corsSafeImg(card.preRenderedUrl)}" alt="${card.name || 'Card'}" onerror="this.style.display='none'">`
+              ? `<img data-src="${card.preRenderedUrl}" alt="${card.name || 'Card'}" style="opacity:0;transition:opacity .2s;">`
               : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;">🃏</div>`
             }
             <div class="deck-tile-name">${card.name || 'Unknown'}</div>
             <button class="deck-tile-remove" onclick="event.stopPropagation();removeFromDeck(${i})" title="Remove from deck">✕</button>
           </div>`;
       }).join('');
+
+    // Load each card image via the proxy chain (same logic as canvas export)
+    document.querySelectorAll('#deck-grid img[data-src]').forEach(img => {
+      const originalUrl = img.dataset.src;
+      loadViaProxyChain(originalUrl).then(workingUrl => {
+        if (workingUrl) {
+          img.src = workingUrl;
+          img.onload = () => { img.style.opacity = '1'; };
+        } else {
+          // All proxies failed — show placeholder emoji
+          img.replaceWith(Object.assign(document.createElement('div'), {
+            style: 'display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;',
+            textContent: '🃏'
+          }));
+        }
+      });
+    });
   }
 
   async function loadDeckPage() {
@@ -779,7 +796,7 @@
         return `
           <div class="picker-item ${disabled ? 'disabled' : ''}" ${disabled ? '' : `onclick="placeInSlot('${card.id}')"`}>
             ${card.preRenderedUrl
-              ? `<img src="${corsSafeImg(card.preRenderedUrl)}" alt="">`
+              ? `<img data-src="${card.preRenderedUrl}" alt="" style="opacity:0;transition:opacity .2s;">`
               : `<span style="font-size:18px;">🃏</span>`
             }
             <div style="min-width:0;flex:1;">
@@ -788,6 +805,14 @@
             </div>
           </div>`;
       }).join('');
+
+      // Load picker thumbnails via proxy chain
+      document.querySelectorAll('#picker-list img[data-src]').forEach(img => {
+        loadViaProxyChain(img.dataset.src).then(url => {
+          if (url) { img.src = url; img.onload = () => { img.style.opacity = '1'; }; }
+          else { img.replaceWith(Object.assign(document.createElement('span'), { style: 'font-size:18px;', textContent: '🃏' })); }
+        });
+      });
     }
 
     document.getElementById('picker-overlay').classList.add('open');
