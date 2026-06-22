@@ -720,7 +720,7 @@
         return `
           <div class="deck-tile filled" onclick="openCardModal(${safeJson})">
             ${card.preRenderedUrl
-              ? `<img src="${corsSafeImg(card.preRenderedUrl)}" alt="${card.name || 'Card'}" crossorigin="anonymous">`
+              ? `<img src="${card.preRenderedUrl}" alt="${card.name || 'Card'}">`
               : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;">🃏</div>`
             }
             <div class="deck-tile-name">${card.name || 'Unknown'}</div>
@@ -814,12 +814,11 @@
   // html2canvas needs to actually read pixel data from card images, but card
   // art CDNs (e.g. cdn7.mazoku.cc) often don't send CORS headers — without
   // them the browser silently skips that image when capturing the canvas.
-  // Routing through images.weserv.nl (a free, CORS-friendly image proxy)
+  // Routing through corsproxy.io (a free, CORS-friendly image proxy)
   // fixes this without needing a backend of our own.
   function corsSafeImg(url) {
     if (!url) return '';
-    const stripped = url.replace(/^https?:\/\//, '');
-    return `https://images.weserv.nl/?url=${encodeURIComponent(stripped)}`;
+    return `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
   }
 
   async function generateDeckImage() {
@@ -833,14 +832,34 @@
     btn.textContent = 'Rendering…';
     status.innerHTML = '⏳ Generating high-res showcase...';
 
+    // Temporarily swap each card image to the CORS-safe proxy so html2canvas
+    // can actually read pixel data (the real CDN often lacks CORS headers).
+    // We restore the original src afterward so normal display is unaffected.
+    const imgs = Array.from(deckGrid.querySelectorAll('img'));
+    const originalSrcs = imgs.map(img => img.src);
+
     try {
+      imgs.forEach(img => { img.crossOrigin = 'anonymous'; img.src = corsSafeImg(img.src); });
+
+      // Wait for the swapped images to load — track failures instead of
+      // silently treating onerror as "done", so broken proxy fetches are visible.
+      const failed = [];
+      await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => {
+        img.onload = res;
+        img.onerror = () => { failed.push(img.src); res(); };
+      })));
+      if (failed.length) {
+        console.warn('[Deck Image] Failed to load via proxy:', failed);
+      }
+
       // Render the live DOM grid at 3× for crisp HD output
       const canvas = await html2canvas(deckGrid, {
         scale:        3,
         useCORS:      true,
         allowTaint:   false,
-        logging:      false,
+        logging:      true,
         imageTimeout: 0,
+        backgroundColor: getComputedStyle(deckGrid).backgroundColor || '#0a0a0a',
       });
 
       // Export as lossless PNG blob
@@ -873,6 +892,7 @@
       console.error('[Deck Image]', err);
       status.innerHTML = `<span style="color:var(--danger);">❌ ${err.message || 'Failed to generate image — check console.'}</span>`;
     } finally {
+      imgs.forEach((img, i) => { img.src = originalSrcs[i]; img.removeAttribute('crossorigin'); });
       btn.disabled = false;
       btn.textContent = '📤 Update WhatsApp Image';
     }
