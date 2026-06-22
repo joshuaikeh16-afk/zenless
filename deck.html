@@ -835,8 +835,15 @@
     // Temporarily swap each card image to the CORS-safe proxy so html2canvas
     // can actually read pixel data (the real CDN often lacks CORS headers).
     // We restore the original src afterward so normal display is unaffected.
+    //
+    // We ALSO hide the <img> and paint the art as a background-image with
+    // background-size:cover on its parent tile instead. html2canvas (v1.4.1)
+    // does not reliably support object-fit:cover on <img> — it frequently
+    // renders those tiles blank even when the image itself loaded fine.
+    // background-image + background-size:cover is handled correctly.
     const imgs = Array.from(deckGrid.querySelectorAll('img'));
     const originalSrcs = imgs.map(img => img.src);
+    const tileRestores = [];
 
     try {
       imgs.forEach(img => { img.crossOrigin = 'anonymous'; img.src = corsSafeImg(img.src); });
@@ -851,6 +858,17 @@
       if (failed.length) {
         console.warn('[Deck Image] Failed to load via proxy:', failed);
       }
+
+      // Paint each tile's art as a background-image and hide the <img>
+      imgs.forEach(img => {
+        const tile = img.closest('.deck-tile');
+        if (!tile) return;
+        tileRestores.push({ tile, bg: tile.style.backgroundImage, imgDisplay: img.style.display });
+        tile.style.backgroundImage = `url("${img.src}")`;
+        tile.style.backgroundSize = 'cover';
+        tile.style.backgroundPosition = 'center';
+        img.style.display = 'none';
+      });
 
       // Render the live DOM grid at 3× for crisp HD output
       const canvas = await html2canvas(deckGrid, {
@@ -892,6 +910,11 @@
       console.error('[Deck Image]', err);
       status.innerHTML = `<span style="color:var(--danger);">❌ ${err.message || 'Failed to generate image — check console.'}</span>`;
     } finally {
+      tileRestores.forEach(({ tile, bg, imgDisplay }) => {
+        tile.style.backgroundImage = bg;
+        const img = tile.querySelector('img');
+        if (img) img.style.display = imgDisplay;
+      });
       imgs.forEach((img, i) => { img.src = originalSrcs[i]; img.removeAttribute('crossorigin'); });
       btn.disabled = false;
       btn.textContent = '📤 Update WhatsApp Image';
