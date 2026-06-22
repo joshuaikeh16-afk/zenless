@@ -915,14 +915,18 @@
       });
 
       // Render the live DOM grid at 3× for crisp HD output
-      const canvas = await html2canvas(deckGrid, {
+      const html2canvasPromise = html2canvas(deckGrid, {
         scale:        3,
         useCORS:      true,
         allowTaint:   false,
         logging:      true,
-        imageTimeout: 0,
+        imageTimeout: 15000,
         backgroundColor: getComputedStyle(deckGrid).backgroundColor || '#0a0a0a',
       });
+      const canvas = await Promise.race([
+        html2canvasPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Rendering timed out after 25s — try again.')), 25000)),
+      ]);
 
       // Export as lossless PNG blob
       const blob = await new Promise((resolve, reject) => {
