@@ -818,19 +818,17 @@
   // fixes this without needing a backend of our own.
   function corsSafeImg(url) {
     if (!url) return '';
-    return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
   }
 
   // Tries proxies in order; resolves with the first URL whose image actually loads.
   function loadViaProxyChain(originalUrl) {
     const proxies = [
-      // Your own same-origin Vercel function — deploy api/proxy-image.js for this to work.
-      // Same-origin means no CORS restriction applies at all, regardless of the upstream CDN.
       u => `/api/proxy-image?url=${encodeURIComponent(u)}`,
       u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
       u => `https://images.weserv.nl/?url=${encodeURIComponent(u.replace(/^https?:\/\//, ''))}`,
     ];
-    const PER_PROXY_TIMEOUT_MS = 6000;
+    const PER_PROXY_TIMEOUT_MS = 4000;
 
     return new Promise(resolve => {
       let i = 0;
@@ -1021,7 +1019,7 @@
 
       const canvas = await Promise.race([
         renderDeckCanvasManually(cards),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Rendering timed out after 30s — try again.')), 30000)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Rendering timed out — try again.')), 20000)),
       ]);
 
       // Export as lossless PNG blob
