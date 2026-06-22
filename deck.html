@@ -1052,7 +1052,7 @@
       const response = await fetch('/api/upload-deck', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cards, imgbbKey: IMGBB_API_KEY }),
+        body: JSON.stringify({ cards, imgbbKey: IMGBB_API_KEY, host: window.location.origin }),
       });
 
       if (!response.ok) {
