@@ -648,7 +648,7 @@ function switchTab(tab, el) {
   document.getElementById('section-pp').style.display    = tab === 'pp'    ? '' : 'none';
   document.querySelectorAll('.lb-tab').forEach(t => t.classList.remove('active'));
   if (el) el.classList.add('active');
-  if (tab === 'pp' && !ppLoaded) loadPPBoard();
+  if (tab === 'pp' && !ppLeaderboardLoadedOnce) loadPPLeaderboard();
 }
 
 function buildPodium(containerId, sorted, valueKey, formatFn) {
