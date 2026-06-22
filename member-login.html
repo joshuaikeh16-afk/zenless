@@ -214,7 +214,7 @@
 <script src="js/app.js"></script>
 <script>
   // If already logged in as member, skip to profile
-  const savedPhone = sessionStorage.getItem('agi_member_phone');
+  const savedPhone = localStorage.getItem('agi_member_phone');
   if (savedPhone) {
     window.location.href = 'profile.html';
   }
@@ -247,9 +247,9 @@
       return;
     }
 
-    // Save to session
-    sessionStorage.setItem('agi_member_phone', raw);
-    sessionStorage.setItem('agi_member_name', user.name);
+    // Save to device
+    localStorage.setItem('agi_member_phone', raw);
+    localStorage.setItem('agi_member_name', user.name);
     window.location.href = 'profile.html';
   }
 
