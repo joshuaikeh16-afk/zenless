@@ -11,7 +11,7 @@ const ALLOWED_HOSTS = [
   // Add any other card-art CDNs you use here.
 ];
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   const { url } = req.query;
 
   if (!url) {
