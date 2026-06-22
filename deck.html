@@ -852,8 +852,9 @@
         scale:        3,
         useCORS:      true,
         allowTaint:   false,
-        logging:      false,
+        logging:      true,
         imageTimeout: 0,
+        backgroundColor: getComputedStyle(deckGrid).backgroundColor || '#0a0a0a',
       });
 
       // Export as lossless PNG blob
