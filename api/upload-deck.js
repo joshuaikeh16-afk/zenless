@@ -8,14 +8,6 @@ const WIDTH  = COLS * TILE_W + (COLS - 1) * GAP;
 const HEIGHT = ROWS * TILE_H + (ROWS - 1) * GAP;
 const BG_COLOR = 0x1a1a24ff;
 
-async function fetchImageBuffer(url) {
-  // Fetch the raw image bytes directly (server-side — no CORS restriction)
-  const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  const arrayBuffer = await r.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
-
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).send('Method Not Allowed'); return; }
 
@@ -23,16 +15,19 @@ module.exports = async function handler(req, res) {
   try { body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body; }
   catch { res.status(400).json({ error: 'Invalid JSON' }); return; }
 
-  const { cards, imgbbKey } = body;
-  if (!Array.isArray(cards) || cards.length !== 9 || !imgbbKey) {
-    res.status(400).json({ error: 'Missing or invalid cards/imgbbKey' }); return;
+  const { cards, imgbbKey, host } = body;
+  if (!Array.isArray(cards) || cards.length !== 9 || !imgbbKey || !host) {
+    res.status(400).json({ error: 'Missing cards, imgbbKey, or host' }); return;
   }
 
-  // Fetch all card images in parallel directly — no proxy needed server-side
+  // Fetch via our own proxy-image function — same origin, no CDN blocking
   const images = await Promise.all(cards.map(async card => {
     if (!card?.preRenderedUrl) return null;
     try {
-      const buffer = await fetchImageBuffer(card.preRenderedUrl);
+      const proxyUrl = `${host}/api/proxy-image?url=${encodeURIComponent(card.preRenderedUrl)}`;
+      const r = await fetch(proxyUrl);
+      if (!r.ok) throw new Error(`proxy returned ${r.status}`);
+      const buffer = Buffer.from(await r.arrayBuffer());
       return await Jimp.read(buffer);
     } catch (e) {
       console.error('[upload-deck] Failed:', card.preRenderedUrl, e.message);
@@ -40,7 +35,6 @@ module.exports = async function handler(req, res) {
     }
   }));
 
-  // Composite
   const canvas = new Jimp(WIDTH, HEIGHT, BG_COLOR);
   cards.forEach((card, i) => {
     const col = i % COLS, row = Math.floor(i / COLS);
@@ -64,8 +58,6 @@ module.exports = async function handler(req, res) {
   const params = new URLSearchParams({ key: imgbbKey, image: base64 });
   const upload = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: params });
   const json = await upload.json();
-
-  console.log('[upload-deck] imgbb response:', JSON.stringify(json));
 
   if (!json.success || !json.data?.url) {
     res.status(502).json({ error: `imgbb error: ${json?.error?.message || JSON.stringify(json)}` }); return;
