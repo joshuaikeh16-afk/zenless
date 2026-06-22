@@ -828,15 +828,35 @@
       u => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
       u => `https://images.weserv.nl/?url=${encodeURIComponent(u.replace(/^https?:\/\//, ''))}`,
     ];
+    const PER_PROXY_TIMEOUT_MS = 6000;
+
     return new Promise(resolve => {
       let i = 0;
       const tryNext = () => {
         if (i >= proxies.length) { resolve(null); return; } // all failed
         const candidate = proxies[i++](originalUrl);
         const test = new Image();
+        let settled = false;
+        const timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          test.src = ''; // abort the pending load
+          tryNext();
+        }, PER_PROXY_TIMEOUT_MS);
+
         test.crossOrigin = 'anonymous';
-        test.onload = () => resolve(candidate);
-        test.onerror = tryNext;
+        test.onload = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(candidate);
+        };
+        test.onerror = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          tryNext();
+        };
         test.src = candidate;
       };
       tryNext();
