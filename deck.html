@@ -863,69 +863,141 @@
     });
   }
 
+  // Cover-fit drawImage, same math as CSS object-fit:cover
+  function drawCover(ctx, img, dx, dy, dw, dh) {
+    const scale = Math.max(dw / img.width, dh / img.height);
+    const sw = dw / scale, sh = dh / scale;
+    const sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
+    ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+  }
+
+  function roundRectPath(ctx, x, y, w, h, r) {
+    if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); return; }
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function truncateToWidth(ctx, text, maxWidth) {
+    if (ctx.measureText(text).width <= maxWidth) return text;
+    let t = text;
+    while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
+    return t + '…';
+  }
+
+  // Parses the simple linear-gradient()/solid-color strings used by BG_PRESETS
+  // into something canvas can actually fill with.
+  function buildCanvasFill(ctx, w, h, css) {
+    if (!css) return '#1a1a24';
+    if (!css.includes('gradient')) return css;
+    const angleMatch = css.match(/(-?\d+)deg/);
+    const angle = angleMatch ? parseInt(angleMatch[1], 10) : 135;
+    const stops = css.match(/#[0-9a-fA-F]{3,8}/g) || ['#1a1a24', '#2a2a3a'];
+    const rad = (angle - 90) * Math.PI / 180;
+    const cx = w / 2, cy = h / 2;
+    const len = Math.sqrt(w * w + h * h) / 2;
+    const x1 = cx - Math.cos(rad) * len, y1 = cy - Math.sin(rad) * len;
+    const x2 = cx + Math.cos(rad) * len, y2 = cy + Math.sin(rad) * len;
+    const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+    stops.forEach((c, i) => grad.addColorStop(i / (stops.length - 1 || 1), c));
+    return grad;
+  }
+
+  // Builds the full deck composite ourselves on a <canvas> — no html2canvas,
+  // no DOM cloning, no relying on a third-party proxy to survive a full
+  // browser-style fetch. We only need each image's pixels, which a simple
+  // `new Image()` + proxy fetch gives us directly and reliably.
+  async function renderDeckCanvasManually(cards) {
+    const COLS = 3, ROWS = 3;
+    const TILE_W = 600, TILE_H = Math.round(TILE_W * 7 / 5);
+    const GAP = 30;
+    const width  = COLS * TILE_W + (COLS - 1) * GAP;
+    const height = ROWS * TILE_H + (ROWS - 1) * GAP;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+
+    const grid = document.getElementById('deck-grid');
+    const cssBg = (grid && grid.style.background) || (grid && getComputedStyle(grid).backgroundColor) || '#1a1a24';
+    ctx.fillStyle = buildCanvasFill(ctx, width, height, cssBg);
+    ctx.fillRect(0, 0, width, height);
+
+    // Load each card's art (via the proxy chain) in parallel
+    const loadedImgs = await Promise.all(cards.map(async card => {
+      if (!card || !card.preRenderedUrl) return null;
+      const workingUrl = await loadViaProxyChain(card.preRenderedUrl);
+      if (!workingUrl) return null;
+      return new Promise(resolve => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload  = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = workingUrl;
+      });
+    }));
+
+    cards.forEach((card, i) => {
+      const col = i % COLS, row = Math.floor(i / COLS);
+      const x = col * (TILE_W + GAP), y = row * (TILE_H + GAP);
+      const img = loadedImgs[i];
+
+      ctx.save();
+      roundRectPath(ctx, x, y, TILE_W, TILE_H, 24);
+      ctx.clip();
+
+      ctx.fillStyle = 'rgba(255,255,255,0.04)';
+      ctx.fillRect(x, y, TILE_W, TILE_H);
+
+      if (img && card) {
+        drawCover(ctx, img, x, y, TILE_W, TILE_H);
+
+        const overlayH = TILE_H * 0.35;
+        const grad = ctx.createLinearGradient(x, y + TILE_H - overlayH, x, y + TILE_H);
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.85)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, y + TILE_H - overlayH, TILE_W, overlayH);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '600 28px sans-serif';
+        ctx.textBaseline = 'bottom';
+        const name = truncateToWidth(ctx, card.name || 'Unknown', TILE_W - 28);
+        ctx.fillText(name, x + 14, y + TILE_H - 16);
+      }
+
+      ctx.restore();
+    });
+
+    return canvas;
+  }
+
   async function generateDeckImage() {
     if (!currentUser) return;
-    const btn     = document.getElementById('deck-image-btn');
-    const status  = document.getElementById('deck-image-status');
-    const deckGrid = document.getElementById('deck-grid');
-    if (!deckGrid) return;
+    const btn    = document.getElementById('deck-image-btn');
+    const status = document.getElementById('deck-image-status');
 
     btn.disabled = true;
     btn.textContent = 'Rendering…';
     status.innerHTML = '⏳ Generating high-res showcase...';
 
-    // Temporarily swap each card image to the CORS-safe proxy so html2canvas
-    // can actually read pixel data (the real CDN often lacks CORS headers).
-    // We restore the original src afterward so normal display is unaffected.
-    //
-    // We ALSO hide the <img> and paint the art as a background-image with
-    // background-size:cover on its parent tile instead. html2canvas (v1.4.1)
-    // does not reliably support object-fit:cover on <img> — it frequently
-    // renders those tiles blank even when the image itself loaded fine.
-    // background-image + background-size:cover is handled correctly.
-    const imgs = Array.from(deckGrid.querySelectorAll('img'));
-    const originalSrcs = imgs.map(img => img.src);
-    const tileRestores = [];
-
     try {
-      // Try each proxy per-image until one actually loads; skip art that fails all of them.
-      const resolvedSrcs = await Promise.all(imgs.map(img => loadViaProxyChain(originalSrcs[imgs.indexOf(img)] || img.src)));
-      const failed = [];
-      imgs.forEach((img, i) => {
-        if (resolvedSrcs[i]) {
-          img.crossOrigin = 'anonymous';
-          img.src = resolvedSrcs[i];
-        } else {
-          failed.push(originalSrcs[i]);
-        }
-      });
-      if (failed.length) {
-        console.warn('[Deck Image] All proxies failed for:', failed);
+      const slots = getDeckSlots(currentUser);
+      const cards = [];
+      for (let i = 1; i <= DECK_SIZE; i++) {
+        const slotId = slots[i];
+        const card = slotId ? currentUser.cards.find(c => (typeof c === 'object' ? c.id : c) === slotId) : null;
+        cards.push(card || null);
       }
 
-      // Paint each tile's art as a background-image and hide the <img>
-      imgs.forEach(img => {
-        const tile = img.closest('.deck-tile');
-        if (!tile) return;
-        tileRestores.push({ tile, bg: tile.style.backgroundImage, imgDisplay: img.style.display });
-        tile.style.backgroundImage = `url("${img.src}")`;
-        tile.style.backgroundSize = 'cover';
-        tile.style.backgroundPosition = 'center';
-        img.style.display = 'none';
-      });
-
-      // Render the live DOM grid at 3× for crisp HD output
-      const html2canvasPromise = html2canvas(deckGrid, {
-        scale:        3,
-        useCORS:      true,
-        allowTaint:   false,
-        logging:      true,
-        imageTimeout: 15000,
-        backgroundColor: getComputedStyle(deckGrid).backgroundColor || '#0a0a0a',
-      });
       const canvas = await Promise.race([
-        html2canvasPromise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Rendering timed out after 25s — try again.')), 25000)),
+        renderDeckCanvasManually(cards),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Rendering timed out after 30s — try again.')), 30000)),
       ]);
 
       // Export as lossless PNG blob
@@ -958,12 +1030,6 @@
       console.error('[Deck Image]', err);
       status.innerHTML = `<span style="color:var(--danger);">❌ ${err.message || 'Failed to generate image — check console.'}</span>`;
     } finally {
-      tileRestores.forEach(({ tile, bg, imgDisplay }) => {
-        tile.style.backgroundImage = bg;
-        const img = tile.querySelector('img');
-        if (img) img.style.display = imgDisplay;
-      });
-      imgs.forEach((img, i) => { img.src = originalSrcs[i]; img.removeAttribute('crossorigin'); });
       btn.disabled = false;
       btn.textContent = '📤 Update WhatsApp Image';
     }
@@ -975,4 +1041,5 @@
   });
 </script>
 </body>
+</html>
 </html>
