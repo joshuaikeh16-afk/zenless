@@ -1060,13 +1060,12 @@
         throw new Error(err.error || `Server error: ${response.status}`);
       }
 
-      const { urls } = await response.json();
-      const successCount = urls.filter(Boolean).length;
-      if (!successCount) throw new Error('No card images could be uploaded.');
+      const { url: deckImageUrl } = await response.json();
+      if (!deckImageUrl) throw new Error('No image URL returned from server.');
 
-      await API.updateUserData(currentUser._rowId, currentUser._raw, { webDeckUrls: urls });
-      currentUser._raw.webDeckUrls = urls;
-      status.innerHTML = `<span style="color:var(--success);">✨ ${successCount}/9 cards synced!</span>`;
+      await API.updateUserData(currentUser._rowId, currentUser._raw, { webDeckUrl: deckImageUrl });
+      currentUser._raw.webDeckUrl = deckImageUrl;
+      status.innerHTML = `<span style="color:var(--success);">✨ Synced!</span> <a href="${deckImageUrl}" target="_blank" rel="noopener" style="color:var(--accent);">View image</a>`;
 
     } catch (err) {
       console.error('[Deck Image]', err);
