@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AniGamble HQ — Markets</title>
+<link rel="stylesheet" href="css/style.css"/>
+<link rel="stylesheet" href="css/animations.css"/>
+<style>
+  /* ── Page-specific additions (kept minimal, reusing existing tokens) ── */
+
+  .markets-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 1.25rem;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .markets-layout { grid-template-columns: 1fr; }
+  }
+
+  /* Wallet strip */
+  .fx-wallet {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 0.85rem 1.1rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+  }
+  .fx-wallet-balance {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--pp-color);
+    letter-spacing: -0.3px;
+  }
+  .fx-wallet-label {
+    font-size: 11px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+  .fx-wallet-actions { margin-left: auto; display: flex; gap: 0.5rem; }
+
+  .asset-tabs { display: flex; gap: 4px; margin-bottom: 1rem; }
+
+  .asset-list { display: flex; flex-direction: column; gap: 6px; max-height: 420px; overflow-y: auto; }
+
+  .asset-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg-3);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .asset-row:hover { background: var(--bg-4); }
+  .asset-row.selected { border-color: var(--border-accent); background: var(--accent-dim); }
+
+  .asset-symbol {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 12.5px;
+    color: var(--text);
+    width: 54px;
+    flex-shrink: 0;
+  }
+  .asset-name { font-size: 11.5px; color: var(--text-3); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .asset-price { font-family: var(--font-display); font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; }
+
+  .trade-price-display {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--text);
+    margin: 0.25rem 0 0.1rem;
+  }
+  .trade-price-display.tick { animation: numberRoll 0.25s var(--ease-decel) both; }
+  .trade-symbol-sub { font-size: 12px; color: var(--text-3); margin-bottom: 1.1rem; }
+
+  .side-toggle { display: flex; gap: 8px; margin-bottom: 1rem; }
+  .side-btn {
+    flex: 1;
+    padding: 0.65rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg-3);
+    color: var(--text-2);
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .side-btn.buy.active  { background: var(--green-dim); color: var(--green); border-color: var(--green); }
+  .side-btn.sell.active { background: var(--danger-dim); color: var(--danger); border-color: var(--danger); }
+
+  .leverage-note {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.55rem 0.85rem;
+    font-size: 12px;
+    color: var(--text-2);
+    margin-bottom: 1rem;
+  }
+  .leverage-note strong { color: var(--gold); font-family: var(--font-display); }
+
+  .trade-summary { font-size: 12px; color: var(--text-3); margin-top: 0.6rem; line-height: 1.6; }
+  .trade-summary strong { color: var(--text-2); }
+
+  .position-card {
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem 0.9rem;
+    margin-bottom: 0.6rem;
+  }
+  .position-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem; }
+  .position-symbol { font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 6px; }
+  .position-pnl { font-family: var(--font-display); font-weight: 700; font-size: 14px; }
+  .position-pnl.pos { color: var(--green); }
+  .position-pnl.neg { color: var(--danger); }
+  .position-meta { font-size: 11px; color: var(--text-3); display: flex; gap: 10px; flex-wrap: wrap; }
+  .position-close-btn {
+    margin-top: 0.55rem;
+    width: 100%;
+    background: var(--bg-4);
+    border: 1px solid var(--border-2);
+    color: var(--text-2);
+    padding: 0.4rem;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    transition: background 0.15s, color 0.15s;
+  }
+  .position-close-btn:hover { background: var(--danger-dim); color: var(--danger); border-color: var(--danger); }
+
+  .fx-history-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 0;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .fx-history-row:last-child { border-bottom: none; }
+
+  .convert-modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+    display: none; align-items: center; justify-content: center; z-index: 500; padding: 1rem;
+  }
+  .convert-modal-overlay.open { display: flex; }
+  .convert-modal {
+    background: var(--bg-2); border: 1px solid var(--border-2); border-radius: var(--radius-lg);
+    padding: 1.5rem; width: 100%; max-width: 360px;
+  }
+  .convert-tabs { display: flex; gap: 4px; background: var(--bg-3); border: 1px solid var(--border); padding: 3px; border-radius: var(--radius); margin-bottom: 1rem; }
+  .convert-tab { flex: 1; text-align: center; padding: 0.4rem; font-size: 12.5px; font-weight: 600; border-radius: 6px; color: var(--text-2); cursor: pointer; }
+  .convert-tab.active { background: var(--accent); color: #fff; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <main class="main">
+    <div class="page-header fade-in">
+      <div>
+        <div class="page-title">📈 Markets</div>
+        <div class="page-sub">Trade forex, stocks, gold & land using FX Credits</div>
+      </div>
+    </div>
+
+    <div class="fx-wallet card fade-in">
+      <div>
+        <div class="fx-wallet-label">FX Credit Balance</div>
+        <div class="fx-wallet-balance" id="fx-balance">0</div>
+      </div>
+      <div class="fx-wallet-actions">
+        <button class="btn btn-ghost" onclick="openConvertModal('buy')">Buy Credits</button>
+        <button class="btn btn-ghost" onclick="openConvertModal('sell')">Cash Out</button>
+      </div>
+    </div>
+
+    <div class="markets-layout">
+      <div>
+        <div class="card fade-in" style="margin-bottom:1.25rem;">
+          <div class="card-header">
+            <div class="card-title">Markets</div>
+          </div>
+          <div class="asset-tabs game-tabs">
+            <button class="game-tab active" data-cat="forex" onclick="switchCategory('forex')">Forex</button>
+            <button class="game-tab" data-cat="stock" onclick="switchCategory('stock')">Stocks</button>
+            <button class="game-tab" data-cat="metal" onclick="switchCategory('metal')">Gold</button>
+            <button class="game-tab" data-cat="land" onclick="switchCategory('land')">Land</button>
+          </div>
+          <div class="asset-list" id="asset-list" style="margin-top:0.85rem;">
+            <div class="loader"><div class="spinner"></div> Loading prices…</div>
+          </div>
+        </div>
+
+        <div class="card fade-in" id="trade-panel" style="display:none;">
+          <div class="card-header">
+            <div class="card-title" id="trade-panel-title">Trade</div>
+          </div>
+          <div class="trade-price-display" id="trade-price">—</div>
+          <div class="trade-symbol-sub" id="trade-symbol-sub">Select an asset to trade</div>
+
+          <div class="side-toggle">
+            <button class="side-btn buy active" id="side-buy" onclick="setSide('buy')">▲ Buy</button>
+            <button class="side-btn sell" id="side-sell" onclick="setSide('sell')">▼ Sell</button>
+          </div>
+
+          <label style="display:block;font-size:12px;color:var(--text-2);margin-bottom:6px;font-weight:500;">Stake (FX Credits)</label>
+          <input type="number" class="admin-input" id="stake-input" placeholder="0" min="1" oninput="updateSummary()" style="margin-bottom:0.85rem;"/>
+
+          <div class="leverage-note">
+            <span>Leverage</span>
+            <strong>10x</strong>
+          </div>
+
+          <button class="btn btn-primary" style="width:100%;" id="open-trade-btn" onclick="openTrade()">Open Position</button>
+          <div class="trade-summary" id="trade-summary"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card fade-in" style="margin-bottom:1.25rem;">
+          <div class="card-header">
+            <div class="card-title">Open Positions</div>
+          </div>
+          <div id="positions-list">
+            <div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No open positions</div></div>
+          </div>
+        </div>
+
+        <div class="card fade-in">
+          <div class="card-header">
+            <div class="card-title">Trade History</div>
+          </div>
+          <div id="fx-history-list">
+            <div class="empty-text" style="color:var(--text-3);font-size:12px;">No closed trades yet</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="convert-modal-overlay" id="convert-overlay">
+  <div class="convert-modal">
+    <div class="convert-tabs">
+      <button class="convert-tab active" id="convert-tab-buy" onclick="setConvertMode('buy')">Buy Credits</button>
+      <button class="convert-tab" id="convert-tab-sell" onclick="setConvertMode('sell')">Cash Out</button>
+    </div>
+    <label style="display:block;font-size:12px;color:var(--text-2);margin-bottom:6px;font-weight:500;" id="convert-label">PP to convert</label>
+    <input type="number" class="admin-input" id="convert-input" placeholder="0" min="1" style="margin-bottom:0.5rem;"/>
+    <div style="font-size:11.5px;color:var(--text-3);margin-bottom:1rem;" id="convert-rate-note">1 PP = 1 FX Credit</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-ghost" style="flex:1;" onclick="closeConvertModal()">Cancel</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="submitConvert()">Confirm</button>
+    </div>
+    <div class="convert-result" id="convert-result" style="margin-top:0.75rem;font-size:12.5px;"></div>
+  </div>
+</div>
+
+<script src="data/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/app.js"></script>
+<script>
+  if (typeof CONFIG === 'undefined' || typeof FxApi === 'undefined' || typeof API === 'undefined') {
+    document.body.innerHTML = '<div style="padding:3rem;text-align:center;font-family:monospace;color:#e84f6b;">⚠ Failed to load required scripts — check script paths at the bottom of forex.html.</div>';
+    throw new Error('Required scripts not loaded — aborting forex.html');
+  }
+
+  let currentUser   = null;
+  let currentCategory = 'forex';
+  let assetCache    = { forex: [], stock: [], metal: [], land: [] };
+  let selectedAsset = null;
+  let tradeSide     = 'buy';
+  let convertMode   = 'buy';
+  let pollTimer     = null;
+
+  function getMemberPhone() {
+    return localStorage.getItem('agi_member_phone');
+  }
+
+  async function loadCurrentUser() {
+    const phone = getMemberPhone();
+    if (!phone) {
+      document.querySelector('.main').innerHTML = `
+        <div class="empty" style="padding:4rem 1rem;">
+          <div class="empty-icon">🔒</div>
+          <div class="empty-text">Log in to access the Markets.</div>
+          <a href="member-login.html" class="btn btn-primary" style="margin-top:1rem;display:inline-flex;">Go to login</a>
+        </div>`;
+      throw new Error('not logged in');
+    }
+    const rows = await API.getUserByPhone(phone);
+    const row = rows?.[0];
+    if (!row) throw new Error('user not found');
+    currentUser = App.parseUser(row);
+    renderWallet();
+  }
+
+  function renderWallet() {
+    const credits = FxApi.getCredits(currentUser._raw);
+    document.getElementById('fx-balance').textContent = Math.round(credits).toLocaleString() + ' ◈FX';
+  }
+
+  async function persist(updates) {
+    const merged = { ...currentUser._raw, ...updates };
+    await API.updateUserData(currentUser._rowId, currentUser._raw, updates);
+    currentUser._raw = merged;
+    renderWallet();
+  }
+
+  async function loadAssets() {
+    const [forexRates, allAssets] = await Promise.all([
+      FxApi.getForexRates(),
+      Promise.resolve(FxApi.getAssets()),
+    ]);
+    assetCache.forex = forexRates.map(r => ({ symbol: r.symbol, name: r.symbol, price: r.price, kind: 'forex' }));
+    assetCache.stock = allAssets.filter(a => a.type === 'stock').map(a => ({ ...a, kind: 'asset' }));
+    assetCache.metal = allAssets.filter(a => a.type === 'metal').map(a => ({ ...a, kind: 'asset' }));
+    assetCache.land  = allAssets.filter(a => a.type === 'land').map(a => ({ ...a, kind: 'asset' }));
+    renderAssetList();
+  }
+
+  function formatPrice(symbol, price) {
+    if (symbol.includes('/')) return price.toFixed(4);
+    if (price >= 1000) return price.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    return price.toFixed(2);
+  }
+
+  function renderAssetList() {
+    const list = assetCache[currentCategory] || [];
+    const el = document.getElementById('asset-list');
+    if (!list.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">📡</div><div class="empty-text">No live data right now — try again shortly.</div></div>`;
+      return;
+    }
+    el.innerHTML = list.map(a => `
+      <div class="asset-row ${selectedAsset?.symbol === a.symbol ? 'selected' : ''}" onclick="selectAsset('${a.symbol}')">
+        <div class="asset-symbol">${a.symbol}</div>
+        <div class="asset-name">${a.name || ''}</div>
+        <div class="asset-price">${formatPrice(a.symbol, a.price)}</div>
+      </div>
+    `).join('');
+  }
+
+  function switchCategory(cat) {
+    currentCategory = cat;
+    document.querySelectorAll('.asset-tabs .game-tab').forEach(t => t.classList.toggle('active', t.dataset.cat === cat));
+    renderAssetList();
+  }
+
+  function selectAsset(symbol) {
+    const list = assetCache[currentCategory] || [];
+    const a = list.find(x => x.symbol === symbol);
+    if (!a) return;
+    selectedAsset = a;
+    renderAssetList();
+    renderTradePanel();
+  }
+
+  function renderTradePanel() {
+    const panel = document.getElementById('trade-panel');
+    if (!selectedAsset) { panel.style.display = 'none'; return; }
+    panel.style.display = 'block';
+    document.getElementById('trade-panel-title').textContent = 'Trade ' + selectedAsset.symbol;
+    const priceEl = document.getElementById('trade-price');
+    priceEl.textContent = formatPrice(selectedAsset.symbol, selectedAsset.price);
+    priceEl.classList.remove('tick');
+    requestAnimationFrame(() => priceEl.classList.add('tick'));
+    document.getElementById('trade-symbol-sub').textContent = selectedAsset.name && selectedAsset.name !== selectedAsset.symbol
+      ? `${selectedAsset.name} · live price`
+      : 'Live price';
+    updateSummary();
+  }
+
+  function setSide(side) {
+    tradeSide = side;
+    document.getElementById('side-buy').classList.toggle('active', side === 'buy');
+    document.getElementById('side-sell').classList.toggle('active', side === 'sell');
+    updateSummary();
+  }
+
+  function updateSummary() {
+    const stake = Number(document.getElementById('stake-input').value) || 0;
+    const summaryEl = document.getElementById('trade-summary');
+    if (!selectedAsset || stake <= 0) { summaryEl.innerHTML = ''; return; }
+    const exposure = stake * FxApi.LEVERAGE;
+    summaryEl.innerHTML = `
+      <strong>${stake.toLocaleString()} ◈FX</strong> staked at <strong>10x</strong> ≈
+      <strong>${exposure.toLocaleString()} ◈FX</strong> exposure.<br/>
+      Max loss is capped at your stake (${stake.toLocaleString()} ◈FX).
+    `;
+  }
+
+  async function openTrade() {
+    const stake = Number(document.getElementById('stake-input').value);
+    const btn = document.getElementById('open-trade-btn');
+    if (!selectedAsset) return;
+    if (!stake || stake <= 0) { App.showToast('Enter a valid stake amount', 'error'); return; }
+
+    const credits = FxApi.getCredits(currentUser._raw);
+    if (stake > credits) { App.showToast('Not enough FX Credits', 'error'); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Opening…';
+    try {
+      const result = FxApi.openPosition(currentUser._raw, {
+        kind: selectedAsset.kind,
+        symbol: selectedAsset.symbol,
+        side: tradeSide,
+        stake,
+        entryPrice: selectedAsset.price,
+      });
+      await persist({ fxCredits: result.fxCredits, fxPositions: result.fxPositions });
+      document.getElementById('stake-input').value = '';
+      updateSummary();
+      App.showToast(`Opened ${tradeSide.toUpperCase()} on ${selectedAsset.symbol}`, 'success');
+      renderPositions();
+    } catch (e) {
+      App.showToast(e.message || 'Could not open position', 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Open Position';
+  }
+
+  function livePriceFor(position) {
+    if (position.kind === 'forex') {
+      const r = assetCache.forex.find(a => a.symbol === position.symbol);
+      return r ? r.price : position.entryPrice;
+    }
+    const all = [...assetCache.stock, ...assetCache.metal, ...assetCache.land];
+    const a = all.find(x => x.symbol === position.symbol);
+    return a ? a.price : position.entryPrice;
+  }
+
+  function renderPositions() {
+    const positions = FxApi.getPositions(currentUser._raw);
+    const el = document.getElementById('positions-list');
+    if (!positions.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No open positions</div></div>`;
+      return;
+    }
+    el.innerHTML = positions.map(p => {
+      const live = livePriceFor(p);
+      const pnl = FxApi.calcPnL(p, live);
+      const pnlClass = pnl >= 0 ? 'pos' : 'neg';
+      return `
+        <div class="position-card">
+          <div class="position-top">
+            <div class="position-symbol">${p.symbol} <span style="font-size:10px;color:${p.side === 'buy' ? 'var(--green)' : 'var(--danger)'};">${p.side === 'buy' ? '▲ BUY' : '▼ SELL'}</span></div>
+            <div class="position-pnl ${pnlClass}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} ◈FX</div>
+          </div>
+          <div class="position-meta">
+            <span>Stake: ${p.stake.toLocaleString()} ◈FX</span>
+            <span>10x</span>
+            <span>Entry: ${formatPrice(p.symbol, p.entryPrice)}</span>
+          </div>
+          <button class="position-close-btn" onclick="closeTrade('${p.id}')">Close Position</button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function closeTrade(positionId) {
+    const positions = FxApi.getPositions(currentUser._raw);
+    const position = positions.find(p => p.id === positionId);
+    if (!position) return;
+    const live = livePriceFor(position);
+
+    try {
+      const result = FxApi.closePosition(currentUser._raw, positionId, live);
+      await persist({ fxCredits: result.fxCredits, fxPositions: result.fxPositions, fxHistory: result.fxHistory });
+      App.showToast(result.pnl >= 0 ? `Closed +${result.pnl.toFixed(2)} ◈FX` : `Closed ${result.pnl.toFixed(2)} ◈FX`, result.pnl >= 0 ? 'success' : 'error');
+      renderPositions();
+      renderHistory();
+    } catch (e) {
+      App.showToast(e.message || 'Could not close position', 'error');
+    }
+  }
+
+  function renderHistory() {
+    const history = FxApi.getHistory(currentUser._raw);
+    const el = document.getElementById('fx-history-list');
+    if (!history.length) {
+      el.innerHTML = `<div class="empty-text" style="color:var(--text-3);font-size:12px;">No closed trades yet</div>`;
+      return;
+    }
+    el.innerHTML = history.map(h => `
+      <div class="fx-history-row">
+        <span class="td-muted">${h.symbol} · ${h.side.toUpperCase()}</span>
+        <span style="color:${h.pnl >= 0 ? 'var(--green)' : 'var(--danger)'};font-weight:600;">${h.pnl >= 0 ? '+' : ''}${h.pnl.toFixed(2)} ◈FX</span>
+      </div>
+    `).join('');
+  }
+
+  function openConvertModal(mode) {
+    setConvertMode(mode);
+    document.getElementById('convert-overlay').classList.add('open');
+  }
+  function closeConvertModal() {
+    document.getElementById('convert-overlay').classList.remove('open');
+    document.getElementById('convert-input').value = '';
+    document.getElementById('convert-result').textContent = '';
+  }
+  function setConvertMode(mode) {
+    convertMode = mode;
+    document.getElementById('convert-tab-buy').classList.toggle('active', mode === 'buy');
+    document.getElementById('convert-tab-sell').classList.toggle('active', mode === 'sell');
+    document.getElementById('convert-label').textContent = mode === 'buy' ? 'PP to convert' : 'FX Credits to cash out';
+  }
+
+  async function submitConvert() {
+    const amount = Number(document.getElementById('convert-input').value);
+    const resultEl = document.getElementById('convert-result');
+    if (!amount || amount <= 0) { resultEl.textContent = 'Enter a valid amount.'; resultEl.style.color = 'var(--danger)'; return; }
+
+    if (convertMode === 'buy') {
+      const pp = currentUser._raw.primePoints || 0;
+      if (amount > pp) { resultEl.textContent = 'Not enough Prime Points.'; resultEl.style.color = 'var(--danger)'; return; }
+      const result = FxApi.buyCredits(currentUser._raw, amount);
+      await persist({ fxCredits: result.fxCredits, primePoints: pp - amount });
+      resultEl.textContent = `Converted ${amount} PP → ${result.creditsGained} FX Credits.`;
+      resultEl.style.color = 'var(--green)';
+    } else {
+      const result = FxApi.sellCredits(currentUser._raw, amount);
+      const pp = currentUser._raw.primePoints || 0;
+      await persist({ fxCredits: result.fxCredits, primePoints: pp + result.ppGained });
+      resultEl.textContent = `Cashed out ${result.ppGained} PP.`;
+      resultEl.style.color = 'var(--green)';
+    }
+    setTimeout(closeConvertModal, 1400);
+  }
+
+  async function boot() {
+    App.renderSidebar('forex');
+    await loadCurrentUser();
+    await loadAssets();
+    renderPositions();
+    renderHistory();
+
+    pollTimer = setInterval(async () => {
+      await loadAssets();
+      if (selectedAsset) {
+        const updated = (assetCache[currentCategory] || []).find(a => a.symbol === selectedAsset.symbol);
+        if (updated) { selectedAsset = updated; renderTradePanel(); }
+      }
+      renderPositions();
+    }, 15000);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    boot().catch(err => console.error('[forex.html] boot failed', err));
+  });
+</script>
+</body>
+</html>
