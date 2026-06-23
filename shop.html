@@ -770,20 +770,15 @@ async function loadCatalogue() {
 
 // ── Sidebar counts ────────────────────────────────────────────
 function updateSidebarCounts() {
-  const tiers = { C:0, R:0, SR:0, SSR:0, UR:0 };
+  const rarities = ['Common','Uncommon','Rare','Epic','Legendary','Mythic'];
+  const tiers = {};
+  rarities.forEach(r => tiers[r] = 0);
   catalogue.forEach(c => { if (tiers[c.tier] !== undefined) tiers[c.tier]++; });
 
-  document.getElementById('count-all').textContent     = catalogue.length;
-  ['Common','Uncommon','Rare','Epic','Legendary','Mythic'].forEach(r => {
+  document.getElementById('count-all').textContent = catalogue.length;
+  rarities.forEach(r => {
     const el = document.getElementById('count-' + r);
-    if (el) el.textContent = 0; // reset legacy labels
-  });
-  // Map tiers to sidebar count elements
-  const tierMap = { Common:'C', Uncommon:'R', Rare:'SR', Epic:'SSR', Legendary:'UR', Mythic:'UR' };
-  // Use tier IDs directly if sidebar has been updated, otherwise map
-  Object.entries(tiers).forEach(([t, n]) => {
-    const el = document.getElementById('count-' + t);
-    if (el) el.textContent = n;
+    if (el) el.textContent = tiers[r];
   });
 
   const owned   = catalogue.filter(c => ownedCardIds.has(c.id)).length;
@@ -1029,4 +1024,4 @@ document.addEventListener('keydown', e => {
 });
 </script>
 </body>
-</html>
+          </html>
