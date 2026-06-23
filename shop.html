@@ -719,6 +719,24 @@
   </main>
 </div>
 
+<!-- Confirm purchase modal -->
+<div class="confirm-overlay" id="confirm-overlay" onclick="closeConfirm(event)">
+  <div class="confirm-box" id="confirm-box">
+    <div class="confirm-art" id="confirm-art"></div>
+    <div class="confirm-name" id="confirm-name"></div>
+    <div class="confirm-rarity" id="confirm-rarity"></div>
+    <div class="confirm-desc" id="confirm-desc"></div>
+    <div class="confirm-price-row">
+      <span>Cost</span>
+      <div class="confirm-price-val" id="confirm-price-val"></div>
+    </div>
+    <div class="confirm-actions">
+      <button class="confirm-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="confirm-buy" id="confirm-buy-btn" onclick="confirmBuy()">Buy card</button>
+    </div>
+  </div>
+</div>
+
 <script src="data/config.js"></script>
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
@@ -746,13 +764,32 @@ const TIER_ORDER = {
   UR:4, Mythic:4,
 };
 
+// ── Economy API (for buying) ──────────────────────────────────
+// TODO: replace with a buy-only scoped key once one exists, instead of
+// the full-admin key — see conversation notes.
+const ECONOMY_API = {
+  baseUrl: 'http://jobs.hidencloud.com:24633/api/economy',
+  key:     '936f46f583278e85da40457c6be357fd22b87f63dd4ca1c0',
+  groupId: '120363424601999307@g.us',
+};
+
 // ── State ────────────────────────────────────────────────────
-let catalogue    = [];   // loaded from __shop
+let catalogue      = [];   // loaded from __shop
 let activeRarity   = 'all';
+let currentPlayer  = null; // { userId, name } if logged in
+let confirmTarget  = null;
 
 // ── Init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   renderSidebar('shop');
+
+  const phone = localStorage.getItem('agi_member_phone');
+  if (phone) {
+    const raw  = await API.getUserByPhone(phone);
+    const user = App.parseUser(raw?.[0]);
+    if (user) currentPlayer = { userId: user._rowId, name: user.name };
+  }
+
   await loadCatalogue();
 });
 
@@ -774,10 +811,11 @@ async function loadCatalogue() {
     // code can keep treating it like a plain card.
     catalogue = listings.map((listing, i) => ({
       ...listing.card,
-      id:         listing.card?.id ?? `listing-${i}`,
-      price:      listing.price,
-      sellerName: listing.sellerName,
-      sellerId:   listing.sellerId,
+      id:            listing.card?.id ?? `listing-${i}`,
+      price:         listing.price,
+      sellerName:    listing.sellerName,
+      sellerId:      listing.sellerId,
+      listingIndex:  i,
     }));
   } catch (e) {
     console.error('Shop load error:', e);
@@ -890,6 +928,10 @@ function renderCardTile(card) {
        </div>`
     : '';
 
+  const buyButtonHTML = currentPlayer
+    ? `<button class="buy-btn" onclick="event.stopPropagation();openConfirm(${card.listingIndex})">Buy</button>`
+    : `<button class="buy-btn" onclick="window.location.href='member-login.html'">Log in</button>`;
+
   return `
     <div class="shop-card ${weightClass} fade-in" style="--tier-color:${color};">
       <div class="tier-strip">${labelText}</div>
@@ -902,12 +944,104 @@ function renderCardTile(card) {
         ${sellerHTML}
         <div class="card-footer">
           <div class="card-price ${currency === 'pp' ? 'pp-price' : ''}">${priceLabel}</div>
+          ${buyButtonHTML}
         </div>
       </div>
     </div>
   `;
 }
 
+// ── Confirm modal & purchase ──────────────────────────────────
+function openConfirm(listingIndex) {
+  const card = catalogue.find(c => c.listingIndex === listingIndex);
+  if (!card) return;
+  confirmTarget = card;
+
+  const color    = TIER_COLOR[card.tier] || 'var(--text-3)';
+  const price    = card.price || card.worth || 0;
+  const currency = card.currency || 'primos';
+
+  const artEl = document.getElementById('confirm-art');
+  if (card.preRenderedUrl) {
+    artEl.innerHTML = `<img src="${card.preRenderedUrl}" alt="${card.name}"
+      style="width:100%;height:220px;object-fit:cover;border-radius:var(--radius-lg) var(--radius-lg) 0 0;display:block;"
+      onerror="this.outerHTML='&lt;div style=&quot;font-size:64px;text-align:center;padding:1rem;&quot;&gt;🃏&lt;/div&gt;'">`;
+  } else {
+    artEl.textContent = '🃏';
+  }
+
+  document.getElementById('confirm-name').textContent   = card.name || 'Unknown Card';
+  document.getElementById('confirm-rarity').textContent = card.badge || card.tier;
+  document.getElementById('confirm-rarity').style.color = color;
+  document.getElementById('confirm-desc').textContent   = card.seriesName || '';
+
+  document.getElementById('confirm-price-val').textContent = currency === 'pp'
+    ? `◈ ${price.toLocaleString()} Prime Points`
+    : `🪙 ${App.formatCoins(price)} Primos`;
+
+  const buyBtn = document.getElementById('confirm-buy-btn');
+  buyBtn.disabled    = false;
+  buyBtn.textContent = 'Confirm purchase';
+
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+
+function closeConfirm(e) {
+  if (e && e.target !== document.getElementById('confirm-overlay')) return;
+  document.getElementById('confirm-overlay').classList.remove('open');
+  confirmTarget = null;
+}
+
+async function confirmBuy() {
+  if (!confirmTarget || !currentPlayer) return;
+
+  const buyBtn = document.getElementById('confirm-buy-btn');
+  buyBtn.disabled    = true;
+  buyBtn.textContent = 'Buying…';
+
+  try {
+    const res = await fetch(
+      `${ECONOMY_API.baseUrl}/shop/${encodeURIComponent(ECONOMY_API.groupId)}/buy`,
+      {
+        method: 'POST',
+        headers: {
+          'x-api-key':    ECONOMY_API.key,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          buyerId:      currentPlayer.userId,
+          listingIndex: confirmTarget.listingIndex,
+        }),
+      }
+    );
+    const result = await res.json();
+
+    if (!res.ok || result?.success === false || result?.error) {
+      App.showToast(result?.message || result?.error || 'Purchase failed — try again.', 'error');
+      buyBtn.disabled    = false;
+      buyBtn.textContent = 'Confirm purchase';
+      return;
+    }
+
+    document.getElementById('confirm-overlay').classList.remove('open');
+    App.showToast(`🃏 ${confirmTarget.name} added to your collection!`, 'success');
+    confirmTarget = null;
+
+    // Re-fetch the shop so the bought listing disappears and indices stay correct
+    await loadCatalogue();
+
+  } catch (e) {
+    console.error('Buy error:', e);
+    App.showToast('Purchase failed — try again.', 'error');
+    buyBtn.disabled    = false;
+    buyBtn.textContent = 'Confirm purchase';
+  }
+}
+
+// ── Keyboard close ───────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('confirm-overlay').classList.remove('open');
+});
 </script>
 </body>
-  </html>
+</html>
