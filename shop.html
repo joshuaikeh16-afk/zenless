@@ -1015,6 +1015,7 @@ async function confirmBuy() {
       }
     );
     const result = await res.json();
+    alert(JSON.stringify(result));
 
     if (!res.ok || result?.success === false || result?.error) {
       App.showToast(result?.message || result?.error || 'Purchase failed — try again.', 'error');
