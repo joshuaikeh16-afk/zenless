@@ -217,6 +217,7 @@
           </div>
           <div class="trade-price-display" id="trade-price">—</div>
           <div class="trade-symbol-sub" id="trade-symbol-sub">Select an asset to trade</div>
+          <canvas id="price-chart" width="600" height="120" style="width:100%;height:120px;display:block;margin-bottom:1.1rem;border-radius:var(--radius);background:var(--bg-3);"></canvas>
 
           <div class="side-toggle">
             <button class="side-btn buy active" id="side-buy" onclick="setSide('buy')">▲ Buy</button>
@@ -294,6 +295,8 @@
   let tradeSide     = 'buy';
   let convertMode   = 'buy';
   let pollTimer     = null;
+  let chartTickTimer = null;
+  let chartHistory  = []; // rolling array of {price} points for the current selectedAsset
 
   function getMemberPhone() {
     return localStorage.getItem('agi_member_phone');
@@ -329,11 +332,9 @@
     renderWallet();
   }
 
-  async function loadAssets() {
-    const [forexRates, allAssets] = await Promise.all([
-      FxApi.getForexRates(),
-      Promise.resolve(FxApi.getAssets()),
-    ]);
+  function loadAssets() {
+    const forexRates = FxApi.getForexRates();
+    const allAssets = FxApi.getAssets();
     assetCache.forex = forexRates.map(r => ({ symbol: r.symbol, name: r.symbol, price: r.price, kind: 'forex' }));
     assetCache.stock = allAssets.filter(a => a.type === 'stock').map(a => ({ ...a, kind: 'asset' }));
     assetCache.metal = allAssets.filter(a => a.type === 'metal').map(a => ({ ...a, kind: 'asset' }));
@@ -380,7 +381,7 @@
 
   function renderTradePanel() {
     const panel = document.getElementById('trade-panel');
-    if (!selectedAsset) { panel.style.display = 'none'; return; }
+    if (!selectedAsset) { panel.style.display = 'none'; stopChartTicking(); return; }
     panel.style.display = 'block';
     document.getElementById('trade-panel-title').textContent = 'Trade ' + selectedAsset.symbol;
     const priceEl = document.getElementById('trade-price');
@@ -388,10 +389,99 @@
     priceEl.classList.remove('tick');
     requestAnimationFrame(() => priceEl.classList.add('tick'));
     document.getElementById('trade-symbol-sub').textContent = selectedAsset.name && selectedAsset.name !== selectedAsset.symbol
-      ? `${selectedAsset.name} · live price`
-      : 'Live price';
+      ? `${selectedAsset.name} · updates hourly`
+      : 'Updates hourly';
     updateSummary();
+    resetChartHistory(selectedAsset.price);
+    startChartTicking();
   }
+
+  // ── Live-feeling price chart ────────────────────────────────────
+  // Prices only actually change once per hour (see fx.js). To still feel
+  // alive moment-to-moment, we animate a small mean-reverting wiggle around
+  // the real hourly price every ~1.5s. This never affects the tradable
+  // price itself (entry/close always use the real value from FxApi).
+  const CHART_MAX_POINTS = 40;
+  const CHART_TICK_MS = 1500;
+
+  function resetChartHistory(price) {
+    chartHistory = Array.from({ length: CHART_MAX_POINTS }, () => price);
+    drawChart();
+  }
+
+  function startChartTicking() {
+    stopChartTicking();
+    chartTickTimer = setInterval(() => {
+      if (!selectedAsset) return;
+      const real = selectedAsset.price;
+      const last = chartHistory[chartHistory.length - 1] ?? real;
+      const pull = (real - last) * 0.18;
+      const noise = (Math.random() * 2 - 1) * real * 0.0005;
+      const next = last + pull + noise;
+      chartHistory.push(next);
+      if (chartHistory.length > CHART_MAX_POINTS) chartHistory.shift();
+      drawChart();
+    }, CHART_TICK_MS);
+  }
+
+  function stopChartTicking() {
+    if (chartTickTimer) { clearInterval(chartTickTimer); chartTickTimer = null; }
+  }
+
+  function drawChart() {
+    const canvas = document.getElementById('price-chart');
+    if (!canvas || !chartHistory.length) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth || 600;
+    const h = canvas.clientHeight || 120;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+
+    const min = Math.min(...chartHistory);
+    const max = Math.max(...chartHistory);
+    const range = (max - min) || (max * 0.001) || 1;
+    const pad = 8;
+
+    const up = chartHistory[chartHistory.length - 1] >= chartHistory[0];
+    const lineColor = up ? '#3ddc84' : '#f0506b'; // matches --green/--danger tones
+    const fillColor = up ? 'rgba(61,220,132,0.12)' : 'rgba(240,80,107,0.12)';
+
+    const points = chartHistory.map((p, i) => {
+      const x = pad + (i / (chartHistory.length - 1)) * (w - pad * 2);
+      const y = pad + (1 - (p - min) / range) * (h - pad * 2);
+      return { x, y };
+    });
+
+    // filled area under the line
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, h - pad);
+    points.forEach(pt => ctx.lineTo(pt.x, pt.y));
+    ctx.lineTo(points[points.length - 1].x, h - pad);
+    ctx.closePath();
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+
+    // line itself
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    points.forEach(pt => ctx.lineTo(pt.x, pt.y));
+    ctx.strokeStyle = lineColor;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+
+    // dot at the latest point
+    const lastPt = points[points.length - 1];
+    ctx.beginPath();
+    ctx.arc(lastPt.x, lastPt.y, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = lineColor;
+    ctx.fill();
+  }
+
+  window.addEventListener('resize', () => { if (selectedAsset) drawChart(); });
 
   function setSide(side) {
     tradeSide = side;
@@ -554,15 +644,23 @@
   async function boot() {
     App.renderSidebar('forex');
     await loadCurrentUser();
-    await loadAssets();
+    loadAssets();
     renderPositions();
     renderHistory();
 
-    pollTimer = setInterval(async () => {
-      await loadAssets();
+    // Re-check the underlying real price periodically (it only actually
+    // changes once per hour, but this catches the hour rollover without
+    // needing the page to be refreshed). The chart's own faster tick loop
+    // (startChartTicking) handles the moment-to-moment "feels alive" motion
+    // and is left untouched here unless the real price has actually moved.
+    pollTimer = setInterval(() => {
+      loadAssets();
       if (selectedAsset) {
         const updated = (assetCache[currentCategory] || []).find(a => a.symbol === selectedAsset.symbol);
-        if (updated) { selectedAsset = updated; renderTradePanel(); }
+        if (updated && updated.price !== selectedAsset.price) {
+          selectedAsset = updated;
+          renderTradePanel(); // real price moved (hour rolled over) - resync chart + summary
+        }
       }
       renderPositions();
     }, 15000);
