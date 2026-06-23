@@ -169,6 +169,28 @@
   .convert-tabs { display: flex; gap: 4px; background: var(--bg-3); border: 1px solid var(--border); padding: 3px; border-radius: var(--radius); margin-bottom: 1rem; }
   .convert-tab { flex: 1; text-align: center; padding: 0.4rem; font-size: 12.5px; font-weight: 600; border-radius: 6px; color: var(--text-2); cursor: pointer; }
   .convert-tab.active { background: var(--accent); color: #fff; }
+
+  .lb-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.4rem;
+    border-radius: var(--radius);
+    font-size: 12.5px;
+  }
+  .lb-row.you { background: var(--accent-dim); }
+  .lb-rank { font-family: var(--font-display); font-weight: 700; font-size: 12px; color: var(--text-3); width: 22px; flex-shrink: 0; text-align: center; }
+  .lb-rank.top1 { color: var(--gold); }
+  .lb-rank.top2 { color: #c7c7d8; }
+  .lb-rank.top3 { color: #b08d57; }
+  .lb-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); font-weight: 500; }
+  .lb-row.you .lb-name { color: var(--text); font-weight: 700; }
+  .lb-worth { font-family: var(--font-display); font-weight: 700; color: var(--pp-color); white-space: nowrap; }
+
+  .sl-tp-badges { display: flex; gap: 6px; margin-top: 0.35rem; }
+  .sl-tp-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px; }
+  .sl-tp-badge.sl { background: var(--danger-dim); color: var(--danger); }
+  .sl-tp-badge.tp { background: var(--green-dim); color: var(--green); }
 </style>
 </head>
 <body>
@@ -217,6 +239,10 @@
           </div>
           <div class="trade-price-display" id="trade-price">—</div>
           <div class="trade-symbol-sub" id="trade-symbol-sub">Select an asset to trade</div>
+          <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:0.5rem;">
+            <button class="btn btn-ghost" id="chart-mode-line" style="padding:0.3rem 0.7rem;font-size:11px;" onclick="setChartMode('line')">Line</button>
+            <button class="btn btn-ghost" id="chart-mode-candles" style="padding:0.3rem 0.7rem;font-size:11px;" onclick="setChartMode('candles')">Candles</button>
+          </div>
           <canvas id="price-chart" width="600" height="120" style="width:100%;height:120px;display:block;margin-bottom:1.1rem;border-radius:var(--radius);background:var(--bg-3);"></canvas>
 
           <div class="side-toggle">
@@ -226,6 +252,17 @@
 
           <label style="display:block;font-size:12px;color:var(--text-2);margin-bottom:6px;font-weight:500;">Stake (FX Credits)</label>
           <input type="number" class="admin-input" id="stake-input" placeholder="0" min="1" oninput="updateSummary()" style="margin-bottom:0.85rem;"/>
+
+          <div style="display:flex;gap:8px;margin-bottom:0.85rem;">
+            <div style="flex:1;">
+              <label style="display:block;font-size:11px;color:var(--text-3);margin-bottom:5px;font-weight:500;">Stop-Loss (optional)</label>
+              <input type="number" class="admin-input" id="sl-input" placeholder="Price" min="0" step="any" oninput="updateSummary()"/>
+            </div>
+            <div style="flex:1;">
+              <label style="display:block;font-size:11px;color:var(--text-3);margin-bottom:5px;font-weight:500;">Take-Profit (optional)</label>
+              <input type="number" class="admin-input" id="tp-input" placeholder="Price" min="0" step="any" oninput="updateSummary()"/>
+            </div>
+          </div>
 
           <div class="leverage-note">
             <span>Leverage</span>
@@ -238,6 +275,15 @@
       </div>
 
       <div>
+        <div class="card fade-in" style="margin-bottom:1.25rem;">
+          <div class="card-header">
+            <div class="card-title">🏆 Leaderboard</div>
+          </div>
+          <div id="leaderboard-list">
+            <div class="loader"><div class="spinner"></div> Loading rankings…</div>
+          </div>
+        </div>
+
         <div class="card fade-in" style="margin-bottom:1.25rem;">
           <div class="card-header">
             <div class="card-title">Open Positions</div>
@@ -297,6 +343,7 @@
   let pollTimer     = null;
   let chartTickTimer = null;
   let chartHistory  = []; // rolling array of {price} points for the current selectedAsset
+  let chartMode     = 'line'; // 'line' | 'candles'
 
   function getMemberPhone() {
     return localStorage.getItem('agi_member_phone');
@@ -393,7 +440,33 @@
       : 'Updates hourly';
     updateSummary();
     resetChartHistory(selectedAsset.price);
-    startChartTicking();
+    if (chartMode === 'candles') { stopChartTicking(); drawCandles(); }
+    else { startChartTicking(); }
+    refreshChartModeButtons();
+  }
+
+  function getCandlesForSelected(count = 24) {
+    if (!selectedAsset) return [];
+    return selectedAsset.kind === 'forex'
+      ? FxApi.getCandlesForForex(selectedAsset.symbol, count)
+      : FxApi.getCandlesForAsset(selectedAsset.symbol, count);
+  }
+
+  function refreshChartModeButtons() {
+    document.getElementById('chart-mode-line').classList.toggle('btn-primary', chartMode === 'line');
+    document.getElementById('chart-mode-candles').classList.toggle('btn-primary', chartMode === 'candles');
+  }
+
+  function setChartMode(mode) {
+    chartMode = mode;
+    refreshChartModeButtons();
+    if (mode === 'candles') {
+      stopChartTicking();
+      drawCandles();
+    } else {
+      startChartTicking();
+      drawChart();
+    }
   }
 
   // ── Live-feeling price chart ────────────────────────────────────
@@ -481,7 +554,59 @@
     ctx.fill();
   }
 
-  window.addEventListener('resize', () => { if (selectedAsset) drawChart(); });
+  function drawCandles() {
+    const canvas = document.getElementById('price-chart');
+    if (!canvas || !selectedAsset) return;
+    const candles = getCandlesForSelected(24);
+    if (!candles.length) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth || 600;
+    const h = canvas.clientHeight || 120;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+
+    const allHighs = candles.map(c => c.high);
+    const allLows  = candles.map(c => c.low);
+    const min = Math.min(...allLows);
+    const max = Math.max(...allHighs);
+    const range = (max - min) || (max * 0.001) || 1;
+    const pad = 8;
+    const slot = (w - pad * 2) / candles.length;
+    const bodyW = Math.max(2, slot * 0.55);
+
+    const yFor = v => pad + (1 - (v - min) / range) * (h - pad * 2);
+
+    candles.forEach((c, i) => {
+      const cx = pad + slot * i + slot / 2;
+      const up = c.close >= c.open;
+      const color = up ? '#3ddc84' : '#f0506b';
+
+      // wick
+      ctx.beginPath();
+      ctx.moveTo(cx, yFor(c.high));
+      ctx.lineTo(cx, yFor(c.low));
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // body
+      const yOpen = yFor(c.open);
+      const yClose = yFor(c.close);
+      const bodyTop = Math.min(yOpen, yClose);
+      const bodyH = Math.max(1, Math.abs(yClose - yOpen));
+      ctx.fillStyle = color;
+      ctx.fillRect(cx - bodyW / 2, bodyTop, bodyW, bodyH);
+    });
+  }
+
+  window.addEventListener('resize', () => {
+    if (!selectedAsset) return;
+    chartMode === 'candles' ? drawCandles() : drawChart();
+  });
 
   function setSide(side) {
     tradeSide = side;
@@ -492,18 +617,25 @@
 
   function updateSummary() {
     const stake = Number(document.getElementById('stake-input').value) || 0;
+    const sl = Number(document.getElementById('sl-input').value) || 0;
+    const tp = Number(document.getElementById('tp-input').value) || 0;
     const summaryEl = document.getElementById('trade-summary');
     if (!selectedAsset || stake <= 0) { summaryEl.innerHTML = ''; return; }
     const exposure = stake * FxApi.LEVERAGE;
+    let extra = '';
+    if (sl > 0) extra += `<br/>Stop-loss at <strong>${formatPrice(selectedAsset.symbol, sl)}</strong>.`;
+    if (tp > 0) extra += `<br/>Take-profit at <strong>${formatPrice(selectedAsset.symbol, tp)}</strong>.`;
     summaryEl.innerHTML = `
       <strong>${stake.toLocaleString()} ◈FX</strong> staked at <strong>10x</strong> ≈
       <strong>${exposure.toLocaleString()} ◈FX</strong> exposure.<br/>
-      Max loss is capped at your stake (${stake.toLocaleString()} ◈FX).
+      Max loss is capped at your stake (${stake.toLocaleString()} ◈FX).${extra}
     `;
   }
 
   async function openTrade() {
     const stake = Number(document.getElementById('stake-input').value);
+    const slVal = Number(document.getElementById('sl-input').value) || null;
+    const tpVal = Number(document.getElementById('tp-input').value) || null;
     const btn = document.getElementById('open-trade-btn');
     if (!selectedAsset) return;
     if (!stake || stake <= 0) { App.showToast('Enter a valid stake amount', 'error'); return; }
@@ -520,9 +652,13 @@
         side: tradeSide,
         stake,
         entryPrice: selectedAsset.price,
+        stopLoss: slVal,
+        takeProfit: tpVal,
       });
       await persist({ fxCredits: result.fxCredits, fxPositions: result.fxPositions });
       document.getElementById('stake-input').value = '';
+      document.getElementById('sl-input').value = '';
+      document.getElementById('tp-input').value = '';
       updateSummary();
       App.showToast(`Opened ${tradeSide.toUpperCase()} on ${selectedAsset.symbol}`, 'success');
       renderPositions();
@@ -554,6 +690,11 @@
       const live = livePriceFor(p);
       const pnl = FxApi.calcPnL(p, live);
       const pnlClass = pnl >= 0 ? 'pos' : 'neg';
+      const badges = (p.stopLoss || p.takeProfit) ? `
+        <div class="sl-tp-badges">
+          ${p.stopLoss ? `<span class="sl-tp-badge sl">SL ${formatPrice(p.symbol, p.stopLoss)}</span>` : ''}
+          ${p.takeProfit ? `<span class="sl-tp-badge tp">TP ${formatPrice(p.symbol, p.takeProfit)}</span>` : ''}
+        </div>` : '';
       return `
         <div class="position-card">
           <div class="position-top">
@@ -565,6 +706,7 @@
             <span>10x</span>
             <span>Entry: ${formatPrice(p.symbol, p.entryPrice)}</span>
           </div>
+          ${badges}
           <button class="position-close-btn" onclick="closeTrade('${p.id}')">Close Position</button>
         </div>
       `;
@@ -595,12 +737,17 @@
       el.innerHTML = `<div class="empty-text" style="color:var(--text-3);font-size:12px;">No closed trades yet</div>`;
       return;
     }
-    el.innerHTML = history.map(h => `
+    el.innerHTML = history.map(h => {
+      const reasonTag = h.reason === 'sl' ? ' <span style="color:var(--danger);">[SL]</span>'
+        : h.reason === 'tp' ? ' <span style="color:var(--green);">[TP]</span>'
+        : '';
+      return `
       <div class="fx-history-row">
-        <span class="td-muted">${h.symbol} · ${h.side.toUpperCase()}</span>
+        <span class="td-muted">${h.symbol} · ${h.side.toUpperCase()}${reasonTag}</span>
         <span style="color:${h.pnl >= 0 ? 'var(--green)' : 'var(--danger)'};font-weight:600;">${h.pnl >= 0 ? '+' : ''}${h.pnl.toFixed(2)} ◈FX</span>
       </div>
-    `).join('');
+    `;
+    }).join('');
   }
 
   function openConvertModal(mode) {
@@ -641,12 +788,82 @@
     setTimeout(closeConvertModal, 1400);
   }
 
+  async function checkAutoClose() {
+    if (!currentUser) return;
+    const lookup = (symbol, kind) => livePriceFor({ symbol, kind });
+    const result = FxApi.autoClosePositions(currentUser._raw, lookup);
+    if (!result.closed.length) return;
+
+    await persist({ fxCredits: result.fxCredits, fxPositions: result.fxPositions, fxHistory: result.fxHistory });
+    result.closed.forEach(c => {
+      const label = c.trigger === 'tp' ? 'Take-profit hit' : 'Stop-loss hit';
+      App.showToast(`${label} on ${c.position.symbol}: ${c.pnl >= 0 ? '+' : ''}${c.pnl.toFixed(2)} ◈FX`, c.pnl >= 0 ? 'success' : 'error');
+    });
+    renderPositions();
+    renderHistory();
+  }
+
+  // ── Leaderboard ───────────────────────────────────────────────────
+  // Ranks players by FxApi.getNetWorth() (FX Credits + mark-to-market value
+  // of open positions). Requires a way to fetch every user's row — if your
+  // api.js doesn't have one yet, add something like:
+  //
+  //   async function getAllUsers() {
+  //     const { data, error } = await supabase.from('users').select('*');
+  //     if (error) throw error;
+  //     return data;
+  //   }
+  //
+  // and expose it as API.getAllUsers.
+  async function loadLeaderboard() {
+    const el = document.getElementById('leaderboard-list');
+    if (typeof API.getAllUsers !== 'function') {
+      el.innerHTML = `<div class="empty-text" style="color:var(--text-3);font-size:12px;">Leaderboard needs an <code>API.getAllUsers()</code> method — see comment in forex.html.</div>`;
+      return;
+    }
+    try {
+      const rows = await API.getAllUsers();
+      const ranked = rows
+        .map(row => {
+          let parsed;
+          try { parsed = App.parseUser(row); } catch { return null; }
+          if (!parsed) return null;
+          return { name: parsed._raw?.displayName || parsed._raw?.name || parsed._raw?.username || 'Player', worth: FxApi.getNetWorth(parsed._raw), isYou: currentUser && parsed._rowId === currentUser._rowId };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.worth - a.worth)
+        .slice(0, 10);
+
+      if (!ranked.length) {
+        el.innerHTML = `<div class="empty-text" style="color:var(--text-3);font-size:12px;">No traders yet.</div>`;
+        return;
+      }
+
+      el.innerHTML = ranked.map((r, i) => {
+        const rankClass = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+        return `
+          <div class="lb-row ${r.isYou ? 'you' : ''}">
+            <div class="lb-rank ${rankClass}">${medal}</div>
+            <div class="lb-name">${r.name}</div>
+            <div class="lb-worth">${Math.round(r.worth).toLocaleString()} ◈FX</div>
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      console.error('[Leaderboard]', err);
+      el.innerHTML = `<div class="empty-text" style="color:var(--text-3);font-size:12px;">Couldn't load leaderboard.</div>`;
+    }
+  }
+
   async function boot() {
     App.renderSidebar('forex');
     await loadCurrentUser();
     loadAssets();
     renderPositions();
     renderHistory();
+    loadLeaderboard();
+    checkAutoClose();
 
     // Re-check the underlying real price periodically (it only actually
     // changes once per hour, but this catches the hour rollover without
@@ -662,7 +879,9 @@
           renderTradePanel(); // real price moved (hour rolled over) - resync chart + summary
         }
       }
+      checkAutoClose();
       renderPositions();
+      loadLeaderboard();
     }, 15000);
   }
 
