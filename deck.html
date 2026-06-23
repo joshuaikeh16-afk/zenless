@@ -823,6 +823,22 @@
     key:  'PASTE_YOUR_BOT_API_KEY_HERE',
   };
 
+  // The card art CDN doesn't send CORS headers, so html2canvas can't read its
+  // pixels directly. images.weserv.nl re-serves the image with proper CORS
+  // headers. Only the `?` / `&` inside the original URL need escaping here —
+  // encoding the `/` (like encodeURIComponent does) breaks weserv's parsing.
+  function corsSafeImg(url) {
+    if (!url) return '';
+    const stripped = url.replace(/^https?:\/\//, '');
+    const safe = stripped
+      .replace(/%/g, '%25')
+      .replace(/\?/g, '%3F')
+      .replace(/&/g, '%26')
+      .replace(/#/g, '%23')
+      .replace(/ /g, '%20');
+    return `https://images.weserv.nl/?url=${safe}`;
+  }
+
   async function generateDeckImage() {
     if (!currentUser) return;
     const btn     = document.getElementById('deck-image-btn');
@@ -834,7 +850,21 @@
     btn.textContent = 'Rendering…';
     status.innerHTML = '⏳ Generating high-res showcase...';
 
+    // Swap card images to the CORS-safe proxy ONLY for the moment of capture —
+    // the live page itself displays fine with direct URLs (CORS only blocks
+    // reading pixel data, not just showing an image), so we always restore
+    // these back to normal afterward, success or failure.
+    const imgs = Array.from(deckGrid.querySelectorAll('img'));
+    const originalSrcs = imgs.map(img => img.src);
+
     try {
+      await Promise.all(imgs.map((img, i) => new Promise(resolve => {
+        img.crossOrigin = 'anonymous';
+        img.onload  = resolve;
+        img.onerror = resolve; // don't let one bad image block the whole capture
+        img.src = corsSafeImg(originalSrcs[i]);
+      })));
+
       // Render the live DOM grid at 3× for crisp HD output
       const canvas = await html2canvas(deckGrid, {
         scale:        3,
@@ -896,6 +926,8 @@
       console.error('[Deck Image]', err);
       status.innerHTML = `<span style="color:var(--danger);">❌ ${err.message || 'Failed to generate image — check console.'}</span>`;
     } finally {
+      // Always restore the live page's images, regardless of what happened above
+      imgs.forEach((img, i) => { img.src = originalSrcs[i]; img.removeAttribute('crossorigin'); });
       btn.disabled = false;
       btn.textContent = '📤 Update WhatsApp Image';
     }
