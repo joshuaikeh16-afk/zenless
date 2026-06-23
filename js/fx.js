@@ -179,12 +179,29 @@ const FxApi = (() => {
 
   // Open a position. `entryPrice` must be the current price/rate the caller
   // already fetched (from getAsset or getForexRate) at time of opening.
-  function openPosition(data, { kind, symbol, side, stake, entryPrice }) {
+  // `stopLoss`/`takeProfit` are optional absolute price levels. They're
+  // validated against side+entry so a SL/TP can't be set on the wrong side
+  // of the entry price (which would trigger instantly or never).
+  function openPosition(data, { kind, symbol, side, stake, entryPrice, stopLoss, takeProfit }) {
     stake = Number(stake) || 0;
     const credits = getCredits(data);
     if (stake <= 0) throw new Error('Stake must be greater than 0');
     if (stake > credits) throw new Error('Not enough FX Credits');
     if (!entryPrice || entryPrice <= 0) throw new Error('Invalid entry price');
+
+    stopLoss   = stopLoss   ? Number(stopLoss)   : null;
+    takeProfit = takeProfit ? Number(takeProfit) : null;
+
+    if (stopLoss !== null && (!isFinite(stopLoss) || stopLoss <= 0)) throw new Error('Invalid stop-loss price');
+    if (takeProfit !== null && (!isFinite(takeProfit) || takeProfit <= 0)) throw new Error('Invalid take-profit price');
+
+    if (side === 'buy') {
+      if (stopLoss !== null && stopLoss >= entryPrice) throw new Error('Stop-loss must be below entry price for a BUY');
+      if (takeProfit !== null && takeProfit <= entryPrice) throw new Error('Take-profit must be above entry price for a BUY');
+    } else {
+      if (stopLoss !== null && stopLoss <= entryPrice) throw new Error('Stop-loss must be above entry price for a SELL');
+      if (takeProfit !== null && takeProfit >= entryPrice) throw new Error('Take-profit must be below entry price for a SELL');
+    }
 
     const position = {
       id: 'fx_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
@@ -194,6 +211,8 @@ const FxApi = (() => {
       stake,
       leverage: LEVERAGE,
       entryPrice,
+      stopLoss,
+      takeProfit,
       openedAt: new Date().toISOString(),
     };
 
@@ -214,7 +233,7 @@ const FxApi = (() => {
   // -stake in theory at 10x, so floor the loss at -stake to avoid negative
   // balances — same "can't lose more than you put in" guarantee real margin
   // accounts enforce via stop-outs).
-  function closePosition(data, positionId, currentPrice) {
+  function closePosition(data, positionId, currentPrice, reason = 'manual') {
     const positions = getPositions(data);
     const idx = positions.findIndex(p => p.id === positionId);
     if (idx === -1) throw new Error('Position not found');
@@ -232,6 +251,7 @@ const FxApi = (() => {
       side: position.side,
       stake: position.stake,
       pnl: Math.round(pnl * 100) / 100,
+      reason, // 'manual' | 'sl' | 'tp'
     });
 
     return {
@@ -240,6 +260,122 @@ const FxApi = (() => {
       fxHistory: history,
       pnl,
     };
+  }
+
+  // ── Stop-loss / take-profit ──────────────────────────────────────
+  // Returns 'tp', 'sl', or null depending on whether currentPrice has
+  // crossed the position's stop-loss or take-profit level. Take-profit is
+  // checked first so a price that gaps through both in one tick (rare with
+  // hourly nudges, but possible right at an hour rollover) resolves as a win.
+  function checkTrigger(position, currentPrice) {
+    if (!currentPrice || currentPrice <= 0) return null;
+    if (position.side === 'buy') {
+      if (position.takeProfit && currentPrice >= position.takeProfit) return 'tp';
+      if (position.stopLoss && currentPrice <= position.stopLoss) return 'sl';
+    } else {
+      if (position.takeProfit && currentPrice <= position.takeProfit) return 'tp';
+      if (position.stopLoss && currentPrice >= position.stopLoss) return 'sl';
+    }
+    return null;
+  }
+
+  // Scans all open positions and closes any whose SL/TP has been hit.
+  // `priceLookupFn(symbol, kind)` must return the current live price for
+  // that position (caller supplies this since fx.js itself doesn't track
+  // a live asset cache). Returns the new data fields to persist, plus a
+  // `closed` array describing what got auto-closed (for toasts/logging).
+  function autoClosePositions(data, priceLookupFn) {
+    let working = data;
+    const closed = [];
+
+    for (const pos of getPositions(working).slice()) {
+      const price = priceLookupFn(pos.symbol, pos.kind);
+      const trigger = checkTrigger(pos, price);
+      if (!trigger) continue;
+
+      const result = closePosition(working, pos.id, price, trigger);
+      working = { ...working, fxCredits: result.fxCredits, fxPositions: result.fxPositions, fxHistory: result.fxHistory };
+      closed.push({ position: pos, trigger, pnl: result.pnl, price });
+    }
+
+    return {
+      fxCredits:   working.fxCredits   ?? getCredits(data),
+      fxPositions: working.fxPositions ?? getPositions(data),
+      fxHistory:   working.fxHistory   ?? getHistory(data),
+      closed,
+    };
+  }
+
+  // ── Net worth (for leaderboard) ──────────────────────────────────
+  // Credits on hand + the current mark-to-market value of every open
+  // position (stake +/- live P/L, floored at 0 per position same as a
+  // real close would do).
+  function getCurrentMarketPrice(symbol) {
+    const forexHit = FOREX_PAIRS.find(p => p.symbol === symbol);
+    if (forexHit) return assetPrice(symbol, forexHit.basePrice, FOREX_NUDGE_PCT, FOREX_DRIFT_PCT);
+    const assetHit = ASSETS.find(a => a.symbol === symbol);
+    if (assetHit) return assetPrice(assetHit.symbol, assetHit.basePrice);
+    return null;
+  }
+
+  function getNetWorth(data) {
+    const credits = getCredits(data);
+    const positions = getPositions(data);
+    const openValue = positions.reduce((sum, p) => {
+      const price = getCurrentMarketPrice(p.symbol);
+      if (!price) return sum + p.stake;
+      const pnl = Math.max(-p.stake, calcPnL(p, price));
+      return sum + p.stake + pnl;
+    }, 0);
+    return Math.round((credits + openValue) * 100) / 100;
+  }
+
+  // ── Candlestick history ───────────────────────────────────────────
+  // Reconstructs deterministic hourly OHLC candles for the last `count`
+  // hours using the exact same seeded model as assetPrice(), so the most
+  // recent candle's close always matches the live tradable price. Open is
+  // the previous candle's close (a real walk, not independent noise); high
+  // and low get a small deterministic wiggle beyond open/close so candles
+  // have visible wicks instead of being flat bars.
+  function getCandles(symbol, basePrice, { count = 24, nudgePct = ASSET_NUDGE_PCT, driftPct = 0.04 } = {}) {
+    const now = new Date();
+    const raw = [];
+
+    for (let i = count - 1; i >= 0; i--) {
+      const bucketDate = new Date(now.getTime() - i * 3600 * 1000);
+      const bucket = `${bucketDate.getUTCFullYear()}-${bucketDate.getUTCMonth()}-${bucketDate.getUTCDate()}-${bucketDate.getUTCHours()}`;
+      const dayBucket = `${bucketDate.getUTCFullYear()}-${bucketDate.getUTCMonth()}-${bucketDate.getUTCDate()}`;
+
+      const r = seededRandom(symbol + ':' + bucket);
+      const pct = (r * 2 - 1) * nudgePct;
+      const driftSeed = seededRandom(symbol + ':drift:' + dayBucket);
+      const drift = (driftSeed * 2 - 1) * driftPct;
+      const close = Math.max(0.0001, basePrice * (1 + drift) * (1 + pct));
+
+      raw.push({ bucket, close, pct });
+    }
+
+    return raw.map((c, i) => {
+      const open = i === 0 ? c.close * (1 - c.pct * 0.5) : raw[i - 1].close;
+      const wiggleSeed = seededRandom(symbol + ':wick:' + c.bucket);
+      const wiggle = Math.abs(wiggleSeed * 2 - 1) * Math.max(Math.abs(c.close - open), c.close * nudgePct * 0.5)
+                     + c.close * nudgePct * 0.3;
+      const high = Math.max(open, c.close) + wiggle;
+      const low  = Math.max(0.0001, Math.min(open, c.close) - wiggle);
+      return { time: c.bucket, open, high, low, close: c.close };
+    });
+  }
+
+  function getCandlesForAsset(symbol, count = 24) {
+    const a = ASSETS.find(x => x.symbol === symbol);
+    if (!a) return [];
+    return getCandles(symbol, a.basePrice, { count });
+  }
+
+  function getCandlesForForex(symbol, count = 24) {
+    const p = FOREX_PAIRS.find(x => x.symbol === symbol);
+    if (!p) return [];
+    return getCandles(symbol, p.basePrice, { count, nudgePct: FOREX_NUDGE_PCT, driftPct: FOREX_DRIFT_PCT });
   }
 
   return {
@@ -251,5 +387,8 @@ const FxApi = (() => {
     getCredits, getPositions, getHistory,
     buyCredits, sellCredits,
     openPosition, closePosition, calcPnL,
+    checkTrigger, autoClosePositions,
+    getNetWorth,
+    getCandles, getCandlesForAsset, getCandlesForForex,
   };
 })();
