@@ -444,6 +444,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="data/config.js"></script>
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
@@ -551,8 +552,10 @@
       if (!confirmed) return;
 
       try {
-        // Use PPApi.adjustPP so PP history, rank, and balance all update correctly
-        await PPApi.adjustPP(
+        // Use PPApi.adjustPP so PP history, rank, and balance all update correctly.
+        // adjustPP returns null if the write didn't actually succeed — must check this
+        // before touching local state, or PP can appear spent when it never really was.
+        const ppRes = await PPApi.adjustPP(
           currentUser._rowId,
           currentUser._raw,
           -preset.price,
@@ -560,18 +563,34 @@
           'system'
         );
 
+        if (!ppRes) {
+          App.showToast("Couldn't save the purchase — check your connection and try again. Nothing was charged.", 'error');
+          return;
+        }
+
+        // Reflect the confirmed PP deduction locally
+        currentUser._raw.primePoints = ppRes.primePoints;
+        currentUser._raw.rank        = ppRes.rank;
+        currentUser._raw.ppHistory   = ppRes.ppHistory;
+        currentUser.primePoints      = ppRes.primePoints;
+
         // Save owned list + active bg into Supabase so it persists across devices
         const newOwned = [...Array.from(owned), key];
-        await API.updateUserData(currentUser._rowId, currentUser._raw, {
+        const ownedRes = await API.updateUserData(currentUser._rowId, currentUser._raw, {
           deckBgsOwned: newOwned,
           deckBgActive: key,
         });
 
+        if (!Array.isArray(ownedRes) || !ownedRes.length) {
+          // PP was already spent and confirmed — don't pretend the background unlocked too.
+          App.showToast('PP was spent, but saving the background failed — reloading to check your real state.', 'error');
+          await loadDeckPage();
+          return;
+        }
+
         // Reflect locally so UI updates without a full reload
-        currentUser._raw.deckBgsOwned      = newOwned;
-        currentUser._raw.deckBgActive      = key;
-        currentUser._raw.primePoints       = (currentUser._raw.primePoints || 0) - preset.price;
-        currentUser.primePoints            = currentUser._raw.primePoints;
+        currentUser._raw.deckBgsOwned = newOwned;
+        currentUser._raw.deckBgActive = key;
 
         App.showToast(`${preset.label} background unlocked! ◈ ${preset.price.toLocaleString()} spent.`, 'success');
       } catch (e) {
@@ -609,13 +628,17 @@
     const phone = localStorage.getItem('agi_member_phone');
     localStorage.setItem(bgKey(phone), key); // local cache for instant paint on next load
     // Also persist to Supabase so it loads on any device
-    API.updateUserData(currentUser._rowId, currentUser._raw, { deckBgActive: key });
-    currentUser._raw.deckBgActive = key;
+    const res = await API.updateUserData(currentUser._rowId, currentUser._raw, { deckBgActive: key });
+    if (Array.isArray(res) && res.length) {
+      currentUser._raw.deckBgActive = key;
+    } else {
+      App.showToast("Background changed here, but didn't save — it may revert on other devices.", 'info');
+    }
     applyDeckBackground(key, currentUser.primePoints || 0);
     rebuildBgOptions(currentUser.primePoints || 0, key);
   }
 
-  function applyCustomColor() {
+  async function applyCustomColor() {
     if (!currentUser) return;
     const owned = getOwnedBgs(currentUser);
     if (!owned.has('custom')) return;
@@ -623,13 +646,19 @@
     if (!inp) return;
     const hex   = inp.value;
     const phone = localStorage.getItem('agi_member_phone');
-    localStorage.setItem(bgKey(phone), 'custom');
-    localStorage.setItem(bgKey(phone) + '_custom', hex);
-    // Persist to Supabase so it loads on any device
-    API.updateUserData(currentUser._rowId, currentUser._raw, {
+
+    const res = await API.updateUserData(currentUser._rowId, currentUser._raw, {
       deckBgActive: 'custom',
       deckBgCustom: hex,
     });
+
+    if (!Array.isArray(res) || !res.length) {
+      App.showToast("Couldn't save your color — check your connection and try again.", 'error');
+      return;
+    }
+
+    localStorage.setItem(bgKey(phone), 'custom');
+    localStorage.setItem(bgKey(phone) + '_custom', hex);
     currentUser._raw.deckBgActive = 'custom';
     currentUser._raw.deckBgCustom = hex;
     const grid = document.getElementById('deck-grid');
@@ -781,6 +810,19 @@
   }
 
   /* ── Deck Image Generator (html2canvas HD) ───────────── */
+  // Uploads straight to Supabase Storage (no imgbb / no custom backend needed),
+  // then syncs the resulting URL to both Supabase and the bot's own economy API
+  // so the bot's .deck command and the website both see the same image.
+  const SUPABASE_STORAGE_URL = 'https://padybdvevwazfilxopqy.supabase.co';
+  const SUPABASE_STORAGE_KEY = 'PASTE_YOUR_SUPABASE_KEY_HERE'; // whichever key has insert rights on the bucket below
+  const STORAGE_BUCKET        = 'media';
+  const storageClient         = supabase.createClient(SUPABASE_STORAGE_URL, SUPABASE_STORAGE_KEY);
+
+  const BOT_API = {
+    host: 'http://jobs.hidencloud.com:24633/api/economy',
+    key:  'PASTE_YOUR_BOT_API_KEY_HERE',
+  };
+
   async function generateDeckImage() {
     if (!currentUser) return;
     const btn     = document.getElementById('deck-image-btn');
@@ -807,34 +849,47 @@
         canvas.toBlob(b => b ? resolve(b) : reject(new Error('blob_null')), 'image/png');
       });
 
-      status.innerHTML = '📤 Uploading HD image...';
+      status.innerHTML = '📤 Uploading to Supabase Storage...';
 
-      // Upload to your bot's endpoint
-      const phone    = localStorage.getItem('agi_member_phone') || 'unknown';
-      const formData = new FormData();
-      formData.append('deck_image', blob, `deck_${phone}_${Date.now()}.png`);
-      formData.append('phone', phone);
+      // Upload straight to Supabase Storage — upsert so re-generating overwrites
+      // the same file instead of piling up new ones for every save
+      const arrayBuffer = await blob.arrayBuffer();
+      const fileName     = `deck_${currentUser._rowId}.png`;
 
-      const response = await fetch('/api/upload-deck-image', {
-        method: 'POST',
-        body:   formData,
+      const { error: uploadError } = await storageClient.storage
+        .from(STORAGE_BUCKET)
+        .upload(fileName, arrayBuffer, { contentType: 'image/png', upsert: true });
+
+      if (uploadError) throw new Error(`Storage upload failed: ${uploadError.message}`);
+
+      const { data: urlData } = storageClient.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
+      const deckImageUrl = urlData?.publicUrl;
+      if (!deckImageUrl) throw new Error('Upload succeeded but no public URL came back.');
+
+      status.innerHTML = '🔄 Syncing to database...';
+
+      // Save to our own Supabase table (what profile.html / the website reads)
+      await API.updateUserData(currentUser._rowId, currentUser._raw, { webDeckUrl: deckImageUrl });
+      currentUser._raw.webDeckUrl = deckImageUrl;
+
+      // Also push to the bot's own economy API, with the actual card objects
+      // resolved (not just ids) since that's the shape the bot expects
+      const slots       = getDeckSlots(currentUser);
+      const deckLayout  = slots.map(id => id ? (currentUser.cards.find(c => (typeof c === 'object' ? c.id : c) === id) || null) : null);
+
+      const botRes = await fetch(`${BOT_API.host}/users/${encodeURIComponent(currentUser.phone)}`, {
+        method:  'PATCH',
+        headers: { 'x-api-key': BOT_API.key, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ webDeckUrl: deckImageUrl, activeDeckLayout: deckLayout }),
       });
 
-      if (!response.ok) throw new Error(`Server error: ${response.status}`);
-
-      // Also save the URL back to Supabase if the server returns one
-      let deckImageUrl = null;
-      try {
-        const json = await response.json();
-        deckImageUrl = json?.url || json?.data?.url || null;
-      } catch (_) { /* server returned no JSON body — that's fine */ }
-
-      if (deckImageUrl) {
-        await API.updateUserData(currentUser._rowId, currentUser._raw, { webDeckUrl: deckImageUrl });
-        currentUser._raw.webDeckUrl = deckImageUrl;
-        status.innerHTML = `<span style="color:var(--success);">✨ Synced in HD!</span> <a href="${deckImageUrl}" target="_blank" rel="noopener" style="color:var(--accent);">View image</a>`;
+      if (!botRes.ok) {
+        // Supabase already has the correct image — the bot just didn't get the memo.
+        // Worth knowing about, but not worth losing the otherwise-successful save over.
+        console.error('[Deck Image] Bot API sync failed:', botRes.status, await botRes.text());
+        status.innerHTML = `<span style="color:var(--success);">✨ Saved!</span> <span style="color:var(--text-3);">(bot sync failed — check console)</span> <a href="${deckImageUrl}" target="_blank" rel="noopener" style="color:var(--accent);">View image</a>`;
       } else {
-        status.innerHTML = `<span style="color:var(--success);">✨ WhatsApp image synced in perfect HD!</span>`;
+        status.innerHTML = `<span style="color:var(--success);">✨ Synced in HD!</span> <a href="${deckImageUrl}" target="_blank" rel="noopener" style="color:var(--accent);">View image</a>`;
       }
 
     } catch (err) {
