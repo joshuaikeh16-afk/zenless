@@ -875,8 +875,11 @@ function renderCardTile(card) {
            onerror="this.outerHTML='&lt;div class=&quot;card-art-emoji&quot;&gt;🃏&lt;/div&gt;'">`
     : `<div class="card-art-emoji">🃏</div>`;
 
-  const waLink = card.sellerId
-    ? `https://wa.me/${String(card.sellerId).replace(/\D/g, '')}`
+  // NOTE: waiting on confirmation of the correct field name for seller's
+  // WhatsApp phone number (sellerId is the bot's internal userId, not a
+  // phone number that's safe to link to).
+  const waLink = card.sellerPhone
+    ? `https://wa.me/${String(card.sellerPhone).replace(/\D/g, '')}`
     : null;
   const sellerHTML = card.sellerName
     ? `<div class="card-seller">
