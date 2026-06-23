@@ -2,10 +2,13 @@
 //
 // Adds a self-contained "FX Credits" minigame economy on top of the existing
 // Prime Points system. Players convert PP -> FX Credits, then trade forex
-// pairs (real hourly rates via the free Frankfurter API) and a handful of
-// hardcoded stocks/gold/land assets (hourly random-walk price nudges) using
-// flat 10x leverage. Everything persists into the same per-user `data` JSONB
-// blob Supabase already stores PP/cards/etc in, under two new fields:
+// pairs and a handful of hardcoded stocks/gold/land assets using flat 10x
+// leverage. ALL prices (forex + stocks + gold + land) are hardcoded base
+// values that nudge once per hour via a deterministic seeded random walk —
+// every player sees the same price in a given hour, no external API or
+// network dependency involved. Everything persists into the same per-user
+// `data` JSONB blob Supabase already stores PP/cards/etc in, under two new
+// fields:
 //
 //   data.fxCredits    -> number, the player's FX Credit balance
 //   data.fxPositions  -> array of open positions, each:
@@ -45,13 +48,13 @@ const FxApi = (() => {
   ];
 
   const FOREX_PAIRS = [
-    { symbol: 'EUR/USD', base: 'EUR', quote: 'USD' },
-    { symbol: 'GBP/USD', base: 'GBP', quote: 'USD' },
-    { symbol: 'USD/JPY', base: 'USD', quote: 'JPY' },
-    { symbol: 'AUD/USD', base: 'AUD', quote: 'USD' },
-    { symbol: 'USD/CAD', base: 'USD', quote: 'CAD' },
-    { symbol: 'USD/CHF', base: 'USD', quote: 'CHF' },
-    { symbol: 'NZD/USD', base: 'NZD', quote: 'USD' },
+    { symbol: 'EUR/USD', basePrice: 1.0870 },
+    { symbol: 'GBP/USD', basePrice: 1.2660 },
+    { symbol: 'USD/JPY', basePrice: 156.20 },
+    { symbol: 'AUD/USD', basePrice: 0.6580 },
+    { symbol: 'USD/CAD', basePrice: 1.3700 },
+    { symbol: 'USD/CHF', basePrice: 0.8800 },
+    { symbol: 'NZD/USD', basePrice: 0.6100 },
   ];
 
   // Deterministic seeded "random" per hour so every player sees the same
@@ -75,21 +78,19 @@ const FxApi = (() => {
   // Walk the asset's price forward one hourly nudge per hour elapsed since
   // a fixed epoch, compounding deterministically — so the "current" price
   // is stable within an hour and consistent for every player.
-  function assetPrice(symbol, basePrice) {
+  function assetPrice(symbol, basePrice, nudgePct = ASSET_NUDGE_PCT, driftPct = 0.04) {
     const bucket = currentHourBucket();
     const seed = symbol + ':' + bucket;
     const r = seededRandom(seed); // 0..1
-    const pct = (r * 2 - 1) * ASSET_NUDGE_PCT; // -1.5%..+1.5%
+    const pct = (r * 2 - 1) * nudgePct;
 
-    // Combine with a slower-moving secondary seed (per-day) so price drifts
-    // across hours rather than just jittering around basePrice forever.
     const d = new Date();
     const dayBucket = `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
     const driftSeed = seededRandom(symbol + ':drift:' + dayBucket);
-    const driftPct = (driftSeed * 2 - 1) * 0.04; // up to ±4% drift for the day
+    const drift = (driftSeed * 2 - 1) * driftPct;
 
-    const price = basePrice * (1 + driftPct) * (1 + pct);
-    return Math.max(0.01, price);
+    const price = basePrice * (1 + drift) * (1 + pct);
+    return Math.max(0.0001, price);
   }
 
   function getAssets() {
@@ -102,44 +103,39 @@ const FxApi = (() => {
     return { ...a, price: assetPrice(a.symbol, a.basePrice) };
   }
 
-  // ── Forex rates (real, via Frankfurter — free, no key, updates hourly) ──
-  const _forexCache = { data: null, fetchedAt: 0 };
+  // ── Forex rates (hardcoded, same hourly-walk model as other assets) ────
+  // Real forex pairs move far less in % terms than stocks day to day, so use
+  // a tighter nudge/drift band to keep them feeling realistic.
+  const FOREX_NUDGE_PCT = 0.004; // ±0.4% hourly
+  const FOREX_DRIFT_PCT = 0.012; // ±1.2% daily drift
 
-  async function getForexRates() {
-    const now = Date.now();
-    if (_forexCache.data && (now - _forexCache.fetchedAt) < 5 * 60 * 1000) {
-      return _forexCache.data; // serve from cache for 5 min to avoid hammering the API
-    }
-    try {
-      const res = await fetch('https://api.frankfurter.dev/v2/rates?base=USD');
-      if (!res.ok) throw new Error('rate fetch failed');
-      const json = await res.json();
-      const usdRates = json.rates || {};
-
-      const pairs = FOREX_PAIRS.map(p => {
-        let rate;
-        if (p.base === 'USD') {
-          rate = usdRates[p.quote];
-        } else if (p.quote === 'USD') {
-          rate = usdRates[p.base] ? 1 / usdRates[p.base] : null;
-        } else {
-          rate = (usdRates[p.quote] && usdRates[p.base]) ? usdRates[p.quote] / usdRates[p.base] : null;
-        }
-        return { symbol: p.symbol, price: rate };
-      }).filter(p => p.price != null);
-
-      _forexCache.data = pairs;
-      _forexCache.fetchedAt = now;
-      return pairs;
-    } catch (e) {
-      console.error('[FxApi] forex rate fetch failed', e);
-      return _forexCache.data || [];
-    }
+  function getForexRates() {
+    return FOREX_PAIRS.map(p => ({
+      symbol: p.symbol,
+      price: assetPrice(p.symbol, p.basePrice, FOREX_NUDGE_PCT, FOREX_DRIFT_PCT),
+    }));
   }
 
-  async function getForexRate(symbol) {
-    const rates = await getForexRates();
-    return rates.find(r => r.symbol === symbol) || null;
+  function getForexRate(symbol) {
+    return getForexRates().find(r => r.symbol === symbol) || null;
+  }
+
+  // ── In-between tick generator (for the live chart) ──────────────────
+  // Generates a smooth, deterministic-but-jittery path of points between
+  // "now" and the stable hourly value, purely for visual chart movement.
+  // Does NOT affect the real tradable price — entryPrice/closePrice always
+  // use assetPrice()/getForexRate() above.
+  function generateTickPath(basePriceNow, points = 30, volatility = 0.0006) {
+    const path = [];
+    let p = basePriceNow;
+    for (let i = 0; i < points; i++) {
+      // small mean-reverting random walk around the real hourly price
+      const pull = (basePriceNow - p) * 0.15;
+      const noise = (Math.random() * 2 - 1) * basePriceNow * volatility;
+      p = p + pull + noise;
+      path.push(p);
+    }
+    return path;
   }
 
   // ── Credits & positions ─────────────────────────────────────────
@@ -251,6 +247,7 @@ const FxApi = (() => {
     ASSETS, FOREX_PAIRS,
     getAssets, getAsset,
     getForexRates, getForexRate,
+    generateTickPath,
     getCredits, getPositions, getHistory,
     buyCredits, sellCredits,
     openPosition, closePosition, calcPnL,
