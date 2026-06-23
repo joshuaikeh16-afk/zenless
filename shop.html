@@ -744,7 +744,17 @@ async function loadCatalogue() {
       { headers: { apikey: CONFIG.supabase.key, Authorization: `Bearer ${CONFIG.supabase.key}` } }
     );
     const json = await res.json();
-    catalogue = Array.isArray(json?.[0]?.data) ? json[0].data : [];
+    const listings = Array.isArray(json?.[0]?.data) ? json[0].data : [];
+
+    // __shop stores *listings* (seller + price wrapping a card), not bare
+    // cards — flatten each into a single object so the rest of the shop
+    // code can keep treating it like a plain card.
+    catalogue = listings.map((listing, i) => ({
+      ...listing.card,
+      id:         listing.card?.id ?? `listing-${i}`,
+      price:      listing.price,
+      sellerName: listing.sellerName,
+    }));
   } catch (e) {
     console.error('Shop load error:', e);
     catalogue = [];
