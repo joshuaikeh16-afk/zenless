@@ -589,29 +589,21 @@
           <span class="filter-dot" style="background:var(--text-3)"></span> All cards
           <span class="filter-count" id="count-all">—</span>
         </button>
-        <button class="filter-btn" data-rarity="Common" onclick="filterRarity('Common', this)">
+        <button class="filter-btn" data-rarity="C" onclick="filterRarity('C', this)">
           <span class="filter-dot" style="background:var(--shop-common)"></span> Common
-          <span class="filter-count" id="count-Common">0</span>
+          <span class="filter-count" id="count-C">0</span>
         </button>
-        <button class="filter-btn" data-rarity="Uncommon" onclick="filterRarity('Uncommon', this)">
-          <span class="filter-dot" style="background:var(--shop-uncommon)"></span> Uncommon
-          <span class="filter-count" id="count-Uncommon">0</span>
-        </button>
-        <button class="filter-btn" data-rarity="Rare" onclick="filterRarity('Rare', this)">
+        <button class="filter-btn" data-rarity="R" onclick="filterRarity('R', this)">
           <span class="filter-dot" style="background:var(--shop-rare)"></span> Rare
-          <span class="filter-count" id="count-Rare">0</span>
+          <span class="filter-count" id="count-R">0</span>
         </button>
-        <button class="filter-btn" data-rarity="Epic" onclick="filterRarity('Epic', this)">
-          <span class="filter-dot" style="background:var(--shop-epic)"></span> Epic
-          <span class="filter-count" id="count-Epic">0</span>
+        <button class="filter-btn" data-rarity="SR" onclick="filterRarity('SR', this)">
+          <span class="filter-dot" style="background:var(--shop-epic)"></span> Super Rare
+          <span class="filter-count" id="count-SR">0</span>
         </button>
-        <button class="filter-btn" data-rarity="Legendary" onclick="filterRarity('Legendary', this)">
-          <span class="filter-dot" style="background:var(--shop-legendary)"></span> Legendary
-          <span class="filter-count" id="count-Legendary">0</span>
-        </button>
-        <button class="filter-btn" data-rarity="Mythic" onclick="filterRarity('Mythic', this)">
-          <span class="filter-dot" style="background:var(--shop-mythic)"></span> Mythic
-          <span class="filter-count" id="count-Mythic">0</span>
+        <button class="filter-btn" data-rarity="SSR" onclick="filterRarity('SSR', this)">
+          <span class="filter-dot" style="background:var(--shop-legendary)"></span> Super Special Rare
+          <span class="filter-count" id="count-SSR">0</span>
         </button>
 
         <div class="filter-title" style="margin-top:1.25rem;">Collection</div>
@@ -723,7 +715,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderSidebar('shop');
 
   // Load player session
-  const phone = sessionStorage.getItem('agi_member_phone');
+  const phone = localStorage.getItem('agi_member_phone');
   if (phone) {
     const raw  = await API.getUserByPhone(phone);
     const user = App.parseUser(raw?.[0]);
@@ -770,7 +762,7 @@ async function loadCatalogue() {
 
 // ── Sidebar counts ────────────────────────────────────────────
 function updateSidebarCounts() {
-  const rarities = ['Common','Uncommon','Rare','Epic','Legendary','Mythic'];
+  const rarities = ['C','R','SR','SSR'];
   const tiers = {};
   rarities.forEach(r => tiers[r] = 0);
   catalogue.forEach(c => { if (tiers[c.tier] !== undefined) tiers[c.tier]++; });
@@ -891,7 +883,7 @@ function renderCardTile(card) {
         ${artHTML}
       </div>
       <div class="card-body">
-        <div class="card-name">${card.name}</div>
+        <div class="card-name">${card.name || 'Unknown Card'}</div>
         ${card.seriesName ? `<div class="card-desc" style="margin-bottom:0.5rem;font-size:11px;">${card.seriesName}</div>` : ''}
         <div class="card-footer">
           <div class="card-price ${currency === 'pp' ? 'pp-price' : ''}">${priceLabel}</div>
@@ -929,7 +921,7 @@ function openConfirm(cardId, e) {
     artEl.textContent = '🃏';
   }
 
-  document.getElementById('confirm-name').textContent   = card.name;
+  document.getElementById('confirm-name').textContent   = card.name || 'Unknown Card';
   document.getElementById('confirm-rarity').textContent = card.badge || card.tier;
   document.getElementById('confirm-rarity').style.color = color;
   document.getElementById('confirm-desc').textContent   = card.seriesName || '';
@@ -1024,4 +1016,4 @@ document.addEventListener('keydown', e => {
 });
 </script>
 </body>
-          </html>
+</html>
