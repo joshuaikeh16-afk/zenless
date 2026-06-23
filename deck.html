@@ -1,941 +1,570 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>AniGamble HQ — My Deck</title>
-  <link rel="stylesheet" href="css/style.css"/>
-  <link rel="stylesheet" href="css/dashboard.css"/>
-  <link rel="stylesheet" href="css/animations.css"/>
-  <link rel="stylesheet" href="css/premium.css">
-  <style>
-    /* ── Deck Grid — strict 3×3 ────────────────────────── */
-    .deck-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deck — AniGamble HQ</title>
+<link rel="stylesheet" href="css/style.css"/>
+<link rel="stylesheet" href="css/dashboard.css"/>
+<link rel="stylesheet" href="css/animations.css"/>
+<link rel="stylesheet" href="css/premium.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  /* Background presets — unchanged from the original file */
+  .bg-preset-default { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+  .bg-preset-white   { background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); }
+  .bg-preset-black   { background: linear-gradient(135deg, #020617 0%, #0f172a 100%); }
+  .bg-preset-pink    { background: linear-gradient(135deg, #fbcfe8 0%, #f472b6 100%); }
+  .bg-preset-red     { background: linear-gradient(135deg, #fca5a5 0%, #ef4444 100%); }
+  .bg-preset-green   { background: linear-gradient(135deg, #bbf7d0 0%, #22c55e 100%); }
+  .bg-preset-gold    { background: linear-gradient(135deg, #fef08a 0%, #eab308 100%); }
 
-    .deck-tile {
-      aspect-ratio: 5 / 7;
-      border-radius: var(--radius);
-      overflow: hidden;
-      position: relative;
-      background: var(--bg-3);
-      border: 1px solid var(--border);
-      transition: border-color .15s, transform .15s;
-    }
+  .custom-scroll::-webkit-scrollbar       { width: 5px; }
+  .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+  .custom-scroll::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 99px; }
+  .custom-scroll::-webkit-scrollbar-thumb:hover { background: #374151; }
 
-    .deck-tile.filled { cursor: pointer; }
-    .deck-tile.filled:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+  /* ── Layout, restyled to match the rest of AniGamble HQ ── */
+  .zani-workspace { display: flex; flex-wrap: wrap; gap: 1.25rem; align-items: flex-start; }
+  .zani-col-left  { width: 100%; max-width: 460px; flex-shrink: 0; display: flex; flex-direction: column; gap: 1rem; }
+  .zani-panel     { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.1rem; }
 
-    .deck-tile img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
+  .zani-user-header { display: flex; align-items: center; justify-content: space-between; }
+  .zani-user-info   { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .zani-avatar      { width: 40px; height: 40px; border-radius: var(--radius); background: linear-gradient(135deg, var(--accent), #a855f7); display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; font-size: 14px; flex-shrink: 0; }
+  .zani-user-title  { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .zani-user-sub    { font-size: 10px; color: var(--text-3); font-family: monospace; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .zani-badge       { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; padding: 4px 8px; background: var(--bg-3); border: 1px solid var(--border); border-radius: 6px; color: var(--text-3); flex-shrink: 0; }
 
-    .deck-tile-name {
-      position: absolute;
-      left: 0; right: 0; bottom: 0;
-      padding: 4px 5px 5px;
-      font-size: 9.5px;
-      font-weight: 600;
-      color: #fff;
-      background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+  .zani-panel-title { font-size: 10.5px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.75rem; display: flex; align-items: center; }
 
-    .deck-tile.empty {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-style: dashed;
-      cursor: pointer;
-    }
+  .bg-grid       { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .bg-pick-btn   { display: flex; flex-direction: column; align-items: center; padding: 6px; border-radius: var(--radius); background: var(--bg-3); border: 1px solid var(--border); cursor: pointer; transition: border-color .15s; }
+  .bg-pick-btn:hover { border-color: var(--border-2); }
+  .bg-pick-btn.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(124,93,250,.3); }
+  .bg-swatch-sq  { width: 100%; aspect-ratio: 1; border-radius: 6px; }
+  .bg-pick-label { font-size: 8px; font-weight: 700; color: var(--text-2); margin-top: 4px; text-transform: uppercase; }
+  .bg-pick-price { font-size: 7px; color: var(--accent); font-weight: 700; font-family: monospace; }
+  .bg-pick-price.free { color: var(--text-3); }
 
-    .deck-tile.empty:hover {
-      border-color: var(--border-2);
-      background: var(--bg-4);
-    }
+  .zani-deck-head    { display: flex; align-items: center; justify-content: space-between; margin-bottom: .75rem; }
+  .zani-deck-head h4 { font-size: 13px; font-weight: 700; color: var(--text); }
+  .zani-deck-head p  { font-size: 10px; color: var(--text-3); margin-top: 2px; }
 
-    .deck-tile.empty span {
-      font-size: 22px;
-      color: var(--text-3);
-      opacity: 0.5;
-    }
+  .zani-upload-btn { background: var(--accent); color: #fff; border: none; border-radius: var(--radius); padding: 8px 12px; font-size: 11px; font-weight: 700; cursor: pointer; }
+  .zani-upload-btn:hover { opacity: .9; }
+  .zani-upload-btn:disabled { opacity: .4; cursor: default; }
 
-    .deck-tile-remove {
-      position: absolute;
-      top: 4px; right: 4px;
-      width: 20px; height: 20px;
-      border-radius: 50%;
-      border: none;
-      background: rgba(0,0,0,0.65);
-      color: #fff;
-      font-size: 10px;
-      line-height: 20px;
-      text-align: center;
-      cursor: pointer;
-      padding: 0;
-      z-index: 2;
-      transition: background .15s;
-    }
-    .deck-tile-remove:hover { background: var(--danger); }
+  .zani-deck-meta     { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border); padding-top: .6rem; margin-bottom: .6rem; }
+  #deck-dots          { font-size: 11px; letter-spacing: .2em; color: var(--accent); font-family: monospace; }
+  #deck-counter-text  { font-size: 9.5px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; font-family: monospace; }
 
-    /* ── Card Picker ──────────────────────────────────── */
-    .picker-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 410;
-      background: rgba(0,0,0,.7);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      align-items: center;
-      justify-content: center;
-      padding: 1rem;
-      animation: fadeIn .2s ease;
-    }
+  .zani-canvas-frame { padding: 4px; background: var(--bg-3); border: 1px solid var(--border); border-radius: var(--radius); }
 
-    .picker-overlay.open { display: flex; }
+  #deck-canvas .zani-slot { position: relative; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); background: var(--bg-3); aspect-ratio: 1/1.4; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: border-color .15s; }
+  #deck-canvas .zani-slot:hover { border-color: var(--accent); }
+  #deck-canvas .zani-slot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  #deck-canvas .zani-slot-empty { color: var(--text-3); font-size: 18px; }
+  #deck-canvas .zani-slot-remove { position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%; background: rgba(0,0,0,.75); border: none; color: #fff; font-size: 11px; cursor: pointer; z-index: 2; }
+  #deck-canvas .zani-slot-remove:hover { background: var(--danger); }
+  #deck-canvas .zani-slot-info { position: absolute; left: 0; right: 0; bottom: 0; padding: 5px 6px; background: linear-gradient(to top, rgba(0,0,0,.85), transparent); z-index: 1; }
+  #deck-canvas .zani-slot-name   { font-size: 9.5px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #deck-canvas .zani-slot-series { font-size: 8px; color: rgba(255,255,255,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .picker-card {
-      background: var(--bg-2);
-      border: 1px solid var(--border-2);
-      border-radius: var(--radius-xl, 20px);
-      width: 100%;
-      max-width: 420px;
-      max-height: 80vh;
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 24px 80px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.04);
-      animation: popupIn .25s cubic-bezier(0.22, 1, 0.36, 1);
-    }
+  .zani-status-row { display: flex; align-items: center; justify-content: space-between; font-size: 10.5px; background: var(--bg-3); padding: 8px 10px; border-radius: var(--radius); border: 1px solid var(--border); margin-top: .6rem; }
+  .zani-status-row span:first-child { color: var(--text-3); font-family: monospace; }
+  #network-logger { color: var(--text-2); font-family: monospace; }
 
-    .picker-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1rem 1.1rem 0.75rem;
-      border-bottom: 1px solid var(--border);
-      font-weight: 600;
-      font-size: 14px;
-    }
+  /* ── Card drawer (right panel) ── */
+  #card-drawer { display: none; width: 100%; flex: 1; background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.1rem; flex-direction: column; min-height: 480px; opacity: 0; transition: opacity .2s; }
+  #card-drawer.open { display: flex; opacity: 1; }
 
-    .picker-header button {
-      background: var(--bg-3);
-      border: 1px solid var(--border);
-      border-radius: 50%;
-      width: 26px; height: 26px;
-      color: var(--text-2);
-      cursor: pointer;
-      font-size: 12px;
-    }
+  .drawer-head    { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: .75rem; margin-bottom: .9rem; }
+  .drawer-head h3 { font-size: 13px; font-weight: 700; color: var(--text); }
+  .drawer-head p  { font-size: 10px; color: var(--text-3); margin-top: 2px; }
+  .drawer-close-btn { width: 24px; height: 24px; border-radius: 6px; background: var(--bg-3); border: 1px solid var(--border); color: var(--text-3); cursor: pointer; }
+  .drawer-close-btn:hover { color: var(--text); }
 
-    #picker-list {
-      overflow-y: auto;
-      padding: 0.75rem;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
+  .drawer-search-wrap { position: relative; margin-bottom: .75rem; }
+  .drawer-search-wrap span { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--text-3); }
+  #drawer-search { width: 100%; background: var(--bg-3); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px 8px 28px; font-size: 12px; color: var(--text); outline: none; box-sizing: border-box; }
+  #drawer-search:focus { border-color: var(--accent); }
 
-    .picker-item {
-      background: var(--bg-3);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 7px 9px;
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      cursor: pointer;
-      transition: border-color .15s, background .15s;
-    }
+  #drawer-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; min-height: 240px; max-height: 440px; }
 
-    .picker-item img {
-      width: 30px; height: 42px;
-      object-fit: cover;
-      border-radius: 4px;
-      flex-shrink: 0;
-    }
+  .drawer-row { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 7px 9px; border-radius: var(--radius); text-align: left; cursor: pointer; background: var(--bg-3); border: 1px solid var(--border); transition: border-color .15s, background .15s; }
+  .drawer-row:hover { border-color: var(--border-2); background: var(--bg-4); }
+  .drawer-row.disabled { opacity: .4; cursor: not-allowed; }
+  .drawer-row.selected { border-color: var(--accent); background: rgba(124,93,250,.08); }
+  .drawer-row img { width: 30px; height: 42px; border-radius: 4px; object-fit: cover; flex-shrink: 0; background: var(--bg-3); }
+  .drawer-row-name { font-size: 12px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .drawer-row-meta { font-size: 9px; display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+  .drawer-empty { font-size: 12px; color: var(--text-3); text-align: center; padding: 2rem 0; }
 
-    .picker-item:hover { border-color: var(--border-2); background: var(--bg-4); }
-
-    .picker-item.disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    /* ── Page card ────────────────────────────────────── */
-    .deck-page-card {
-      background: var(--bg-2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 1.5rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .deck-page-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 1.25rem;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-    .deck-page-title {
-      font-family: var(--font-display);
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .deck-page-subtitle {
-      font-size: 12.5px;
-      color: var(--text-3);
-      margin-top: 3px;
-    }
-
-    .deck-image-btn {
-      font-size: 12px;
-      padding: 7px 14px;
-      border-radius: 999px;
-      border: 1px solid var(--border-2);
-      background: var(--bg-3);
-      color: var(--text-2);
-      cursor: pointer;
-      white-space: nowrap;
-      transition: border-color .15s, color .15s;
-    }
-    .deck-image-btn:hover { border-color: var(--accent); color: var(--text); }
-    .deck-image-btn:disabled { opacity: 0.6; cursor: default; }
-
-    /* ── Slot counter ─────────────────────────────────── */
-    .slot-counter {
-      font-size: 12px;
-      color: var(--text-3);
-      margin-bottom: 1rem;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .slot-pip {
-      display: inline-block;
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--bg-4);
-      border: 1px solid var(--border);
-      transition: background .2s;
-    }
-    .slot-pip.filled { background: var(--accent); border-color: var(--accent); }
-
-    /* ── Back link ────────────────────────────────────── */
-    .back-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 13px;
-      color: var(--text-3);
-      text-decoration: none;
-      margin-bottom: 1rem;
-      transition: color .15s;
-    }
-    .back-link:hover { color: var(--text); }
-
-    @keyframes popupIn {
-      from { opacity: 0; transform: scale(.94) translateY(12px); }
-      to   { opacity: 1; transform: scale(1) translateY(0); }
-    }
-
-    .inv-empty {
-      font-size: 12px;
-      color: var(--text-3);
-      padding: 0.5rem 0;
-    }
-
-    /* ── Skeleton ─────────────────────────────────────── */
-    .skel {
-      background: linear-gradient(90deg, var(--bg-3) 25%, var(--bg-4) 50%, var(--bg-3) 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.4s infinite;
-      border-radius: var(--radius);
-    }
-    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-
-    /* ══════════════════════════════════════════════════════
-       BACKGROUND CHANGER  — applies to the deck grid only
-    ══════════════════════════════════════════════════════ */
-    .bg-changer-card {
-      background: var(--bg-2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 1.25rem;
-      margin-bottom: 1.25rem;
-      position: relative;
-      overflow: hidden;
-    }
-    .bg-changer-card::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
-    }
-
-    .bg-changer-title {
-      font-size: 11.5px;
-      font-weight: 600;
-      color: var(--text-3);
-      text-transform: uppercase;
-      letter-spacing: 0.55px;
-      margin-bottom: 0.85rem;
-    }
-
-    .bg-options {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .bg-option {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 5px;
-      cursor: pointer;
-    }
-
-    .bg-option-swatch {
-      width: 48px;
-      height: 48px;
-      border-radius: var(--radius);
-      border: 2px solid var(--border);
-      transition: border-color .15s, transform .15s, box-shadow .15s;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .bg-option:hover .bg-option-swatch {
-      border-color: var(--border-2);
-      transform: translateY(-2px);
-    }
-
-    .bg-option.active .bg-option-swatch {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 2px rgba(124,93,250,.3);
-    }
-
-    .bg-option-label {
-      font-size: 9.5px;
-      font-weight: 600;
-      color: var(--text-3);
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      text-align: center;
-      line-height: 1.3;
-    }
-    .bg-option-price {
-      font-size: 9px;
-      color: var(--pp-color);
-      font-weight: 700;
-      text-align: center;
-    }
-    .bg-option.active .bg-option-label { color: var(--accent); }
-
-    .swatch-locked-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-    }
-
-    /* The deck grid gets the background, not the page */
-    #deck-grid {
-      border-radius: var(--radius);
-      padding: 10px;
-      transition: background 0.3s ease;
-    }
-  </style>
+  .drawer-footer { border-top: 1px solid var(--border); padding-top: .75rem; margin-top: .75rem; display: flex; justify-content: flex-end; gap: 8px; }
+  .drawer-cancel-btn { padding: 8px 14px; border-radius: var(--radius); font-size: 11px; font-weight: 700; background: var(--bg-3); border: 1px solid var(--border); color: var(--text-2); cursor: pointer; }
+  .drawer-cancel-btn:hover { color: var(--text); }
+  .drawer-confirm-btn { padding: 8px 16px; border-radius: var(--radius); font-size: 11px; font-weight: 700; background: var(--accent); border: none; color: #fff; cursor: pointer; }
+  .drawer-confirm-btn:disabled { opacity: .4; cursor: not-allowed; }
+</style>
 </head>
 <body>
 <div class="layout">
   <aside class="sidebar" id="sidebar"></aside>
-  <main class="main" style="max-width:860px;">
+  <main class="main" style="max-width:1040px;">
 
-    <a href="profile.html" class="back-link">← Back to Profile</a>
+    <div class="zani-workspace">
+      <div class="zani-col-left">
 
-    <!-- Loading -->
-    <div id="loading-state">
-      <div class="deck-page-card">
-        <div class="skel" style="width:180px;height:22px;margin-bottom:10px;"></div>
-        <div class="skel" style="width:120px;height:12px;margin-bottom:1.5rem;"></div>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-          ${Array(9).fill('<div class="skel" style="aspect-ratio:5/7;border-radius:8px;"></div>').join('')}
-        </div>
-      </div>
-    </div>
-
-    <!-- Deck content -->
-    <div id="deck-content" style="display:none;">
-
-      <!-- Background Changer -->
-      <div class="bg-changer-card fade-in">
-        <div class="bg-changer-title">🎨 Deck Background</div>
-        <div class="bg-options" id="bg-options-row"></div>
-      </div>
-
-      <div class="deck-page-card fade-in">
-        <div class="deck-page-header">
-          <div>
-            <div class="deck-page-title">🎴 My Deck</div>
-            <div class="deck-page-subtitle" id="deck-subtitle">Arrange up to 9 cards for your showcase</div>
+        <!-- User header -->
+        <div class="zani-panel zani-user-header">
+          <div class="zani-user-info">
+            <div class="zani-avatar" id="user-avatar">Z</div>
+            <div style="min-width:0;">
+              <div class="zani-user-title" id="user-title">Profile Interface</div>
+              <div class="zani-user-sub" id="user-subtitle">Resolving clusters...</div>
+            </div>
           </div>
-          <button id="deck-image-btn" class="deck-image-btn" onclick="generateDeckImage()">📤 Update WhatsApp Image</button>
+          <span class="zani-badge">ZANI v2</span>
         </div>
 
-        <!-- Slot pips -->
-        <div class="slot-counter">
-          <span id="slot-pips"></span>
-          <span id="slot-count-label"></span>
+        <!-- Background picker -->
+        <div class="zani-panel">
+          <div class="zani-panel-title">🎨 Deck Background</div>
+          <div class="bg-grid">
+            <button id="bg-btn-default" class="bg-pick-btn active" onclick="changeBackground('default')">
+              <div class="bg-swatch-sq bg-preset-default"></div>
+              <span class="bg-pick-label">Default</span>
+              <span class="bg-pick-price free">Free</span>
+            </button>
+            <button id="bg-btn-white" class="bg-pick-btn" onclick="changeBackground('white')">
+              <div class="bg-swatch-sq bg-preset-white"></div>
+              <span class="bg-pick-label">White</span>
+              <span class="bg-pick-price free">Free</span>
+            </button>
+            <button id="bg-btn-black" class="bg-pick-btn" onclick="changeBackground('black')">
+              <div class="bg-swatch-sq bg-preset-black"></div>
+              <span class="bg-pick-label">Black</span>
+              <span class="bg-pick-price free">Free</span>
+            </button>
+            <button id="bg-btn-pink" class="bg-pick-btn" onclick="changeBackground('pink')">
+              <div class="bg-swatch-sq bg-preset-pink"></div>
+              <span class="bg-pick-label">Pink 💗</span>
+              <span class="bg-pick-price">+ 67k</span>
+            </button>
+            <button id="bg-btn-red" class="bg-pick-btn" onclick="changeBackground('red')">
+              <div class="bg-swatch-sq bg-preset-red"></div>
+              <span class="bg-pick-label">Red</span>
+              <span class="bg-pick-price">+ 80k</span>
+            </button>
+            <button id="bg-btn-green" class="bg-pick-btn" onclick="changeBackground('green')">
+              <div class="bg-swatch-sq bg-preset-green"></div>
+              <span class="bg-pick-label">Green</span>
+              <span class="bg-pick-price">+ 88k</span>
+            </button>
+            <button id="bg-btn-gold" class="bg-pick-btn" onclick="changeBackground('gold')">
+              <div class="bg-swatch-sq bg-preset-gold"></div>
+              <span class="bg-pick-label">Gold ✨</span>
+              <span class="bg-pick-price">+ 120k</span>
+            </button>
+          </div>
         </div>
 
-        <!-- The grid -->
-        <div class="deck-grid" id="deck-grid"></div>
-        <div id="deck-image-status" style="margin-top:10px;font-size:12px;"></div>
+        <!-- Deck canvas panel -->
+        <div class="zani-panel">
+          <div class="zani-deck-head">
+            <div>
+              <h4>🎴 Live Showcase</h4>
+              <p>Arrange up to 9 active inventory cards</p>
+            </div>
+            <button id="upload-btn" class="zani-upload-btn" onclick="exportAndUploadCanvas()">Update WhatsApp Image</button>
+          </div>
+
+          <div class="zani-deck-meta">
+            <div id="deck-dots">○○○○○○○○○</div>
+            <span id="deck-counter-text">0 / 9 slots assigned</span>
+          </div>
+
+          <div class="zani-canvas-frame">
+            <div id="deck-canvas" class="bg-preset-default" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:8px;border-radius:8px;"></div>
+          </div>
+
+          <div class="zani-status-row">
+            <span>System Trace Status:</span>
+            <span id="network-logger">Idle loop monitoring.</span>
+          </div>
+        </div>
       </div>
 
-    </div>
+      <!-- Card drawer (right panel) -->
+      <div id="card-drawer">
+        <div class="drawer-head">
+          <div>
+            <h3>🎒 Profile Vault Inventory</h3>
+            <p id="drawer-slot-subtitle">Configuring space context...</p>
+          </div>
+          <button class="drawer-close-btn" onclick="closeDrawer()">✕</button>
+        </div>
 
-    <!-- Not found -->
-    <div id="not-found" style="display:none;" class="deck-page-card fade-in">
-      <div style="text-align:center;padding:3rem 1rem;">
-        <div style="font-size:48px;margin-bottom:1rem;">🔍</div>
-        <div style="font-size:16px;font-weight:600;margin-bottom:.5rem;">Session expired</div>
-        <div style="font-size:13px;color:var(--text-3);margin-bottom:1.5rem;">Please log in again.</div>
-        <a href="member-login.html" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius);padding:.55rem 1.2rem;font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;">Log in</a>
+        <div class="drawer-search-wrap">
+          <span>🔍</span>
+          <input type="text" id="drawer-search" oninput="renderDrawerItems()" placeholder="Search vault by card name or anime series...">
+        </div>
+
+        <div id="drawer-list" class="custom-scroll"></div>
+
+        <div class="drawer-footer">
+          <button class="drawer-cancel-btn" onclick="closeDrawer()">Cancel</button>
+          <button id="drawer-confirm-btn" class="drawer-confirm-btn" disabled onclick="confirmCardAssignment()">Okay</button>
+        </div>
       </div>
     </div>
 
   </main>
 </div>
 
-<!-- Card Picker Modal -->
-<div class="picker-overlay" id="picker-overlay" onclick="closeSlotPicker(event)">
-  <div class="picker-card">
-    <div class="picker-header">
-      <span>Choose a card</span>
-      <button onclick="closeSlotPicker()">✕</button>
-    </div>
-    <div id="picker-list"></div>
-  </div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="data/config.js"></script>
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
-<script src="js/profile.js"></script>
 <script>
-  let currentUser = null;
-  const DECK_SIZE = 9;
+  // ─── CONFIG ────────────────────────────────────────────────────────────────
+  const CONFIG_BOT = {
+    apiHost: "http://jobs.hidencloud.com:24633/api/economy",
+    apiKey: "936f46f583278e85da40457c6be357fd22b87f63dd4ca1c0"
+  };
 
-  /* ── Background Changer (deck grid only) ────────────── */
-  function bgKey(phone) { return `agi_deck_bg_${phone}`; }
+  // ─── SUPABASE CLIENT ───────────────────────────────────────────────────────
+  const SUPABASE_URL    = 'https://padybdvevwazfilxopqy.supabase.co';
+  const SUPABASE_KEY    = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhZHliZHZldndhemZpbHhvcHF5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzM5OTgwNCwiZXhwIjoyMDkyOTc1ODA0fQ.bI3epdb6N4T21At5xkAHcJnKbPKUd0-l2vzr4xGZN8w';
+  const BUCKET_NAME     = 'media';
+  const supabaseClient  = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // price: 0 = free. bg: CSS value applied to #deck-grid background.
-  const BG_PRESETS = [
-    { key: 'default', label: 'Default', price: 0,      bg: '',
-      swatch: 'background:var(--bg-3);' },
-    { key: 'white',   label: 'White',   price: 0,      bg: '#ffffff',
-      swatch: 'background:#ffffff;' },
-    { key: 'black',   label: 'Black',   price: 0,      bg: '#0a0a0a',
-      swatch: 'background:#0a0a0a;' },
-    { key: 'pink',    label: 'Pink 💗', price: 67000,  bg: 'linear-gradient(135deg,#fce4ec,#f48fb1)',
-      swatch: 'background:linear-gradient(135deg,#fce4ec,#f48fb1);' },
-    { key: 'red',     label: 'Red',     price: 80000,  bg: 'linear-gradient(135deg,#1a0000,#4a0000)',
-      swatch: 'background:linear-gradient(135deg,#3a0000,#7a0000);' },
-    { key: 'green',   label: 'Green',   price: 80000,  bg: 'linear-gradient(135deg,#001a00,#003a00)',
-      swatch: 'background:linear-gradient(135deg,#003a00,#006600);' },
-    { key: 'gold',    label: 'Gold ✨', price: 120000, bg: 'linear-gradient(135deg,#1a1000,#4a3500,#8a6200)',
-      swatch: 'background:linear-gradient(135deg,#4a3500,#c8860a);' },
-    { key: 'galaxy',  label: 'Galaxy',  price: 150000, bg: 'linear-gradient(135deg,#0d001a,#1a0040,#000d2e)',
-      swatch: 'background:linear-gradient(135deg,#1a0040,#000d2e);' },
-    { key: 'sunset',  label: 'Sunset',  price: 150000, bg: 'linear-gradient(135deg,#3d1500,#7a2800,#3d0a1a)',
-      swatch: 'background:linear-gradient(135deg,#ff6b35,#e84393);' },
-    { key: 'custom',  label: 'Custom',  price: 250000, bg: null,
-      swatch: 'background:conic-gradient(#f472b6,#a78bfa,#60a5fa,#34d399,#fbbf24,#f472b6);' },
-  ];
+  // ─── STATE ─────────────────────────────────────────────────────────────────
+  const STATE = {
+    userId: null,
+    currentBg: 'default',
+    activeSlotIndex: null,
+    selectedDrawerCard: null,
+    deck: Array(9).fill(null),
+    inventory: []
+  };
 
-  function applyDeckBackground(key, ppPoints) {
-    const grid = document.getElementById('deck-grid');
-    if (!grid) return;
-    const preset = BG_PRESETS.find(p => p.key === key);
-    if (!preset) return;
+  const RARITY_MAP = {
+    'C':          { color: '#94a3b8', dot: '⚪', label: 'Common'     },
+    'Common':     { color: '#94a3b8', dot: '⚪', label: 'Common'     },
+    'Rare':       { color: '#3b82f6', dot: '🔵', label: 'Rare'       },
+    'Super Rare': { color: '#a855f7', dot: '🟣', label: 'SR'         },
+    'SSR':        { color: '#eab308', dot: '👑', label: 'SSR'        },
+    'UR':         { color: '#ef4444', dot: '🔥', label: 'UR'         }
+  };
 
-    const owned = currentUser ? getOwnedBgs(currentUser) : new Set();
-    const unlocked = preset.price === 0 || owned.has(key);
-    if (!unlocked) { grid.style.background = ''; return; }
-
-    if (key === 'custom') {
-      const phone = localStorage.getItem('agi_member_phone');
-      const hex = currentUser?._raw?.deckBgCustom
-               || localStorage.getItem(bgKey(phone) + '_custom')
-               || '#1a1040';
-      grid.style.background = hex;
-    } else {
-      grid.style.background = preset.bg;
-    }
-  }
-
-  function rebuildBgOptions(ppPoints, current) {
-    const container = document.getElementById('bg-options-row');
-    if (!container) return;
-    const owned = currentUser ? getOwnedBgs(currentUser) : new Set();
-    container.innerHTML = BG_PRESETS.map(p => {
-      const unlocked  = p.price === 0 || owned.has(p.key);
-      const affordable = ppPoints >= p.price;
-      const locked    = !unlocked;
-      const priceLabel = p.price > 0
-        ? (unlocked ? '✓ Owned' : `◈ ${(p.price / 1000).toFixed(0)}k`)
-        : 'Free';
-      return `
-        <div class="bg-option ${current === p.key ? 'active' : ''}" onclick="chooseBg('${p.key}')">
-          <div class="bg-option-swatch" style="${p.swatch}">
-            ${locked ? '<div class="swatch-locked-overlay">🔒</div>' : ''}
-          </div>
-          <div class="bg-option-label">${p.label}</div>
-          <div class="bg-option-price" style="${unlocked && p.price > 0 ? 'color:var(--success)' : ''}">${priceLabel}</div>
-        </div>`;
-    }).join('');
-  }
-
-  // Returns the set of background keys the user has already purchased (stored in their data)
-  function getOwnedBgs(user) {
-    const owned = user._raw?.deckBgsOwned;
-    if (Array.isArray(owned)) return new Set(owned);
-    return new Set(); // free ones are always accessible, no need to list them
-  }
-
-  async function chooseBg(key) {
-    if (!currentUser) return;
-    const ppPoints = currentUser.primePoints || 0;
-    const preset   = BG_PRESETS.find(p => p.key === key);
-    if (!preset) return;
-
-    const owned = getOwnedBgs(currentUser);
-    const alreadyOwned = preset.price === 0 || owned.has(key);
-
-    // Locked and not yet purchased — deduct PP first
-    if (!alreadyOwned) {
-      if (ppPoints < preset.price) {
-        const need = (preset.price - ppPoints).toLocaleString();
-        App.showToast(`◈ ${need} Prime Points needed to unlock ${preset.label.replace(/\s*[\u{1F000}-\u{1FFFF}✨💗].*/u, '').trim()}.`, 'error');
-        return;
-      }
-
-      // Confirm purchase then deduct
-      const confirmed = confirm(`Purchase ${preset.label.replace(/\s*[\u{1F000}-\u{1FFFF}✨💗].*/u, '').trim()} background for ◈ ${preset.price.toLocaleString()} Prime Points?`);
-      if (!confirmed) return;
-
-      try {
-        // Use PPApi.adjustPP so PP history, rank, and balance all update correctly.
-        // adjustPP returns null if the write didn't actually succeed — must check this
-        // before touching local state, or PP can appear spent when it never really was.
-        const ppRes = await PPApi.adjustPP(
-          currentUser._rowId,
-          currentUser._raw,
-          -preset.price,
-          `Bought ${preset.label.replace(/\s*[\u{1F000}-\u{1FFFF}✨💗].*/u, '').trim()} deck background`,
-          'system'
-        );
-
-        if (!ppRes) {
-          App.showToast("Couldn't save the purchase — check your connection and try again. Nothing was charged.", 'error');
-          return;
-        }
-
-        // Reflect the confirmed PP deduction locally
-        currentUser._raw.primePoints = ppRes.primePoints;
-        currentUser._raw.rank        = ppRes.rank;
-        currentUser._raw.ppHistory   = ppRes.ppHistory;
-        currentUser.primePoints      = ppRes.primePoints;
-
-        // Save owned list + active bg into Supabase so it persists across devices
-        const newOwned = [...Array.from(owned), key];
-        const ownedRes = await API.updateUserData(currentUser._rowId, currentUser._raw, {
-          deckBgsOwned: newOwned,
-          deckBgActive: key,
-        });
-
-        if (!Array.isArray(ownedRes) || !ownedRes.length) {
-          // PP was already spent and confirmed — don't pretend the background unlocked too.
-          App.showToast('PP was spent, but saving the background failed — reloading to check your real state.', 'error');
-          await loadDeckPage();
-          return;
-        }
-
-        // Reflect locally so UI updates without a full reload
-        currentUser._raw.deckBgsOwned = newOwned;
-        currentUser._raw.deckBgActive = key;
-
-        App.showToast(`${preset.label} background unlocked! ◈ ${preset.price.toLocaleString()} spent.`, 'success');
-      } catch (e) {
-        console.error('[BG Purchase]', e);
-        App.showToast('Purchase failed — try again.', 'error');
-        return;
-      }
-    }
-
-    if (key === 'custom') {
-      // Toggle inline color picker
-      let picker = document.getElementById('custom-inline-picker');
-      if (!picker) {
-        picker = document.createElement('div');
-        picker.id = 'custom-inline-picker';
-        picker.style.cssText = 'display:flex;align-items:center;gap:10px;margin-top:0.85rem;padding:0.75rem;background:var(--bg-3);border-radius:var(--radius);border:1px solid var(--border);';
-        picker.innerHTML = `
-          <input type="color" id="custom-color-input" value="#1a1040"
-            style="width:44px;height:44px;border-radius:var(--radius);border:1px solid var(--border);cursor:pointer;padding:2px;" />
-          <span style="font-size:12.5px;color:var(--text-2);flex:1;">Pick any color for your deck</span>
-          <button onclick="applyCustomColor()" style="background:var(--accent);color:#fff;border:none;border-radius:var(--radius);padding:0.4rem 0.9rem;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-display);">Apply</button>`;
-        document.getElementById('bg-options-row').after(picker);
-      } else {
-        picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
-      }
-      // Rebuild so lock icon updates after purchase
-      rebuildBgOptions(currentUser.primePoints || 0, key);
-      return;
-    }
-
-    // Hide custom picker if switching to a preset
-    const picker = document.getElementById('custom-inline-picker');
-    if (picker) picker.style.display = 'none';
-
-    const phone = localStorage.getItem('agi_member_phone');
-    localStorage.setItem(bgKey(phone), key); // local cache for instant paint on next load
-    // Also persist to Supabase so it loads on any device
-    const res = await API.updateUserData(currentUser._rowId, currentUser._raw, { deckBgActive: key });
-    if (Array.isArray(res) && res.length) {
-      currentUser._raw.deckBgActive = key;
-    } else {
-      App.showToast("Background changed here, but didn't save — it may revert on other devices.", 'info');
-    }
-    applyDeckBackground(key, currentUser.primePoints || 0);
-    rebuildBgOptions(currentUser.primePoints || 0, key);
-  }
-
-  async function applyCustomColor() {
-    if (!currentUser) return;
-    const owned = getOwnedBgs(currentUser);
-    if (!owned.has('custom')) return;
-    const inp = document.getElementById('custom-color-input');
-    if (!inp) return;
-    const hex   = inp.value;
-    const phone = localStorage.getItem('agi_member_phone');
-
-    const res = await API.updateUserData(currentUser._rowId, currentUser._raw, {
-      deckBgActive: 'custom',
-      deckBgCustom: hex,
-    });
-
-    if (!Array.isArray(res) || !res.length) {
-      App.showToast("Couldn't save your color — check your connection and try again.", 'error');
-      return;
-    }
-
-    localStorage.setItem(bgKey(phone), 'custom');
-    localStorage.setItem(bgKey(phone) + '_custom', hex);
-    currentUser._raw.deckBgActive = 'custom';
-    currentUser._raw.deckBgCustom = hex;
-    const grid = document.getElementById('deck-grid');
-    if (grid) grid.style.background = hex;
-    rebuildBgOptions(currentUser.primePoints || 0, 'custom');
-  }
-
-  function getDeckSlots(user) {
-    // Slots are stored 1-indexed: slots[1] = card in position 1, slots[9] = last.
-    // Index 0 is always null so slot numbers match array indices directly.
-    const saved = Array.isArray(user._raw?.deck?.slots) ? user._raw.deck.slots : [];
-
-    // Detect if data is old 0-indexed format (no null at index 0, length <= 9)
-    // vs new 1-indexed format (null at index 0, length <= 10)
-    const isOldFormat = saved.length > 0 && saved[0] !== null && saved.length <= DECK_SIZE;
-
-    const slots = [null]; // index 0 always empty
-    for (let i = 1; i <= DECK_SIZE; i++) {
-      slots[i] = isOldFormat ? (saved[i - 1] ?? null) : (saved[i] ?? null);
-    }
-    return slots; // length 10: slots[1..9] are the deck positions
-  }
-
-  async function saveDeckSlots(slots) {
-    if (!currentUser) return;
-    const updatedDeck = { ...(currentUser._raw.deck || {}), slots };
-    await API.updateUserData(currentUser._rowId, currentUser._raw, { deck: updatedDeck });
-    await loadDeckPage();
-  }
-
-  async function removeFromDeck(slotIndex) {
-    if (!currentUser) return;
-    const slots = getDeckSlots(currentUser);
-    slots[slotIndex] = null;
-    await saveDeckSlots(slots);
-  }
-
-  function renderDeck(user) {
-    const slots = getDeckSlots(user);
-    const filledCount = slots.slice(1).filter(Boolean).length;
-
-    // Slot pips (positions 1–9)
-    document.getElementById('slot-pips').innerHTML =
-      Array.from({ length: DECK_SIZE }, (_, i) => i + 1)
-        .map(i => `<span class="slot-pip ${slots[i] ? 'filled' : ''}"></span>`).join('');
-    document.getElementById('slot-count-label').textContent =
-      `${filledCount} / ${DECK_SIZE} slots filled`;
-
-    // Grid tiles (positions 1–9)
-    document.getElementById('deck-grid').innerHTML =
-      Array.from({ length: DECK_SIZE }, (_, i) => i + 1).map(i => {
-        const slotId = slots[i];
-        const card = slotId ? user.cards.find(c => (typeof c === 'object' ? c.id : c) === slotId) : null;
-
-        if (!card) {
-          return `<div class="deck-tile empty" onclick="openSlotPicker(${i})"><span>+</span></div>`;
-        }
-
-        const safeJson = JSON.stringify(JSON.stringify(card));
-        return `
-          <div class="deck-tile filled" onclick="openCardModal(${safeJson})">
-            ${card.preRenderedUrl
-              ? `<img src="${card.preRenderedUrl}" alt="${card.name || 'Card'}">`
-              : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;">🃏</div>`
-            }
-            <div class="deck-tile-name">${card.name || 'Unknown'}</div>
-            <button class="deck-tile-remove" onclick="event.stopPropagation();removeFromDeck(${i})" title="Remove from deck">✕</button>
-          </div>`;
-      }).join('');
-  }
-
-  async function loadDeckPage() {
+  // ─── INIT FROM EXISTING SITE SESSION (replaces the old manual login form) ──
+  async function initFromSession() {
     const phone = localStorage.getItem('agi_member_phone');
     if (!phone) { window.location.href = 'member-login.html'; return; }
 
-    const raw  = await API.getUserByPhone(phone);
-    const user = App.parseUser(raw?.[0]);
+    const logger = document.getElementById('network-logger');
+    logger.style.color = '';
+    logger.textContent = 'Connecting to bot API...';
 
-    document.getElementById('loading-state').style.display = 'none';
+    try {
+      const response = await fetch(`${CONFIG_BOT.apiHost}/users`, {
+        method: "GET",
+        headers: { "x-api-key": CONFIG_BOT.apiKey, "Accept": "application/json" }
+      });
 
-    if (!user) {
-      document.getElementById('not-found').style.display = 'block';
+      if (!response.ok) throw new Error(`HTTP Error Status: ${response.status}`);
+      let allUsersMap = await response.json();
+      if (typeof allUsersMap === 'string') allUsersMap = JSON.parse(allUsersMap);
+
+      let matchedInternalId  = null;
+      let matchedProfileData = null;
+
+      for (const [userId, profile] of Object.entries(allUsersMap)) {
+        if (profile?.phoneNumber && String(profile.phoneNumber).trim() === String(phone)) {
+          matchedInternalId  = userId;
+          matchedProfileData = profile;
+          break;
+        }
+      }
+
+      if (!matchedProfileData) throw new Error("No bot profile found for this phone number.");
+
+      STATE.userId    = matchedInternalId;
+      STATE.inventory = matchedProfileData.cards || [];
+
+      document.getElementById('user-title').textContent    = matchedProfileData.name || "My Deck Customizer";
+      document.getElementById('user-subtitle').textContent = `Linked: +${matchedProfileData.phoneNumber}`;
+      document.getElementById('user-avatar').textContent   = (matchedProfileData.name || "Z").charAt(0).toUpperCase();
+
+      logger.style.color = 'var(--success)';
+      logger.textContent = "Successfully connected and verified.";
+
+      if (Array.isArray(matchedProfileData.activeDeckLayout)) {
+        matchedProfileData.activeDeckLayout.forEach((c, i) => { if (c) STATE.deck[i] = c; });
+      }
+
+      renderDeckCanvas();
+
+    } catch (err) {
+      console.error(err);
+      logger.style.color = 'var(--danger)';
+      logger.textContent = `⚠️ ${err.message}`;
+    }
+  }
+
+  // ─── HELPERS ───────────────────────────────────────────────────────────────
+  function getCardImageUrl(card) {
+    if (!card) return "https://cdn7.mazoku.cc/cards/default.webp";
+    const path = card.preRenderedUrl || card.url || card.image || card.img || card.imageUrl;
+    if (path && (path.startsWith('http') || path.startsWith('data:'))) return path;
+    return card.id
+      ? `https://cdn7.mazoku.cc/cards/${card.id}.webp`
+      : "https://cdn7.mazoku.cc/cards/default.webp";
+  }
+
+  // ─── BACKGROUND ────────────────────────────────────────────────────────────
+  function changeBackground(presetName) {
+    document.querySelectorAll('[id^="bg-btn-"]').forEach(el => el.classList.remove('active'));
+    document.getElementById(`bg-btn-${presetName}`).classList.add('active');
+    const canvas = document.getElementById('deck-canvas');
+    canvas.className = `bg-preset-${presetName}`;
+    canvas.style.display = 'grid';
+    canvas.style.gridTemplateColumns = 'repeat(3,1fr)';
+    canvas.style.gap = '10px';
+    canvas.style.padding = '8px';
+    canvas.style.borderRadius = '8px';
+    STATE.currentBg = presetName;
+  }
+
+  // ─── DECK CANVAS ───────────────────────────────────────────────────────────
+  function renderDeckCanvas() {
+    const canvas = document.getElementById('deck-canvas');
+    canvas.innerHTML = '';
+    let filled = 0;
+
+    STATE.deck.forEach((card, index) => {
+      const slot = document.createElement('div');
+      slot.className = "zani-slot";
+
+      if (card) {
+        filled++;
+        slot.innerHTML = `
+          <img src="${getCardImageUrl(card)}" onerror="this.src='https://cdn7.mazoku.cc/cards/default.webp'">
+          <button onclick="event.stopPropagation(); removeCardFromSlot(${index})" class="zani-slot-remove">&times;</button>
+          <div class="zani-slot-info">
+            <div class="zani-slot-name">${card.name}</div>
+            <div class="zani-slot-series">${card.seriesName || 'Unknown Series'}</div>
+          </div>`;
+      } else {
+        slot.innerHTML = `<span class="zani-slot-empty">&plus;</span>`;
+      }
+
+      slot.onclick = () => openDrawerSelector(index);
+      canvas.appendChild(slot);
+    });
+
+    document.getElementById('deck-counter-text').textContent = `${filled} / 9 slots assigned`;
+    document.getElementById('deck-dots').textContent = Array.from({ length: 9 }, (_, i) => i < filled ? '●' : '○').join('');
+  }
+
+  // ─── DRAWER ────────────────────────────────────────────────────────────────
+  function openDrawerSelector(slotIndex) {
+    STATE.activeSlotIndex    = slotIndex;
+    STATE.selectedDrawerCard = null;
+
+    const confirmBtn = document.getElementById('drawer-confirm-btn');
+    confirmBtn.disabled = true;
+
+    document.getElementById('drawer-slot-subtitle').textContent = `Configuring grid index space: Slot ${slotIndex + 1}`;
+    document.getElementById('drawer-search').value = '';
+
+    const drawer = document.getElementById('card-drawer');
+    drawer.classList.add('open');
+    setTimeout(() => drawer.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 10);
+
+    renderDrawerItems();
+  }
+
+  function closeDrawer() {
+    document.getElementById('card-drawer').classList.remove('open');
+    STATE.activeSlotIndex    = null;
+    STATE.selectedDrawerCard = null;
+  }
+
+  function renderDrawerItems() {
+    const listContainer = document.getElementById('drawer-list');
+    const query = document.getElementById('drawer-search').value.toLowerCase().trim();
+    listContainer.innerHTML = '';
+
+    const equippedIds = STATE.deck.filter(Boolean).map(c => c.id);
+    const filtered = STATE.inventory.filter(card => {
+      const name   = (card?.name       || '').toLowerCase();
+      const series = (card?.seriesName || '').toLowerCase();
+      return name.includes(query) || series.includes(query);
+    });
+
+    if (!filtered.length) {
+      listContainer.innerHTML = `<div class="drawer-empty">No matching inventory records located inside your wallet.</div>`;
       return;
     }
 
-    currentUser = user;
-    document.getElementById('deck-content').style.display = 'block';
-    document.title = `${user.name}'s Deck — AniGamble HQ`;
+    filtered.forEach(card => {
+      const isEquipped  = equippedIds.includes(card.id);
+      const isSelected  = STATE.selectedDrawerCard?.id === card.id;
+      const rarity      = RARITY_MAP[card.tier] || RARITY_MAP['C'];
 
-    // Active bg: Supabase is truth (works across devices), localStorage is a fast paint cache
-    const savedBg = user._raw?.deckBgActive
-                 || localStorage.getItem(bgKey(phone))
-                 || 'default';
-    // Sync local cache to match Supabase
-    if (user._raw?.deckBgActive) localStorage.setItem(bgKey(phone), user._raw.deckBgActive);
-    applyDeckBackground(savedBg, user.primePoints || 0);
-    rebuildBgOptions(user.primePoints || 0, savedBg);
+      const rowBtn = document.createElement('button');
+      let cls = "drawer-row";
+      if      (isEquipped) cls += " disabled";
+      else if (isSelected) cls += " selected";
+      rowBtn.className = cls;
+      rowBtn.onclick   = () => { if (!isEquipped) selectCardInDrawer(card); };
 
-    renderDeck(user);
-  }
-
-  /* ── Card Picker ──────────────────────────────────────── */
-  let pickerSlotIndex = null;
-
-  function openSlotPicker(slotIndex) {
-    if (!currentUser) return;
-    pickerSlotIndex = slotIndex;
-
-    const usedIds = new Set(getDeckSlots(currentUser).slice(1).filter(Boolean));
-    const list = document.getElementById('picker-list');
-
-    if (!currentUser.cards.length) {
-      list.innerHTML = '<div class="inv-empty">You don\'t have any cards yet.</div>';
-    } else {
-      list.innerHTML = currentUser.cards.map(c => {
-        const card = typeof c === 'object' ? c : { name: c };
-        const inUse = card.id && usedIds.has(card.id);
-        const disabled = inUse || !card.id;
-        return `
-          <div class="picker-item ${disabled ? 'disabled' : ''}" ${disabled ? '' : `onclick="placeInSlot('${card.id}')"`}>
-            ${card.preRenderedUrl
-              ? `<img src="${card.preRenderedUrl}" alt="">`
-              : `<span style="font-size:18px;">🃏</span>`
-            }
-            <div style="min-width:0;flex:1;">
-              <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${card.name || 'Unknown'}</div>
-              <div style="font-size:10.5px;color:var(--text-3);">${inUse ? 'Already in deck' : (card.badge || card.tier || '')}</div>
+      rowBtn.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+          <img src="${getCardImageUrl(card)}" onerror="this.src='https://cdn7.mazoku.cc/cards/default.webp'">
+          <div style="min-width:0;">
+            <div class="drawer-row-name">${card.name}</div>
+            <div class="drawer-row-meta" style="color:${rarity.color}">
+              <span>${rarity.dot}</span>
+              <span style="font-weight:700;text-transform:uppercase;">${rarity.label}</span>
+              <span style="color:var(--text-3);font-family:monospace;">| ID: ${card.id}</span>
             </div>
-          </div>`;
-      }).join('');
-    }
+          </div>
+        </div>
+        <div style="flex-shrink:0;text-align:right;padding:0 4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">
+          ${isEquipped
+            ? `<span style="color:var(--text-3);">In Deck</span>`
+            : isSelected
+              ? `<span style="color:var(--accent);font-family:monospace;">✓ READY</span>`
+              : `<span style="color:var(--text-3);">SELECT</span>`}
+        </div>`;
 
-    document.getElementById('picker-overlay').classList.add('open');
+      listContainer.appendChild(rowBtn);
+    });
   }
 
-  function closeSlotPicker(e) {
-    if (e && e.target !== document.getElementById('picker-overlay')) return;
-    document.getElementById('picker-overlay').classList.remove('open');
-    pickerSlotIndex = null;
+  function selectCardInDrawer(card) {
+    STATE.selectedDrawerCard = card;
+    document.getElementById('drawer-confirm-btn').disabled = false;
+    renderDrawerItems();
   }
 
-  async function placeInSlot(cardId) {
-    if (pickerSlotIndex === null || !cardId) return;
-    const slots = getDeckSlots(currentUser);
-    slots[pickerSlotIndex] = cardId;
-    document.getElementById('picker-overlay').classList.remove('open');
-    pickerSlotIndex = null;
-    await saveDeckSlots(slots);
+  function confirmCardAssignment() {
+    if (STATE.activeSlotIndex === null || !STATE.selectedDrawerCard) return;
+    STATE.deck[STATE.activeSlotIndex] = STATE.selectedDrawerCard;
+    closeDrawer();
+    renderDeckCanvas();
   }
 
-  /* ── Deck Image Generator (html2canvas HD) ───────────── */
-  // Uploads straight to Supabase Storage (no imgbb / no custom backend needed),
-  // then syncs the resulting URL to both Supabase and the bot's own economy API
-  // so the bot's .deck command and the website both see the same image.
-  const SUPABASE_STORAGE_URL = 'https://padybdvevwazfilxopqy.supabase.co';
-  const SUPABASE_STORAGE_KEY = 'PASTE_YOUR_SUPABASE_KEY_HERE'; // whichever key has insert rights on the bucket below
-  const STORAGE_BUCKET        = 'media';
-  const storageClient         = supabase.createClient(SUPABASE_STORAGE_URL, SUPABASE_STORAGE_KEY);
-
-  const BOT_API = {
-    host: 'http://jobs.hidencloud.com:24633/api/economy',
-    key:  'PASTE_YOUR_BOT_API_KEY_HERE',
-  };
-
-  // The card art CDN doesn't send CORS headers, so html2canvas can't read its
-  // pixels directly. images.weserv.nl re-serves the image with proper CORS
-  // headers. Only the `?` / `&` inside the original URL need escaping here —
-  // encoding the `/` (like encodeURIComponent does) breaks weserv's parsing.
-  function corsSafeImg(url) {
-    if (!url) return '';
-    const stripped = url.replace(/^https?:\/\//, '');
-    const safe = stripped
-      .replace(/%/g, '%25')
-      .replace(/\?/g, '%3F')
-      .replace(/&/g, '%26')
-      .replace(/#/g, '%23')
-      .replace(/ /g, '%20');
-    return `https://images.weserv.nl/?url=${safe}`;
+  function removeCardFromSlot(slotIndex) {
+    STATE.deck[slotIndex] = null;
+    renderDeckCanvas();
   }
 
-  async function generateDeckImage() {
-    if (!currentUser) return;
-    const btn     = document.getElementById('deck-image-btn');
-    const status  = document.getElementById('deck-image-status');
-    const deckGrid = document.getElementById('deck-grid');
-    if (!deckGrid) return;
+  // ─── EXPORT & UPLOAD (SUPABASE) ────────────────────────────────────────────
+  async function exportAndUploadCanvas() {
+    const uploadBtn   = document.getElementById('upload-btn');
+    const targetDOM   = document.getElementById('deck-canvas');
+    const logger      = document.getElementById('network-logger');
 
-    btn.disabled = true;
-    btn.textContent = 'Rendering…';
-    status.innerHTML = '⏳ Generating high-res showcase...';
-
-    // Swap card images to the CORS-safe proxy ONLY for the moment of capture —
-    // the live page itself displays fine with direct URLs (CORS only blocks
-    // reading pixel data, not just showing an image), so we always restore
-    // these back to normal afterward, success or failure.
-    const imgs = Array.from(deckGrid.querySelectorAll('img'));
-    const originalSrcs = imgs.map(img => img.src);
+    uploadBtn.disabled  = true;
+    uploadBtn.innerText = "Processing Canvas...";
+    logger.style.color  = 'var(--accent)';
+    logger.innerText    = "Rendering canvas...";
 
     try {
-      await Promise.all(imgs.map((img, i) => new Promise(resolve => {
-        img.crossOrigin = 'anonymous';
-        img.onload  = resolve;
-        img.onerror = resolve; // don't let one bad image block the whole capture
-        img.src = corsSafeImg(originalSrcs[i]);
-      })));
-
-      // Render the live DOM grid at 3× for crisp HD output
-      const canvas = await html2canvas(deckGrid, {
-        scale:        3,
-        useCORS:      true,
-        allowTaint:   false,
-        logging:      false,
-        imageTimeout: 0,
+      // 1. Render deck canvas to an HTML canvas element
+      const renderedCanvas = await html2canvas(targetDOM, {
+        scale: 3,
+        useCORS: true,
+        logging: false,
+        onclone: (clonedDoc) => {
+          const el = clonedDoc.getElementById('deck-canvas');
+          if (el) {
+            el.style.backgroundImage = "none";
+            el.style.backgroundColor = "#0b0f19";
+          }
+          // Sanitize modern CSS color engines (oklab/oklch) that break html2canvas
+          for (const node of clonedDoc.getElementsByTagName('*')) {
+            const s = window.getComputedStyle(node);
+            if (s.color?.includes('oklab') || s.color?.includes('oklch'))
+              node.style.color = '#ffffff';
+            if (s.backgroundColor?.includes('oklab') || s.backgroundColor?.includes('oklch'))
+              node.style.backgroundColor = 'transparent';
+            if (s.borderColor?.includes('oklab') || s.borderColor?.includes('oklch'))
+              node.style.borderColor = '#1f2937';
+          }
+        }
       });
 
-      // Export as lossless PNG blob
+      logger.innerText = "Encoding image...";
+
+      // 2. Convert canvas → Blob (PNG)
       const blob = await new Promise((resolve, reject) => {
-        canvas.toBlob(b => b ? resolve(b) : reject(new Error('blob_null')), 'image/png');
+        renderedCanvas.toBlob(b => b ? resolve(b) : reject(new Error("Canvas toBlob returned null.")), 'image/png');
       });
 
-      status.innerHTML = '📤 Uploading to Supabase Storage...';
-
-      // Upload straight to Supabase Storage — upsert so re-generating overwrites
-      // the same file instead of piling up new ones for every save
+      // 3. Convert Blob → ArrayBuffer for Supabase
       const arrayBuffer = await blob.arrayBuffer();
-      const fileName     = `deck_${currentUser._rowId}.png`;
+      const fileName    = `deck_${STATE.userId}_${Date.now()}.png`;
 
-      const { error: uploadError } = await storageClient.storage
-        .from(STORAGE_BUCKET)
-        .upload(fileName, arrayBuffer, { contentType: 'image/png', upsert: true });
+      logger.innerText = "Uploading to Supabase...";
 
-      if (uploadError) throw new Error(`Storage upload failed: ${uploadError.message}`);
+      // 4. Upload to Supabase Storage (upsert so repeated saves overwrite)
+      const { error: uploadError } = await supabaseClient.storage
+        .from(BUCKET_NAME)
+        .upload(fileName, arrayBuffer, {
+          contentType: 'image/png',
+          upsert: true
+        });
 
-      const { data: urlData } = storageClient.storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
-      const deckImageUrl = urlData?.publicUrl;
-      if (!deckImageUrl) throw new Error('Upload succeeded but no public URL came back.');
+      if (uploadError) throw new Error(`Supabase upload failed: ${uploadError.message}`);
 
-      status.innerHTML = '🔄 Syncing to database...';
+      // 5. Get public URL
+      const { data: urlData } = supabaseClient.storage
+        .from(BUCKET_NAME)
+        .getPublicUrl(fileName);
 
-      // Save to our own Supabase table (what profile.html / the website reads)
-      await API.updateUserData(currentUser._rowId, currentUser._raw, { webDeckUrl: deckImageUrl });
-      currentUser._raw.webDeckUrl = deckImageUrl;
+      const publicUrl = urlData?.publicUrl;
+      if (!publicUrl) throw new Error("Could not retrieve public URL from Supabase.");
 
-      // Also push to the bot's own economy API, with the actual card objects
-      // resolved (not just ids) since that's the shape the bot expects
-      const slots       = getDeckSlots(currentUser);
-      const deckLayout  = slots.map(id => id ? (currentUser.cards.find(c => (typeof c === 'object' ? c.id : c) === id) || null) : null);
+      logger.innerText = "Syncing to database...";
 
-      const botRes = await fetch(`${BOT_API.host}/users/${encodeURIComponent(currentUser.phone)}`, {
-        method:  'PATCH',
-        headers: { 'x-api-key': BOT_API.key, 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ webDeckUrl: deckImageUrl, activeDeckLayout: deckLayout }),
+      // 6. PATCH economy API with new URL + deck layout
+      const patchRes = await fetch(`${CONFIG_BOT.apiHost}/users/${STATE.userId}`, {
+        method: "PATCH",
+        headers: {
+          "x-api-key": CONFIG_BOT.apiKey,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          webDeckUrl: publicUrl,
+          activeDeckLayout: STATE.deck
+        })
       });
 
-      if (!botRes.ok) {
-        // Supabase already has the correct image — the bot just didn't get the memo.
-        // Worth knowing about, but not worth losing the otherwise-successful save over.
-        console.error('[Deck Image] Bot API sync failed:', botRes.status, await botRes.text());
-        status.innerHTML = `<span style="color:var(--success);">✨ Saved!</span> <span style="color:var(--text-3);">(bot sync failed — check console)</span> <a href="${deckImageUrl}" target="_blank" rel="noopener" style="color:var(--accent);">View image</a>`;
-      } else {
-        status.innerHTML = `<span style="color:var(--success);">✨ Synced in HD!</span> <a href="${deckImageUrl}" target="_blank" rel="noopener" style="color:var(--accent);">View image</a>`;
-      }
+      if (!patchRes.ok) throw new Error(`Database patch rejected: ${patchRes.status}`);
+
+      logger.style.color = 'var(--success)';
+      logger.innerHTML = `✨ Layout synchronized! <a href="${publicUrl}" target="_blank" style="text-decoration:underline;color:var(--accent);">View image</a>`;
+      alert("Showcase deck updated and synced into your database configuration records!");
 
     } catch (err) {
-      console.error('[Deck Image]', err);
-      status.innerHTML = `<span style="color:var(--danger);">❌ ${err.message || 'Failed to generate image — check console.'}</span>`;
+      console.error("Upload error:", err);
+      logger.style.color = 'var(--danger)';
+      logger.innerText = `❌ ${err.message}`;
     } finally {
-      // Always restore the live page's images, regardless of what happened above
-      imgs.forEach((img, i) => { img.src = originalSrcs[i]; img.removeAttribute('crossorigin'); });
-      btn.disabled = false;
-      btn.textContent = '📤 Update WhatsApp Image';
+      uploadBtn.disabled  = false;
+      uploadBtn.innerText = "Update WhatsApp Image";
     }
   }
 
   document.addEventListener('DOMContentLoaded', () => {
     renderSidebar('deck');
-    loadDeckPage();
+    initFromSession();
   });
 </script>
 </body>
