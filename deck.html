@@ -666,22 +666,25 @@
   }
 
   function getDeckSlots(user) {
-    // deck9 is 0-indexed: deck9[0] = slot 1, deck9[8] = slot 9.
-    // We return a 1-indexed array internally: slots[1..9].
-    const deck9 = Array.isArray(user._raw?.deck9) ? user._raw.deck9 : Array(DECK_SIZE).fill(null);
-    const slots = [null]; // index 0 unused
+    // Slots are stored 1-indexed: slots[1] = card in position 1, slots[9] = last.
+    // Index 0 is always null so slot numbers match array indices directly.
+    const saved = Array.isArray(user._raw?.deck?.slots) ? user._raw.deck.slots : [];
+
+    // Detect if data is old 0-indexed format (no null at index 0, length <= 9)
+    // vs new 1-indexed format (null at index 0, length <= 10)
+    const isOldFormat = saved.length > 0 && saved[0] !== null && saved.length <= DECK_SIZE;
+
+    const slots = [null]; // index 0 always empty
     for (let i = 1; i <= DECK_SIZE; i++) {
-      slots[i] = deck9[i - 1] ?? null;
+      slots[i] = isOldFormat ? (saved[i - 1] ?? null) : (saved[i] ?? null);
     }
-    return slots;
+    return slots; // length 10: slots[1..9] are the deck positions
   }
 
   async function saveDeckSlots(slots) {
     if (!currentUser) return;
-    // deck9 is 0-indexed: deck9[0] = slot 1 ... deck9[8] = slot 9
-    const deck9 = Array.from({ length: DECK_SIZE }, (_, i) => slots[i + 1] ?? null);
-    currentUser._raw.deck9 = deck9;
-    await API.updateUserData(currentUser._rowId, currentUser._raw, { deck9 });
+    const updatedDeck = { ...(currentUser._raw.deck || {}), slots };
+    await API.updateUserData(currentUser._rowId, currentUser._raw, { deck: updatedDeck });
     await loadDeckPage();
   }
 
@@ -706,7 +709,8 @@
     // Grid tiles (positions 1–9)
     document.getElementById('deck-grid').innerHTML =
       Array.from({ length: DECK_SIZE }, (_, i) => i + 1).map(i => {
-        const card = slots[i]; // full card object from deck9, or null
+        const slotId = slots[i];
+        const card = slotId ? user.cards.find(c => (typeof c === 'object' ? c.id : c) === slotId) : null;
 
         if (!card) {
           return `<div class="deck-tile empty" onclick="openSlotPicker(${i})"><span>+</span></div>`;
@@ -716,21 +720,13 @@
         return `
           <div class="deck-tile filled" onclick="openCardModal(${safeJson})">
             ${card.preRenderedUrl
-              ? `<img data-src="${card.preRenderedUrl}" alt="${card.name || 'Card'}" style="opacity:0;transition:opacity .2s;">`
+              ? `<img src="${card.preRenderedUrl}" alt="${card.name || 'Card'}">`
               : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;">🃏</div>`
             }
             <div class="deck-tile-name">${card.name || 'Unknown'}</div>
             <button class="deck-tile-remove" onclick="event.stopPropagation();removeFromDeck(${i})" title="Remove from deck">✕</button>
           </div>`;
       }).join('');
-
-    // Load images via proxy chain
-    document.querySelectorAll('#deck-grid img[data-src]').forEach(img => {
-      loadViaProxyChain(img.dataset.src).then(url => {
-        if (url) { img.src = url; img.onload = () => { img.style.opacity = '1'; }; }
-        else { img.replaceWith(Object.assign(document.createElement('div'), { style: 'display:flex;align-items:center;justify-content:center;height:100%;font-size:28px;', textContent: '🃏' })); }
-      });
-    });
   }
 
   async function loadDeckPage() {
@@ -770,7 +766,7 @@
     if (!currentUser) return;
     pickerSlotIndex = slotIndex;
 
-    const usedIds = new Set(getDeckSlots(currentUser).slice(1).filter(Boolean).map(c => c?.id).filter(Boolean));
+    const usedIds = new Set(getDeckSlots(currentUser).slice(1).filter(Boolean));
     const list = document.getElementById('picker-list');
 
     if (!currentUser.cards.length) {
@@ -805,10 +801,8 @@
 
   async function placeInSlot(cardId) {
     if (pickerSlotIndex === null || !cardId) return;
-    const card = currentUser.cards.find(c => (typeof c === 'object' ? c.id : c) === cardId);
-    if (!card) return;
     const slots = getDeckSlots(currentUser);
-    slots[pickerSlotIndex] = typeof card === 'object' ? card : { id: cardId };
+    slots[pickerSlotIndex] = cardId;
     document.getElementById('picker-overlay').classList.remove('open');
     pickerSlotIndex = null;
     await saveDeckSlots(slots);
