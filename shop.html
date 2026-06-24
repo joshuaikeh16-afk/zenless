@@ -1024,7 +1024,7 @@ async function confirmBuy() {
   document.getElementById('confirm-overlay').classList.remove('open');
   openOwnListingModal();
 } else {
-  App.showToast(result?.message || result?.error || 'Purchase failed — try again.', 'error');
+  // App.showToast(result?.message || result?.error || 'Purchase failed — try again.', 'error');
 }
       buyBtn.disabled    = false;
       buyBtn.textContent = 'Confirm purchase';
@@ -1051,9 +1051,28 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.getElementById('confirm-overlay').classList.remove('open');
 });
 
-async function openEditPrice(listingIndex) {
-  const newPrice = prompt('Enter new price (Primos):');
+let editTarget = null;
+let removeTarget = null;
+
+function openEditPrice(listingIndex) {
+  editTarget = listingIndex;
+  document.getElementById('edit-price-input').value = '';
+  document.getElementById('edit-price-overlay').classList.add('open');
+}
+
+function closeEditPrice(e) {
+  if (e && e.target !== document.getElementById('edit-price-overlay')) return;
+  document.getElementById('edit-price-overlay').classList.remove('open');
+  editTarget = null;
+}
+
+async function submitEditPrice() {
+  const newPrice = parseInt(document.getElementById('edit-price-input').value);
   if (!newPrice || isNaN(newPrice)) return;
+
+  const btn = document.getElementById('edit-price-btn');
+  btn.disabled = true;
+  btn.textContent = 'Updating…';
 
   const res = await fetch('/api/edit-listing', {
     method: 'POST',
@@ -1061,21 +1080,32 @@ async function openEditPrice(listingIndex) {
     body: JSON.stringify({
       groupId: ECONOMY_API.groupId,
       sellerId: currentPlayer.userId,
-      listingIndex: listingIndex + 1,
-      newPrice: parseInt(newPrice),
+      listingIndex: editTarget + 1,
+      newPrice,
     }),
   });
   const result = await res.json();
-  if (result.success) {
-    App.showToast('✅ Price updated!', 'success');
-    await loadCatalogue();
-  } else {
-    App.showToast(result.message || 'Failed to update price.', 'error');
-  }
+  btn.disabled = false;
+  btn.textContent = 'Update Price';
+  document.getElementById('edit-price-overlay').classList.remove('open');
+  if (result.success) await loadCatalogue();
 }
 
-async function removeListing(listingIndex) {
-  if (!confirm('Remove this listing from the shop?')) return;
+function removeListing(listingIndex) {
+  removeTarget = listingIndex;
+  document.getElementById('remove-listing-overlay').classList.add('open');
+}
+
+function closeRemoveListing(e) {
+  if (e && e.target !== document.getElementById('remove-listing-overlay')) return;
+  document.getElementById('remove-listing-overlay').classList.remove('open');
+  removeTarget = null;
+}
+
+async function submitRemoveListing() {
+  const btn = document.getElementById('remove-listing-btn');
+  btn.disabled = true;
+  btn.textContent = 'Removing…';
 
   const res = await fetch('/api/remove-listing', {
     method: 'POST',
@@ -1083,19 +1113,14 @@ async function removeListing(listingIndex) {
     body: JSON.stringify({
       groupId: ECONOMY_API.groupId,
       sellerId: currentPlayer.userId,
-      listingIndex: listingIndex + 1,
+      listingIndex: removeTarget + 1,
     }),
   });
   const result = await res.json();
-  if (result.success) {
-    App.showToast('✅ Listing removed!', 'success');
-    await loadCatalogue();
-  } else {
-    App.showToast(result.message || 'Failed to remove listing.', 'error');
-  }
-}  
-  function openOwnListingModal() {
-  document.getElementById('own-listing-overlay').classList.add('open');
+  btn.disabled = false;
+  btn.textContent = 'Remove';
+  document.getElementById('remove-listing-overlay').classList.remove('open');
+  if (result.success) await loadCatalogue();
 }
 </script>
   <div class="confirm-overlay" id="own-listing-overlay" onclick="this.classList.remove('open')">
@@ -1105,6 +1130,34 @@ async function removeListing(listingIndex) {
     <div class="confirm-desc" style="margin-top:0.5rem;">You listed this card. You can remove it from your listings instead.</div>
     <div class="confirm-actions" style="margin-top:1.5rem;">
       <button class="confirm-cancel" onclick="document.getElementById('own-listing-overlay').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
+  <!-- Edit Price Modal -->
+<div class="confirm-overlay" id="edit-price-overlay" onclick="closeEditPrice(event)">
+  <div class="confirm-box" style="text-align:center;">
+    <div style="font-size:40px;margin-bottom:0.75rem;">✏️</div>
+    <div class="confirm-name">Edit Listing Price</div>
+    <div class="confirm-desc" style="margin-top:0.5rem;">Enter a new price for your card.</div>
+    <input id="edit-price-input" type="number" placeholder="New price in Primos"
+      style="width:100%;background:var(--bg-3);border:1px solid var(--border);border-radius:var(--radius);
+      padding:0.6rem 0.9rem;font-size:14px;color:var(--text);outline:none;margin:1rem 0;font-family:var(--font-body);">
+    <div class="confirm-actions">
+      <button class="confirm-cancel" onclick="closeEditPrice()">Cancel</button>
+      <button class="confirm-buy" id="edit-price-btn" onclick="submitEditPrice()">Update Price</button>
+    </div>
+  </div>
+</div>
+
+<!-- Remove Listing Modal -->
+<div class="confirm-overlay" id="remove-listing-overlay" onclick="closeRemoveListing(event)">
+  <div class="confirm-box" style="text-align:center;">
+    <div style="font-size:40px;margin-bottom:0.75rem;">🗑️</div>
+    <div class="confirm-name">Remove Listing?</div>
+    <div class="confirm-desc" style="margin-top:0.5rem;">Your card will be returned to your collection.</div>
+    <div class="confirm-actions" style="margin-top:1.5rem;">
+      <button class="confirm-cancel" onclick="closeRemoveListing()">Cancel</button>
+      <button class="confirm-buy" style="background:#c0392b;" id="remove-listing-btn" onclick="submitRemoveListing()">Remove</button>
     </div>
   </div>
 </div>
