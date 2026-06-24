@@ -16,7 +16,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
         'x-api-key': '936f46f583278e85da40457c6be357fd22b87f63dd4ca1c0',
       },
-      body: JSON.stringify({ buyerId, listingIndex }),
+      body: JSON.stringify({ buyerId, listingIndex: listingIndex + 1 }),
     }
   );
 
