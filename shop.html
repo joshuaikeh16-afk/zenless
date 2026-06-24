@@ -1141,7 +1141,7 @@ async function submitEditPrice() {
       body: JSON.stringify({
         groupId: ECONOMY_API.groupId,
         sellerId: currentPlayer.userId,
-        listingIndex: editTarget + 1,
+        listingIndex: editTarget,
         newPrice,
       }),
     });
@@ -1199,7 +1199,7 @@ async function submitRemoveListing() {
       body: JSON.stringify({
         groupId: ECONOMY_API.groupId,
         sellerId: currentPlayer.userId,
-        listingIndex: removeTarget + 1,
+        listingIndex: removeTarget,
       }),
     });
     const result = await res.json();
