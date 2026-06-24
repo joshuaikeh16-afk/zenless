@@ -1001,17 +1001,18 @@ async function confirmBuy() {
 
   try {
     const res = await fetch(
-      `${ECONOMY_API.baseUrl}/shop/${encodeURIComponent(ECONOMY_API.groupId)}/buy`,
+    '/api/buy',
       {
         method: 'POST',
         headers: {
           'x-api-key':    ECONOMY_API.key,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          buyerId:      currentPlayer.userId,
-          listingIndex: confirmTarget.listingIndex,
-        }),
+     body: JSON.stringify({
+  groupId:      ECONOMY_API.groupId,
+  buyerId:      currentPlayer.userId,
+  listingIndex: confirmTarget.listingIndex,
+}),
       }
     );
     const result = await res.json();
