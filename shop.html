@@ -1045,6 +1045,50 @@ async function confirmBuy() {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.getElementById('confirm-overlay').classList.remove('open');
 });
+
+async function openEditPrice(listingIndex) {
+  const newPrice = prompt('Enter new price (Primos):');
+  if (!newPrice || isNaN(newPrice)) return;
+
+  const res = await fetch('/api/edit-listing', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      groupId: ECONOMY_API.groupId,
+      sellerId: currentPlayer.userId,
+      listingIndex: listingIndex + 1,
+      newPrice: parseInt(newPrice),
+    }),
+  });
+  const result = await res.json();
+  if (result.success) {
+    App.showToast('✅ Price updated!', 'success');
+    await loadCatalogue();
+  } else {
+    App.showToast(result.message || 'Failed to update price.', 'error');
+  }
+}
+
+async function removeListing(listingIndex) {
+  if (!confirm('Remove this listing from the shop?')) return;
+
+  const res = await fetch('/api/remove-listing', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      groupId: ECONOMY_API.groupId,
+      sellerId: currentPlayer.userId,
+      listingIndex: listingIndex + 1,
+    }),
+  });
+  const result = await res.json();
+  if (result.success) {
+    App.showToast('✅ Listing removed!', 'success');
+    await loadCatalogue();
+  } else {
+    App.showToast(result.message || 'Failed to remove listing.', 'error');
+  }
+}  
 </script>
 </body>
 </html>
