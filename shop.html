@@ -1168,6 +1168,7 @@ async function submitEditPrice() {
 
 function removeListing(listingIndex) {
   removeTarget = listingIndex;
+  alert('removeTarget: ' + removeTarget);
   const errEl = document.getElementById('remove-listing-error');
   errEl.style.display = 'none';
   errEl.textContent   = '';
