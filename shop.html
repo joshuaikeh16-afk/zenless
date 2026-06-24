@@ -1000,6 +1000,7 @@ async function confirmBuy() {
   buyBtn.textContent = 'Buying…';
 
   try {
+    alert('groupId: ' + ECONOMY_API.groupId + '\nbuyerId: ' + currentPlayer.userId + '\nlistingIndex: ' + confirmTarget.listingIndex);
     const res = await fetch(
     '/api/buy',
       {
