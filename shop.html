@@ -727,9 +727,9 @@
             <input class="shop-search" id="search-input" type="text" placeholder="Search cards…" oninput="applyFilters()"/>
           </div>
           <select class="sort-select" id="sort-select" onchange="applyFilters()">
-            <option value="rarity">Sort: Rarity</option>
-            <option value="price-asc">Price: Low → High</option>
-            <option value="price-desc">Price: High → Low</option>
+            <option value="rarity">R</option>
+            <option value="price-asc">SR</option>
+            <option value="price-desc">SSR</option>
             <option value="name">Name A–Z</option>
           </select>
         </div>
@@ -962,7 +962,6 @@ function renderCardTile(card) {
   const buyButtonHTML = isOwnListing
     ? `<div class="own-listing-actions">
          <button class="mini-btn edit-price-btn" onclick="event.stopPropagation();openEditPrice(${card.listingIndex})">Edit Price</button>
-         <button class="mini-btn remove-btn" onclick="event.stopPropagation();removeListing(${card.listingIndex})">Remove</button>
        </div>`
     : currentPlayer
     ? `<button class="buy-btn" onclick="event.stopPropagation();openConfirm(${card.listingIndex})">Buy</button>`
