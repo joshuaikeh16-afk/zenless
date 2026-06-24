@@ -1020,7 +1020,12 @@ async function confirmBuy() {
     alert(JSON.stringify(result));
 
     if (!res.ok || result?.success === false || result?.error) {
-      App.showToast(result?.message || result?.error || 'Purchase failed — try again.', 'error');
+     if (result?.message?.includes('own listing')) {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  openOwnListingModal();
+} else {
+  App.showToast(result?.message || result?.error || 'Purchase failed — try again.', 'error');
+}
       buyBtn.disabled    = false;
       buyBtn.textContent = 'Confirm purchase';
       return;
@@ -1089,6 +1094,19 @@ async function removeListing(listingIndex) {
     App.showToast(result.message || 'Failed to remove listing.', 'error');
   }
 }  
+  function openOwnListingModal() {
+  document.getElementById('own-listing-overlay').classList.add('open');
+}
 </script>
+  <div class="confirm-overlay" id="own-listing-overlay" onclick="this.classList.remove('open')">
+  <div class="confirm-box" style="text-align:center;">
+    <div style="font-size:48px;margin-bottom:1rem;">🚫</div>
+    <div class="confirm-name">Can't Buy Your Own Card</div>
+    <div class="confirm-desc" style="margin-top:0.5rem;">You listed this card. You can remove it from your listings instead.</div>
+    <div class="confirm-actions" style="margin-top:1.5rem;">
+      <button class="confirm-cancel" onclick="document.getElementById('own-listing-overlay').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
