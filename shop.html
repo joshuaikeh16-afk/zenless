@@ -1210,17 +1210,17 @@ async function submitRemoveListing() {
       return;
     }
 
-    document.getElementById('remove-listing-overlay').classList.remove('open');
-    removeTarget = null;
-    await loadCatalogue();
-  } catch (e) {
-    console.error('Remove listing error:', e);
-    errEl.textContent   = 'Could not remove listing — try again.';
-    errEl.style.display = 'block';
-  } finally {
-    btn.disabled    = false;
-    btn.textContent = 'Remove';
-  }
+  //   document.getElementById('remove-listing-overlay').classList.remove('open');
+  //   removeTarget = null;
+  //   await loadCatalogue();
+  // } catch (e) {
+  //   console.error('Remove listing error:', e);
+  //   errEl.textContent   = 'Could not remove listing — try again.';
+  //   errEl.style.display = 'block';
+  // } finally {
+  //   btn.disabled    = false;
+  //   btn.textContent = 'Remove';
+  // }
 }
 </script>
   <div class="confirm-overlay" id="own-listing-overlay" onclick="this.classList.remove('open')">
