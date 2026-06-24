@@ -787,7 +787,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (phone) {
     const raw  = await API.getUserByPhone(phone);
     const user = App.parseUser(raw?.[0]);
-    if (user) currentPlayer = { userId: user.data?.lid, name: user.name };
+   currentPlayer = { userId: user.id, name: user.name };
   }
 
   await loadCatalogue();
