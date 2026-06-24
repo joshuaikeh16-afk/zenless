@@ -453,6 +453,34 @@
     .buy-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
     .buy-btn.loading { opacity: 0.6; }
 
+    .own-listing-actions { display: flex; gap: 6px; }
+
+    .own-listing-actions .mini-btn {
+      border: none;
+      border-radius: var(--radius);
+      padding: 0.35rem 0.6rem;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: var(--font-display);
+      transition: opacity 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .own-listing-actions .mini-btn:hover { opacity: 0.85; }
+    .own-listing-actions .mini-btn:active { transform: scale(0.96); }
+
+    .own-listing-actions .edit-price-btn { background: var(--bg-3); color: var(--text-2); }
+    .own-listing-actions .remove-btn     { background: #c0392b; color: #fff; }
+
+    .modal-error-text {
+      display: none;
+      color: #e76b6b;
+      font-size: 12.5px;
+      margin-top: 0.5rem;
+      line-height: 1.4;
+    }
+
     .owned-label {
       font-size: 11.5px;
       color: var(--success);
@@ -734,6 +762,7 @@
       <button class="confirm-cancel" onclick="closeConfirm()">Cancel</button>
       <button class="confirm-buy" id="confirm-buy-btn" onclick="confirmBuy()">Buy card</button>
     </div>
+    <div class="modal-error-text" id="confirm-error"></div>
   </div>
 </div>
 
@@ -928,7 +957,14 @@ function renderCardTile(card) {
        </div>`
     : '';
 
-  const buyButtonHTML = currentPlayer
+  const isOwnListing = currentPlayer && String(card.sellerId) === String(currentPlayer.userId);
+
+  const buyButtonHTML = isOwnListing
+    ? `<div class="own-listing-actions">
+         <button class="mini-btn edit-price-btn" onclick="event.stopPropagation();openEditPrice(${card.listingIndex})">Edit Price</button>
+         <button class="mini-btn remove-btn" onclick="event.stopPropagation();removeListing(${card.listingIndex})">Remove</button>
+       </div>`
+    : currentPlayer
     ? `<button class="buy-btn" onclick="event.stopPropagation();openConfirm(${card.listingIndex})">Buy</button>`
     : `<button class="buy-btn" onclick="window.location.href='member-login.html'">Log in</button>`;
 
@@ -983,6 +1019,10 @@ function openConfirm(listingIndex) {
   buyBtn.disabled    = false;
   buyBtn.textContent = 'Confirm purchase';
 
+  const errEl = document.getElementById('confirm-error');
+  errEl.style.display = 'none';
+  errEl.textContent   = '';
+
   document.getElementById('confirm-overlay').classList.add('open');
 }
 
@@ -1000,7 +1040,6 @@ async function confirmBuy() {
   buyBtn.textContent = 'Buying…';
 
   try {
-    alert('groupId: ' + ECONOMY_API.groupId + '\nbuyerId: ' + currentPlayer.userId + '\nlistingIndex: ' + confirmTarget.listingIndex);
     const res = await fetch(
     '/api/buy',
       {
@@ -1017,15 +1056,16 @@ async function confirmBuy() {
       }
     );
     const result = await res.json();
-    alert(JSON.stringify(result));
 
     if (!res.ok || result?.success === false || result?.error) {
-     if (result?.message?.includes('own listing')) {
-  document.getElementById('confirm-overlay').classList.remove('open');
-  openOwnListingModal();
-} else {
-  // App.showToast(result?.message || result?.error || 'Purchase failed — try again.', 'error');
-}
+      if (result?.message?.includes('own listing')) {
+        document.getElementById('confirm-overlay').classList.remove('open');
+        openOwnListingModal();
+      } else {
+        const errEl = document.getElementById('confirm-error');
+        errEl.textContent   = result?.message || result?.error || 'Purchase failed — try again.';
+        errEl.style.display = 'block';
+      }
       buyBtn.disabled    = false;
       buyBtn.textContent = 'Confirm purchase';
       return;
@@ -1040,10 +1080,16 @@ async function confirmBuy() {
 
   } catch (e) {
     console.error('Buy error:', e);
-    App.showToast('Purchase failed — try again.', 'error');
+    const errEl = document.getElementById('confirm-error');
+    errEl.textContent   = 'Purchase failed — try again.';
+    errEl.style.display = 'block';
     buyBtn.disabled    = false;
     buyBtn.textContent = 'Confirm purchase';
   }
+}
+
+function openOwnListingModal() {
+  document.getElementById('own-listing-overlay').classList.add('open');
 }
 
 // ── Keyboard close ───────────────────────────────────────────
@@ -1057,6 +1103,9 @@ let removeTarget = null;
 function openEditPrice(listingIndex) {
   editTarget = listingIndex;
   document.getElementById('edit-price-input').value = '';
+  const errEl = document.getElementById('edit-price-error');
+  errEl.style.display = 'none';
+  errEl.textContent   = '';
   document.getElementById('edit-price-overlay').classList.add('open');
 }
 
@@ -1067,32 +1116,61 @@ function closeEditPrice(e) {
 }
 
 async function submitEditPrice() {
+  const errEl = document.getElementById('edit-price-error');
+  errEl.style.display = 'none';
+  errEl.textContent   = '';
+
   const newPrice = parseInt(document.getElementById('edit-price-input').value);
-  if (!newPrice || isNaN(newPrice)) return;
+  if (!newPrice || isNaN(newPrice)) {
+    errEl.textContent   = 'Enter a valid price.';
+    errEl.style.display = 'block';
+    return;
+  }
 
   const btn = document.getElementById('edit-price-btn');
   btn.disabled = true;
   btn.textContent = 'Updating…';
 
-  const res = await fetch('/api/edit-listing', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      groupId: ECONOMY_API.groupId,
-      sellerId: currentPlayer.userId,
-      listingIndex: editTarget + 1,
-      newPrice,
-    }),
-  });
-  const result = await res.json();
-  btn.disabled = false;
-  btn.textContent = 'Update Price';
-  document.getElementById('edit-price-overlay').classList.remove('open');
-  if (result.success) await loadCatalogue();
+  try {
+    const res = await fetch('/api/edit-listing', {
+      method: 'POST',
+      headers: {
+        'x-api-key':    ECONOMY_API.key,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        groupId: ECONOMY_API.groupId,
+        sellerId: currentPlayer.userId,
+        listingIndex: editTarget + 1,
+        newPrice,
+      }),
+    });
+    const result = await res.json();
+
+    if (!res.ok || result?.success === false || result?.error) {
+      errEl.textContent   = result?.message || result?.error || 'Could not update price — try again.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    document.getElementById('edit-price-overlay').classList.remove('open');
+    editTarget = null;
+    await loadCatalogue();
+  } catch (e) {
+    console.error('Edit price error:', e);
+    errEl.textContent   = 'Could not update price — try again.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Update Price';
+  }
 }
 
 function removeListing(listingIndex) {
   removeTarget = listingIndex;
+  const errEl = document.getElementById('remove-listing-error');
+  errEl.style.display = 'none';
+  errEl.textContent   = '';
   document.getElementById('remove-listing-overlay').classList.add('open');
 }
 
@@ -1103,24 +1181,46 @@ function closeRemoveListing(e) {
 }
 
 async function submitRemoveListing() {
+  const errEl = document.getElementById('remove-listing-error');
+  errEl.style.display = 'none';
+  errEl.textContent   = '';
+
   const btn = document.getElementById('remove-listing-btn');
   btn.disabled = true;
   btn.textContent = 'Removing…';
 
-  const res = await fetch('/api/remove-listing', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      groupId: ECONOMY_API.groupId,
-      sellerId: currentPlayer.userId,
-      listingIndex: removeTarget + 1,
-    }),
-  });
-  const result = await res.json();
-  btn.disabled = false;
-  btn.textContent = 'Remove';
-  document.getElementById('remove-listing-overlay').classList.remove('open');
-  if (result.success) await loadCatalogue();
+  try {
+    const res = await fetch('/api/remove-listing', {
+      method: 'POST',
+      headers: {
+        'x-api-key':    ECONOMY_API.key,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        groupId: ECONOMY_API.groupId,
+        sellerId: currentPlayer.userId,
+        listingIndex: removeTarget + 1,
+      }),
+    });
+    const result = await res.json();
+
+    if (!res.ok || result?.success === false || result?.error) {
+      errEl.textContent   = result?.message || result?.error || 'Could not remove listing — try again.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    document.getElementById('remove-listing-overlay').classList.remove('open');
+    removeTarget = null;
+    await loadCatalogue();
+  } catch (e) {
+    console.error('Remove listing error:', e);
+    errEl.textContent   = 'Could not remove listing — try again.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Remove';
+  }
 }
 </script>
   <div class="confirm-overlay" id="own-listing-overlay" onclick="this.classList.remove('open')">
@@ -1146,6 +1246,7 @@ async function submitRemoveListing() {
       <button class="confirm-cancel" onclick="closeEditPrice()">Cancel</button>
       <button class="confirm-buy" id="edit-price-btn" onclick="submitEditPrice()">Update Price</button>
     </div>
+    <div class="modal-error-text" id="edit-price-error"></div>
   </div>
 </div>
 
@@ -1159,6 +1260,7 @@ async function submitRemoveListing() {
       <button class="confirm-cancel" onclick="closeRemoveListing()">Cancel</button>
       <button class="confirm-buy" style="background:#c0392b;" id="remove-listing-btn" onclick="submitRemoveListing()">Remove</button>
     </div>
+    <div class="modal-error-text" id="remove-listing-error"></div>
   </div>
 </div>
 </body>
