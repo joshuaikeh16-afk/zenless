@@ -1072,7 +1072,7 @@ async function confirmBuy() {
     }
 
     document.getElementById('confirm-overlay').classList.remove('open');
-    App.showToast(`🃏 ${confirmTarget.name} added to your collection!`, 'success');
+    // App.showToast(`🃏 ${confirmTarget.name} added to your collection!`, 'success');
     confirmTarget = null;
 
     // Re-fetch the shop so the bought listing disappears and indices stay correct
@@ -1141,7 +1141,7 @@ async function submitEditPrice() {
       body: JSON.stringify({
         groupId: ECONOMY_API.groupId,
         sellerId: currentPlayer.userId,
-        listingIndex: editTarget,
+        listingIndex: editTarget + 1,
         newPrice,
       }),
     });
@@ -1199,7 +1199,7 @@ async function submitRemoveListing() {
       body: JSON.stringify({
         groupId: ECONOMY_API.groupId,
         sellerId: currentPlayer.userId,
-        listingIndex: removeTarget,
+        listingIndex: removeTarget + 1,
       }),
     });
     const result = await res.json();
