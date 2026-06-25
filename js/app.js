@@ -201,7 +201,7 @@ function renderSidebar(activePage) {
     { id: 'profile',     label: 'Profile', href: 'profile.html' },
     { id: 'guilds',      label: 'Guilds',      href: 'guilds.html' },
     { id: 'games',       label: 'Games',       href: 'games.html' },
-    ///{ id: 'forex',       label: 'Markets',     href: 'forex.html' },
+    { id: 'forex',       label: 'Markets',     href: 'forex.html' },
     { id: 'staff',       label: 'Shop',       href: 'shop.html' },
      { id: 'admin',       label: 'Deck',       href: 'deck.html' },
   ];
