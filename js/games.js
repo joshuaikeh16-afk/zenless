@@ -73,14 +73,16 @@ function refreshHUD() {
 }
 
 async function syncCoins(delta) {
-  if (!currentPlayer) return;
+  if (!currentPlayer) return false;
   const newCoins = Math.max(0, currentPlayer.coins + delta);
   const updatedData = { ...currentPlayer._raw, primos: newCoins, coins: newCoins };
-  await API.updateUser(currentPlayer.id, { data: updatedData });
+  const result = await API.updateUser(currentPlayer.id, { data: updatedData });
+  if (!result) return false;
   currentPlayer._raw     = updatedData;
   currentPlayer.coins    = newCoins;
   currentPlayer.netWorth = newCoins + (currentPlayer.bank || 0);
   refreshHUD();
+  return true;
 }
 
 function applyPPDelta(delta, reason, grantedBy) {
@@ -220,23 +222,46 @@ async function submitCashout() {
   const primosToCredit = amount * PP_TO_PRIMO_RATE;
   const withdrawCode   = generateWithdrawalCode(currentPlayer.id, amount);
 
-  // 1. Deduct PP
+  // 1. Deduct PP FIRST. If this doesn't actually save, stop here —
+  //    nothing else happens, so no Primos get handed out for free.
   const ppRes = await queuePPSync(() =>
     PPApi.adjustPP(currentPlayer.id, currentPlayer._raw, -amount, `Withdraw → ${withdrawCode}`, 'system')
   );
 
-  // 2. Credit Primos directly (syncCoins adds to their balance)
-  await syncCoins(primosToCredit);
+  if (!ppRes || ppRes.failed) {
+    btn.disabled    = false;
+    btn.textContent = 'Convert to Primos →';
+    resEl.innerHTML = `<div class="co-error">Couldn't reach the server — your PP was NOT deducted. Please try again.</div>`;
+    return;
+  }
+
+  // PP deduction confirmed saved — reflect it locally right away.
+  currentPlayer.primePoints = ppRes.primePoints;
+  currentPlayer.rank        = ppRes.rank;
+  currentPlayer.ppHistory   = ppRes.ppHistory;
+  currentPlayer._raw        = { ...currentPlayer._raw, primePoints: ppRes.primePoints, rank: ppRes.rank, ppHistory: ppRes.ppHistory };
+  refreshHUD();
+
+  // 2. Credit Primos. If THIS fails, refund the PP we just took so the
+  //    player never loses PP without getting the Primos for it.
+  const credited = await syncCoins(primosToCredit);
 
   btn.disabled    = false;
   btn.textContent = 'Convert to Primos →';
 
-  if (ppRes) {
-    currentPlayer.primePoints = ppRes.primePoints;
-    currentPlayer.rank        = ppRes.rank;
-    currentPlayer.ppHistory   = ppRes.ppHistory;
-    currentPlayer._raw        = { ...currentPlayer._raw, primePoints: ppRes.primePoints, rank: ppRes.rank, ppHistory: ppRes.ppHistory };
-    refreshHUD();
+  if (!credited) {
+    const refund = await queuePPSync(() =>
+      PPApi.adjustPP(currentPlayer.id, currentPlayer._raw, amount, `Withdraw refund (Primos credit failed) → ${withdrawCode}`, 'system')
+    );
+    if (refund && !refund.failed) {
+      currentPlayer.primePoints = refund.primePoints;
+      currentPlayer.rank        = refund.rank;
+      currentPlayer.ppHistory   = refund.ppHistory;
+      currentPlayer._raw        = { ...currentPlayer._raw, primePoints: refund.primePoints, rank: refund.rank, ppHistory: refund.ppHistory };
+      refreshHUD();
+    }
+    resEl.innerHTML = `<div class="co-error">Couldn't credit your Primos — your ${amount.toLocaleString()} PP has been refunded. Please try again.</div>`;
+    return;
   }
 
   resEl.innerHTML = `
