@@ -82,6 +82,7 @@ async function syncCoins(delta) {
   currentPlayer.coins    = newCoins;
   currentPlayer.netWorth = newCoins + (currentPlayer.bank || 0);
   refreshHUD();
+  syncBotEconomy(updatedData.lid, { primos: newCoins }); // fire-and-forget mirror to WhatsApp bot, see api.js
   return true;
 }
 
