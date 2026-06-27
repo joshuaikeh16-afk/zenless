@@ -101,33 +101,36 @@ const API = (() => {
 })();
 
 // ── WhatsApp Bot Economy mirror ───────────────────────────────────────
-// The WhatsApp bot (waifu.js / deck-lookup.js etc.) reads its own copy of
-// each user's economy data from a separate API, keyed by phone number.
-// Whenever Prime Points change in Supabase we also push the new total
-// over there so bot commands (.deck, etc.) stay in sync.
+// The WhatsApp bot (waifu.js / deck-lookup.js etc.) has its OWN economy
+// store, separate from Supabase, keyed by `lid` (the 15-digit field in
+// each user's data — confirmed against the curl example, which used a
+// 15-digit id; `phoneNumber` is only 13 digits and doesn't match).
+// Whenever Prime Points or Primos change in Supabase we also push the
+// new value over there so the bot (.balance, .deck, etc.) stays in sync.
 //
-// This is BEST-EFFORT ONLY: Supabase remains the source of truth for PP.
-// If this call fails (network blip, CORS, bot offline) we just log it —
-// we never block or roll back the Supabase write because of it.
+// This is BEST-EFFORT ONLY: Supabase remains the source of truth. If this
+// call fails (network blip, CORS, bot offline) we just log it — we never
+// block or roll back the Supabase write because of it.
 //
 // NOTE: this endpoint is plain http:// on a non-standard port. Since the
 // site itself is served over https:// (GitHub Pages), browsers will block
 // this as "mixed content" unless the bot host is moved behind https, or
-// this call is proxied through something that is. Worth testing in a real
-// browser console (not just locally) to confirm it actually fires.
+// this call is proxied through something that is. This is the most likely
+// reason a value updates on the website but not in the bot's database —
+// please confirm in a real browser's console/network tab on the live site.
 const BOT_ECONOMY_URL = 'http://jobs.hidencloud.com:24633/api/economy/users';
 const BOT_ECONOMY_KEY = '936f46f583278e85da40457c6be357fd22b87f63dd4ca1c0';
 
-async function syncBotEconomyPP(phone, primePoints) {
-  if (!phone) return false;
+async function syncBotEconomy(lid, payload) {
+  if (!lid) return false;
   try {
-    const res = await fetch(`${BOT_ECONOMY_URL}/${encodeURIComponent(phone)}`, {
+    const res = await fetch(`${BOT_ECONOMY_URL}/${encodeURIComponent(lid)}`, {
       method: 'PATCH',
       headers: {
         'x-api-key': BOT_ECONOMY_KEY,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ primePoints }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return true;
@@ -180,7 +183,7 @@ const PPApi = (() => {
     const updates   = { primePoints: newPoints, rank: calcRank(newPoints), ppHistory: history };
     const result    = await API.updateUserData(id, data, updates);
     if (!result) return { failed: true };
-    syncBotEconomyPP(data.phoneNumber, newPoints); // fire-and-forget, see note above
+    syncBotEconomy(data.lid, { primePoints: newPoints }); // fire-and-forget, see note above
     return { primePoints: newPoints, rank: updates.rank, ppHistory: history };
   }
 
@@ -209,7 +212,7 @@ const PPApi = (() => {
       lastClaimAt: new Date().toISOString(),
     });
     if (!result) return { claimed: false, failed: true };
-    syncBotEconomyPP(data.phoneNumber, newPoints); // fire-and-forget, see note above
+    syncBotEconomy(data.lid, { primePoints: newPoints }); // fire-and-forget, see note above
     return { claimed: true, amount: CLAIM_AMOUNT, primePoints: newPoints };
   }
 
