@@ -27,7 +27,14 @@ const API = (() => {
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
+      const data = await res.json();
+      // Supabase still returns res.ok when 0 rows matched the filter (e.g. a
+      // bad id) — that's a silent no-op write, not a success, so treat it as one.
+      if (Array.isArray(data) && data.length === 0) {
+        console.error('[API Patch Error] No row matched id', id);
+        return null;
+      }
+      return data;
     } catch (err) {
       console.error('[API Patch Error]', err);
       return null;
@@ -93,6 +100,43 @@ const API = (() => {
   };
 })();
 
+// ── WhatsApp Bot Economy mirror ───────────────────────────────────────
+// The WhatsApp bot (waifu.js / deck-lookup.js etc.) reads its own copy of
+// each user's economy data from a separate API, keyed by phone number.
+// Whenever Prime Points change in Supabase we also push the new total
+// over there so bot commands (.deck, etc.) stay in sync.
+//
+// This is BEST-EFFORT ONLY: Supabase remains the source of truth for PP.
+// If this call fails (network blip, CORS, bot offline) we just log it —
+// we never block or roll back the Supabase write because of it.
+//
+// NOTE: this endpoint is plain http:// on a non-standard port. Since the
+// site itself is served over https:// (GitHub Pages), browsers will block
+// this as "mixed content" unless the bot host is moved behind https, or
+// this call is proxied through something that is. Worth testing in a real
+// browser console (not just locally) to confirm it actually fires.
+const BOT_ECONOMY_URL = 'http://jobs.hidencloud.com:24633/api/economy/users';
+const BOT_ECONOMY_KEY = '936f46f583278e85da40457c6be357fd22b87f63dd4ca1c0';
+
+async function syncBotEconomyPP(phone, primePoints) {
+  if (!phone) return false;
+  try {
+    const res = await fetch(`${BOT_ECONOMY_URL}/${encodeURIComponent(phone)}`, {
+      method: 'PATCH',
+      headers: {
+        'x-api-key': BOT_ECONOMY_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ primePoints }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return true;
+  } catch (err) {
+    console.error('[Bot Economy Sync Error]', err);
+    return false;
+  }
+}
+
 // ── Prime Points (Supabase) ───────────────────────────────────────────
 // Replaces the old MongoDB-backed PP system. Prime Points, history, rank,
 // and the daily-claim cooldown all live inside the same `data` JSONB
@@ -106,7 +150,7 @@ const PPApi = (() => {
   const CLAIM_AMOUNT      = 50;                   // PP awarded per daily claim
   const CLAIM_COOLDOWN_MS = 24 * 60 * 60 * 1000;  // 24h between claims
   const HISTORY_CAP       = 30;                   // PP history entries kept per user
-  const PP_TO_COIN_RATE   = 1000;                 // 1 PP = 1000 Prime Coins (shown in the WhatsApp withdrawal request)
+  const PP_TO_COIN_RATE   = 2000;                 // 1 PP = 2,000 Prime Coins (Primos)
 
   function calcRank(pp) {
     pp = Number(pp) || 0;
@@ -127,12 +171,16 @@ const PPApi = (() => {
 
   // Grant or deduct PP. `delta` can be negative. `data` must be the user's
   // current raw data object — pass user._raw, not a stale/partial copy.
+  // Returns { failed: true } if the Supabase write didn't actually save —
+  // callers must check this before treating the change as applied.
   async function adjustPP(id, data, delta, reason, grantedBy = 'system') {
     data = data || {};
     const newPoints = Math.max(0, (data.primePoints || 0) + delta);
     const history   = pushHistory(data, delta, reason, grantedBy);
     const updates   = { primePoints: newPoints, rank: calcRank(newPoints), ppHistory: history };
-    await API.updateUserData(id, data, updates);
+    const result    = await API.updateUserData(id, data, updates);
+    if (!result) return { failed: true };
+    syncBotEconomyPP(data.phoneNumber, newPoints); // fire-and-forget, see note above
     return { primePoints: newPoints, rank: updates.rank, ppHistory: history };
   }
 
@@ -144,7 +192,9 @@ const PPApi = (() => {
   }
 
   // Claim today's free Prime Points. Returns { claimed: false, msRemaining }
-  // if still on cooldown, or { claimed: true, amount, primePoints } on success.
+  // if still on cooldown, { claimed: false, failed: true } if the save
+  // didn't actually go through, or { claimed: true, amount, primePoints }
+  // on confirmed success.
   async function claimDailyPP(id, data) {
     data = data || {};
     const status = getClaimStatus(data);
@@ -152,12 +202,14 @@ const PPApi = (() => {
 
     const newPoints = (data.primePoints || 0) + CLAIM_AMOUNT;
     const history   = pushHistory(data, CLAIM_AMOUNT, 'Daily claim', 'system');
-    await API.updateUserData(id, data, {
+    const result    = await API.updateUserData(id, data, {
       primePoints: newPoints,
       rank: calcRank(newPoints),
       ppHistory: history,
       lastClaimAt: new Date().toISOString(),
     });
+    if (!result) return { claimed: false, failed: true };
+    syncBotEconomyPP(data.phoneNumber, newPoints); // fire-and-forget, see note above
     return { claimed: true, amount: CLAIM_AMOUNT, primePoints: newPoints };
   }
 
