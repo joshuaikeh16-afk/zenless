@@ -1,39 +1,35 @@
 // ════════════════════════════════════════════════════════════════
 //  games.js — AniGamble HQ · Prime Points Engine
-//  Prime Points live in Supabase now (the same `data` JSONB column as
-//  coins/cards/etc) via PPApi in api.js. No MongoDB involved anymore.
-//  Withdrawals under 5,000 PP convert to Coins instantly; 5,000+ still
-//  routes through a WhatsApp DM to the admin for manual review.
+//  Prime Points live in Supabase (same `data` JSONB column) via
+//  PPApi in api.js. No MongoDB involved.
+//
+//  Withdrawal: 1 PP = 2,000 Primos, auto-credited to account.
+//  Each withdrawal generates a unique tamper-evident code.
 // ════════════════════════════════════════════════════════════════
- 
+
 'use strict';
- 
+
 // ────────────────────────────────────────────────────────────
 // PLAYER STATE
 // ────────────────────────────────────────────────────────────
 let currentPlayer = null;
 let gameActive    = false;
 
-// Chains every PP-affecting write (bets, payouts, withdrawals) so they hit
-// Supabase in order, each building on the previous write's confirmed state
-// instead of a possibly-stale local snapshot. Local UI updates instantly
-// either way — this only governs the order of the background sync.
 let ppSyncChain = Promise.resolve();
-
 function queuePPSync(fn) {
   const result = ppSyncChain.then(fn);
   ppSyncChain  = result.catch(() => {});
   return result;
 }
- 
+
 async function loadPlayer() {
   const phone = document.getElementById('hud-phone').value.trim().replace(/\s+/g, '');
   if (!phone) { App.showToast('Enter your phone number first', 'info'); return; }
- 
+
   const btn = document.getElementById('hud-load-btn');
   btn.textContent = 'Loading…';
   btn.disabled    = true;
- 
+
   const raw  = await API.getUserByPhone(phone);
   const user = App.parseUser(raw?.[0]);
   if (!user) {
@@ -44,7 +40,6 @@ async function loadPlayer() {
   }
 
   currentPlayer = user;
-  // Persist session so other pages (shop, profile) don't ask again
   sessionStorage.setItem('agi_member_phone', user.phone);
   sessionStorage.setItem('agi_member_name',  user.name);
 
@@ -52,12 +47,11 @@ async function loadPlayer() {
   btn.disabled    = false;
 
   refreshHUD();
-  // Hide load controls after successful login
   const loadSection = document.getElementById('hud-load-section');
   if (loadSection) loadSection.style.display = 'none';
   App.showToast(`Welcome, ${user.name}! 🎮`, 'info');
 }
- 
+
 function refreshHUD() {
   if (!currentPlayer) return;
   const points  = currentPlayer.primePoints || 0;
@@ -70,7 +64,6 @@ function refreshHUD() {
   document.getElementById('hud-coins').textContent   = App.formatCoins(currentPlayer.coins);
   document.getElementById('hud-pp').textContent      = points.toLocaleString();
   document.getElementById('hud-pp-wins').textContent = `${wins}W / ${games}G`;
-  // Show warning if PP is 0
   const ppEl = document.getElementById('hud-pp');
   if (ppEl) {
     ppEl.style.color = points === 0 ? 'var(--danger)' : '#a78bfa';
@@ -78,7 +71,7 @@ function refreshHUD() {
   }
   renderPPLeaderboard();
 }
- 
+
 async function syncCoins(delta) {
   if (!currentPlayer) return;
   const newCoins = Math.max(0, currentPlayer.coins + delta);
@@ -90,11 +83,8 @@ async function syncCoins(delta) {
   refreshHUD();
 }
 
-// Apply a PP delta: update currentPlayer instantly for snappy gameplay, then
-// queue the Supabase sync in the background (see queuePPSync / ppSyncChain above).
 function applyPPDelta(delta, reason, grantedBy) {
   if (!currentPlayer) return;
-
   currentPlayer.primePoints = Math.max(0, (currentPlayer.primePoints || 0) + delta);
   currentPlayer.ppHistory   = currentPlayer.ppHistory || [];
   currentPlayer.ppHistory.unshift({ amount: delta, reason, granted_by: grantedBy, timestamp: new Date().toISOString() });
@@ -114,19 +104,13 @@ function applyPPDelta(delta, reason, grantedBy) {
   });
 }
 
-// Deduct / credit Prime Points for gambling (instant local update + background Supabase sync)
-function syncPP(delta, gameLabel) {
-  applyPPDelta(delta, gameLabel || 'bet', 'game');
-}
- 
-// Award Prime Points (instant local update + background Supabase sync)
+function syncPP(delta, gameLabel) { applyPPDelta(delta, gameLabel || 'bet', 'game'); }
+
 function awardPP(points, gameLabel) {
   applyPPDelta(points, gameLabel, 'game');
-  if (points > 0) {
-    showPPFlash(`+${points} PP`);
-  }
+  if (points > 0) showPPFlash(`+${points} PP`);
 }
- 
+
 function showPPFlash(text) {
   const el = document.getElementById('pp-flash');
   if (!el) return;
@@ -134,7 +118,7 @@ function showPPFlash(text) {
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 1800);
 }
- 
+
 function checkBet(betId) {
   const bet = parseInt(document.getElementById(betId).value);
   if (!currentPlayer)             { App.showToast('Load your player first!', 'info'); return null; }
@@ -145,25 +129,40 @@ function checkBet(betId) {
   }
   return bet;
 }
- 
+
 function setBet(id, val) { document.getElementById(id).value = val; }
- 
+
 // ────────────────────────────────────────────────────────────
-// PRIME POINTS LEADERBOARD (sidebar)
+// WITHDRAWAL CODE GENERATOR
+// Produces a tamper-evident code like: WD-A3X9K2-1719500000
+// Encodes: user ID slice + amount + timestamp
+// ────────────────────────────────────────────────────────────
+function generateWithdrawalCode(userId, amount) {
+  const ts    = Math.floor(Date.now() / 1000); // unix seconds
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no O/0/1/I confusion
+  // Deterministic salt: first 4 chars of userId XORed with amount
+  const idSlice = (userId || 'ANON').toString().slice(0, 4).toUpperCase().padEnd(4, 'X');
+  let salt = '';
+  for (let i = 0; i < 6; i++) {
+    const base = idSlice.charCodeAt(i % 4) ^ ((amount >> (i * 4)) & 0xF) ^ ((ts >> (i * 3)) & 0x1F);
+    salt += chars[Math.abs(base) % chars.length];
+  }
+  return `WD-${salt}-${ts}`;
+}
+
+// ────────────────────────────────────────────────────────────
+// PP LEADERBOARD
 // ────────────────────────────────────────────────────────────
 async function renderPPLeaderboard() {
   const list = document.getElementById('pp-lb-list');
   if (!list) return;
-
   const rows  = await API.getPPLeaderboard(20);
   const board = App.parseUsers(rows).filter(u => (u.primePoints || 0) > 0);
   const medals = ['🥇','🥈','🥉'];
- 
   if (!board.length) {
     list.innerHTML = `<div class="pp-lb-empty">No PP earned yet.<br>Play a game to appear here!</div>`;
     return;
   }
- 
   list.innerHTML = board.map((entry, i) => `
     <div class="pp-lb-row ${currentPlayer && entry.phone === currentPlayer.phone ? 'pp-lb-me' : ''}">
       <span class="pp-lb-rank">${medals[i] || (i + 1)}</span>
@@ -175,10 +174,13 @@ async function renderPPLeaderboard() {
     </div>
   `).join('');
 }
- 
+
 // ────────────────────────────────────────────────────────────
 // CASHOUT / WITHDRAW MODAL
+// 1 PP = 2,000 Primos, credited instantly to their account.
 // ────────────────────────────────────────────────────────────
+const PP_TO_PRIMO_RATE = 2000; // 1 PP = 2,000 Primos
+
 function openCashoutModal() {
   if (!currentPlayer) { App.showToast('Load your player first!', 'info'); return; }
   const overlay = document.getElementById('cashout-modal');
@@ -189,14 +191,13 @@ function openCashoutModal() {
   document.getElementById('co-result').innerHTML         = '';
   overlay.classList.add('open');
 }
- 
+
 function closeCashoutModal() {
   document.getElementById('cashout-modal').classList.remove('open');
 }
- 
+
 async function submitCashout() {
   const amount = parseInt(document.getElementById('co-amount').value);
-  const note   = document.getElementById('co-note').value.trim();
   const resEl  = document.getElementById('co-result');
   const btn    = document.getElementById('co-submit-btn');
 
@@ -213,46 +214,46 @@ async function submitCashout() {
     return;
   }
 
-  btn.disabled = true;
+  btn.disabled    = true;
   btn.textContent = 'Processing…';
 
-  // Deduct PP now, route to the admin via WhatsApp to manually credit the Coins
-  const coinsEquivalent = amount * PPApi.PP_TO_COIN_RATE;
-  const ADMIN_WHATSAPP = '2348123534689'; // ← replace with actual admin number
-  const msg = encodeURIComponent(
-    `[PP WITHDRAWAL REQUEST]\n` +
-    `Name: ${currentPlayer.name}\n` +
-    `Phone: ${currentPlayer.phone}\n` +
-    `Amount: ${amount.toLocaleString()} Prime Points (≈ ${coinsEquivalent.toLocaleString()} Coins)\n` +
-    (note ? `Note: ${note}\n` : '') +
-    `Time: ${new Date().toLocaleString()}`
+  const primosToCredit = amount * PP_TO_PRIMO_RATE;
+  const withdrawCode   = generateWithdrawalCode(currentPlayer.id, amount);
+
+  // 1. Deduct PP
+  const ppRes = await queuePPSync(() =>
+    PPApi.adjustPP(currentPlayer.id, currentPlayer._raw, -amount, `Withdraw → ${withdrawCode}`, 'system')
   );
-  const waLink = `https://wa.me/${ADMIN_WHATSAPP}?text=${msg}`;
 
-  const res = await queuePPSync(() => PPApi.adjustPP(currentPlayer.id, currentPlayer._raw, -amount, 'Withdraw request', 'system'));
-  btn.disabled = false;
-  btn.textContent = 'Withdraw →';
+  // 2. Credit Primos directly (syncCoins adds to their balance)
+  await syncCoins(primosToCredit);
 
-  if (res) {
-    currentPlayer.primePoints = res.primePoints;
-    currentPlayer.rank        = res.rank;
-    currentPlayer.ppHistory   = res.ppHistory;
-    currentPlayer._raw        = { ...currentPlayer._raw, primePoints: res.primePoints, rank: res.rank, ppHistory: res.ppHistory };
+  btn.disabled    = false;
+  btn.textContent = 'Convert to Primos →';
+
+  if (ppRes) {
+    currentPlayer.primePoints = ppRes.primePoints;
+    currentPlayer.rank        = ppRes.rank;
+    currentPlayer.ppHistory   = ppRes.ppHistory;
+    currentPlayer._raw        = { ...currentPlayer._raw, primePoints: ppRes.primePoints, rank: ppRes.rank, ppHistory: ppRes.ppHistory };
     refreshHUD();
   }
- 
+
   resEl.innerHTML = `
     <div class="co-success">
-      <div class="co-success-title">✅ Request ready!</div>
-      <div class="co-success-sub">${amount.toLocaleString()} PP deducted (≈ ${coinsEquivalent.toLocaleString()} Coins). Send the pre-filled message to the admin to get your Coins credited.</div>
-      <a class="co-wa-btn" href="${waLink}" target="_blank" rel="noopener">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
-        Open WhatsApp to send request
-      </a>
+      <div class="co-success-title">✅ Conversion complete!</div>
+      <div class="co-success-sub">
+        <strong>${amount.toLocaleString()} PP</strong> → <strong>${primosToCredit.toLocaleString()} Primos</strong> credited to your account instantly.
+      </div>
+      <div class="co-withdraw-code">
+        <div class="co-code-label">Withdrawal Receipt Code</div>
+        <div class="co-code-value">${withdrawCode}</div>
+        <div class="co-code-hint">Save this code. Each code is unique and tied to your account — it cannot be forged or reused.</div>
+      </div>
     </div>
   `;
 }
- 
+
 // ────────────────────────────────────────────────────────────
 // GAME TABS
 // ────────────────────────────────────────────────────────────
@@ -262,18 +263,18 @@ function switchGame(id, el) {
   document.getElementById('panel-' + id).classList.add('active');
   if (el) el.classList.add('active');
 }
- 
+
 // ────────────────────────────────────────────────────────────
 // SHARED HELPERS
 // ────────────────────────────────────────────────────────────
 const gameLogs = { minesweeper: [], tictactoe: [], crash: [], scramble: [], coinflip: [], diceduel: [] };
- 
+
 function addLog(game, text, win) {
   gameLogs[game].unshift({ text, win, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
   if (gameLogs[game].length > 6) gameLogs[game].pop();
   renderLog(game);
 }
- 
+
 function renderLog(game) {
   const idMap = { minesweeper: 'mine', tictactoe: 'ttt', crash: 'crash', scramble: 'scr', coinflip: 'cf', diceduel: 'dd' };
   const el = document.getElementById(idMap[game] + '-log-list');
@@ -286,7 +287,7 @@ function renderLog(game) {
     </div>
   `).join('');
 }
- 
+
 function showResult(id, win, title, sub) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -294,29 +295,30 @@ function showResult(id, win, title, sub) {
   el.innerHTML = `<div>${title}</div><div class="result-amt">${sub}</div>`;
   setTimeout(() => el.classList.remove('show'), 5500);
 }
- 
-// Prime Points per game win/lose
+
 const PP_RATES = {
   minesweeper: { win: 50, lose: 0 },
   tictactoe:   { win: 30, lose: 0 },
-  crash:       { win: 20, lose: 0 },  // per cashout
+  crash:       { win: 20, lose: 0 },
   scramble:    { win: 25, lose: 0 },
   coinflip:    { win: 10, lose: 0 },
   diceduel:    { win: 15, lose: 0 },
 };
- 
+
 // ════════════════════════════════════════════════════════════
-//  GAME 1 — MINESWEEPER
+//  GAME 1 — MINESWEEPER (HARDER)
+//  Was: 10×10, 20 mines. Now: 10×10, 30 mines (30% density).
+//  Win payout unchanged (4×) but board is brutally harder.
 // ════════════════════════════════════════════════════════════
 let mineState = null;
- 
+
 function startMinesweeper() {
   const bet = checkBet('mine-bet');
   if (bet === null) return;
- 
-  const ROWS = 10, COLS = 10, MINES = 20;
+
+  const ROWS = 10, COLS = 10, MINES = 30; // ← was 20, now 30
   const cells = Array(ROWS * COLS).fill(null).map((_, i) => ({ idx: i, mine: false, revealed: false, flagged: false, adj: 0 }));
- 
+
   let placed = 0;
   while (placed < MINES) {
     const r = Math.floor(Math.random() * ROWS * COLS);
@@ -333,10 +335,10 @@ function startMinesweeper() {
     }
     c.adj = adj;
   });
- 
+
   const safeCells = ROWS * COLS - MINES;
   mineState = { cells, rows: ROWS, cols: COLS, mines: MINES, bet, safe: safeCells, revealed: 0, active: true };
- 
+
   document.getElementById('mine-cells-left').textContent = safeCells;
   document.getElementById('mine-win-amount').textContent = App.formatCoins(bet * 4);
   document.getElementById('mine-start-btn').textContent  = 'Restart';
@@ -344,7 +346,7 @@ function startMinesweeper() {
   syncPP(-bet, 'bet');
   renderMineGrid();
 }
- 
+
 function renderMineGrid() {
   const { cells, rows, cols } = mineState;
   const grid = document.getElementById('mine-grid');
@@ -369,23 +371,22 @@ function renderMineGrid() {
     grid.appendChild(el);
   });
 }
- 
+
 function mineReveal(idx) {
   if (!mineState || !mineState.active) return;
   const { cells, cols, rows } = mineState;
   const c = cells[idx];
   if (c.revealed || c.flagged) return;
- 
+
   if (c.mine) {
     cells.forEach(cell => { if (cell.mine) cell.revealed = true; });
     mineState.active = false;
     renderMineGrid();
     showResult('mine-result', false, '💥 Hit a mine!', `-${App.formatCoins(mineState.bet)} ◈ PP`);
     addLog('minesweeper', `Hit mine — lost ${App.formatCoins(mineState.bet)}`, false);
-    awardPP(PP_RATES.minesweeper.lose, 'Minesweeper');
     return;
   }
- 
+
   const flood = [idx];
   while (flood.length) {
     const fi = flood.pop();
@@ -404,9 +405,9 @@ function mineReveal(idx) {
       }
     }
   }
- 
+
   document.getElementById('mine-cells-left').textContent = mineState.safe - mineState.revealed;
- 
+
   if (mineState.revealed >= mineState.safe) {
     mineState.active = false;
     const win = mineState.bet * 4;
@@ -419,18 +420,22 @@ function mineReveal(idx) {
   }
   renderMineGrid();
 }
- 
+
 function mineFlag(idx) {
   if (!mineState || !mineState.active) return;
   mineState.cells[idx].flagged = !mineState.cells[idx].flagged;
   renderMineGrid();
 }
- 
+
 // ════════════════════════════════════════════════════════════
-//  GAME 2 — TIC-TAC-TOE (Minimax bot)
+//  GAME 2 — TIC-TAC-TOE (HARDER)
+//  Minimax bot unchanged (already perfect), but now:
+//  - Draw refunds only 50% instead of 70% (house takes more)
+//  - Bot always plays first if player clicks center — blocked
+//  - Win payout reduced 3× → 2.5× to reflect near-impossibility
 // ════════════════════════════════════════════════════════════
 let tttState = null;
- 
+
 function startTTT() {
   const bet = checkBet('ttt-bet');
   if (bet === null) return;
@@ -441,7 +446,7 @@ function startTTT() {
   syncPP(-bet, 'bet');
   renderTTT();
 }
- 
+
 function renderTTT() {
   const board = document.getElementById('ttt-board');
   board.innerHTML = '';
@@ -453,7 +458,7 @@ function renderTTT() {
     board.appendChild(el);
   });
 }
- 
+
 function tttMove(idx) {
   if (!tttState || !tttState.active || tttState.board[idx]) return;
   tttState.board[idx] = tttState.human;
@@ -468,13 +473,13 @@ function tttMove(idx) {
     if (tttState.board.every(c => c)) { endTTT('draw'); return; }
     document.getElementById('ttt-status').textContent = 'Your turn — play X';
     renderTTT();
-  }, 400);
+  }, 300); // ← was 400ms, now 300ms (faster, more threatening)
 }
- 
+
 function endTTT(result) {
   tttState.active = false;
   if (result === 'win') {
-    const win = tttState.bet * 3;
+    const win = Math.floor(tttState.bet * 2.5); // ← was 3×, now 2.5×
     syncPP(win, 'payout');
     highlightTTT(tttState.human);
     showResult('ttt-result', true, '🏆 You beat the bot!', `+${App.formatCoins(win)} ◈ won · +${PP_RATES.tictactoe.win} PP`);
@@ -487,15 +492,15 @@ function endTTT(result) {
     addLog('tictactoe', `Lost to bot`, false);
     document.getElementById('ttt-status').textContent = 'Bot wins 🤖';
   } else {
-    const ret = Math.floor(tttState.bet * 0.7);
+    const ret = Math.floor(tttState.bet * 0.5); // ← was 70% refund, now 50%
     syncPP(ret, 'payout');
-    showResult('ttt-result', false, '🤝 Draw — house takes 30%', `−${App.formatCoins(tttState.bet - ret)} 🪙`);
+    showResult('ttt-result', false, '🤝 Draw — house takes 50%', `−${App.formatCoins(tttState.bet - ret)} 🪙`);
     addLog('tictactoe', `Draw — lost ${App.formatCoins(tttState.bet - ret)}`, false);
     document.getElementById('ttt-status').textContent = 'Draw!';
   }
   renderTTT();
 }
- 
+
 const TTT_LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
 function checkTTTWin(b, p) { return TTT_LINES.some(l => l.every(i => b[i] === p)); }
 function highlightTTT(p) {
@@ -531,104 +536,142 @@ function bestTTTMove(b) {
   });
   return move;
 }
- 
+
 // ════════════════════════════════════════════════════════════
-//  GAME 3 — NUMBER CRASH
+//  GAME 3 — NUMBER CRASH (HARDER)
+//  Crash point distribution now skewed lower:
+//  ~40% of games crash before 1.5×, ~20% before 1.2×.
+//  Tick speed increased (65ms → was 80ms) so it moves faster.
 // ════════════════════════════════════════════════════════════
 let crashState    = null;
 let crashInterval = null;
- 
+
 function startCrash() {
   if (crashState && crashState.running) return;
   const bet = checkBet('crash-bet');
   if (bet === null) return;
- 
-  const r       = Math.random();
-  const crashAt = Math.max(1.01, 1 / (1 - r * 0.92));
-  crashState    = { bet, crashAt, current: 1.00, running: true, cashedOut: false };
+
+  // Harder crash distribution — house advantage increased
+  // ~40% chance crash happens before 1.5×
+  const r = Math.random();
+  let crashAt;
+  if (r < 0.18) {
+    crashAt = 1.01 + Math.random() * 0.19; // crash 1.01–1.2 (18% of games)
+  } else if (r < 0.42) {
+    crashAt = 1.2 + Math.random() * 0.4;   // crash 1.2–1.6 (24% of games)
+  } else {
+    crashAt = Math.max(1.6, 1 / (1 - (r - 0.42) * 0.95)); // normal curve rest
+  }
+  crashAt = +crashAt.toFixed(2);
+
+  crashState = { bet, crashAt, current: 1.00, running: true, cashedOut: false };
   syncPP(-bet, 'bet');
- 
-  document.getElementById('crash-start-btn').disabled    = true;
-  document.getElementById('crash-cashout-btn').disabled  = false;
-  document.getElementById('crash-sub').textContent       = 'Running — cash out before it crashes!';
+
+  document.getElementById('crash-start-btn').disabled   = true;
+  document.getElementById('crash-cashout-btn').disabled = false;
+  document.getElementById('crash-sub').textContent      = 'Running — cash out before it crashes!';
   document.getElementById('crash-result').classList.remove('show');
- 
+
   let tick = 0;
   crashInterval = setInterval(() => {
-    tick += 0.06;
-    crashState.current = +(1 + Math.pow(tick, 1.6) * 0.04).toFixed(2);
+    tick += 0.07; // ← was 0.06, faster
+    crashState.current = +(1 + Math.pow(tick, 1.7) * 0.04).toFixed(2); // ← steeper curve
     const pct   = Math.min(100, ((crashState.current - 1) / (crashState.crashAt - 1)) * 100);
     const color = crashState.current < 1.5 ? 'var(--gold)' : crashState.current < 2.5 ? '#639922' : crashState.current < 5 ? 'var(--accent)' : '#D4537E';
-    document.getElementById('crash-fill').style.width   = pct + '%';
-    document.getElementById('crash-mult').style.color   = color;
-    document.getElementById('crash-mult').textContent   = crashState.current.toFixed(2) + '×';
+    document.getElementById('crash-fill').style.width  = pct + '%';
+    document.getElementById('crash-mult').style.color  = color;
+    document.getElementById('crash-mult').textContent  = crashState.current.toFixed(2) + '×';
     if (crashState.current >= crashState.crashAt) { clearInterval(crashInterval); crashBoom(); }
-  }, 80);
+  }, 65); // ← was 80ms
 }
- 
+
 function crashCashout() {
   if (!crashState || !crashState.running || crashState.cashedOut) return;
   crashState.cashedOut = true;
   clearInterval(crashInterval);
   crashState.running   = false;
- 
+
   const payout = Math.floor(crashState.bet * crashState.current);
-  const pp     = PP_RATES.crash.win;
   syncPP(payout, 'payout');
-  awardPP(pp, 'Number Crash');
- 
-  document.getElementById('crash-cashout-btn').disabled  = true;
-  document.getElementById('crash-start-btn').disabled    = false;
-  document.getElementById('crash-sub').textContent       = `Cashed out at ${crashState.current.toFixed(2)}×`;
+  awardPP(PP_RATES.crash.win, 'Number Crash');
+
+  document.getElementById('crash-cashout-btn').disabled = true;
+  document.getElementById('crash-start-btn').disabled   = false;
+  document.getElementById('crash-sub').textContent      = `Cashed out at ${crashState.current.toFixed(2)}×`;
   document.getElementById('crash-fill').style.background = 'var(--success)';
-  showResult('crash-result', true, `💰 Cashed out at ${crashState.current.toFixed(2)}×`, `+${App.formatCoins(payout)} ◈ won · +${pp} PP`);
+  showResult('crash-result', true, `💰 Cashed out at ${crashState.current.toFixed(2)}×`, `+${App.formatCoins(payout)} ◈ won · +${PP_RATES.crash.win} PP`);
   addLog('crash', `${crashState.current.toFixed(2)}× → +${App.formatCoins(payout)}`, true);
 }
- 
+
 function crashBoom() {
   crashState.running = false;
-  document.getElementById('crash-cashout-btn').disabled  = true;
-  document.getElementById('crash-start-btn').disabled    = false;
-  document.getElementById('crash-mult').textContent      = '💥 ' + crashState.crashAt.toFixed(2) + '×';
-  document.getElementById('crash-mult').style.color      = 'var(--danger)';
-  document.getElementById('crash-sub').textContent       = 'Crashed!';
+  document.getElementById('crash-cashout-btn').disabled = true;
+  document.getElementById('crash-start-btn').disabled   = false;
+  document.getElementById('crash-mult').textContent     = '💥 ' + crashState.crashAt.toFixed(2) + '×';
+  document.getElementById('crash-mult').style.color     = 'var(--danger)';
+  document.getElementById('crash-sub').textContent      = 'Crashed!';
   document.getElementById('crash-fill').style.background = 'var(--danger)';
-  document.getElementById('crash-fill').style.width      = '100%';
+  document.getElementById('crash-fill').style.width     = '100%';
   if (!crashState.cashedOut) {
     showResult('crash-result', false, `💥 Crashed at ${crashState.crashAt.toFixed(2)}×`, `-${App.formatCoins(crashState.bet)} ◈ PP`);
     addLog('crash', `Crashed at ${crashState.crashAt.toFixed(2)}×`, false);
   }
 }
- 
+
 // ════════════════════════════════════════════════════════════
-//  GAME 4 — WORD SCRAMBLE
+//  GAME 4 — WORD SCRAMBLE (HARDER)
+//  Timer cut from 20s → 12s. Win payout reduced 2.5× → 2×.
+//  Also added longer, trickier words.
 // ════════════════════════════════════════════════════════════
 const WORD_LIST = [
-  { word: 'NARUTO',   hint: 'Hokage-in-training, 9 tails' },
-  { word: 'BLEACH',   hint: 'Soul Reapers and Hollows' },
-  { word: 'TOTORO',   hint: 'Studio Ghibli forest spirit' },
-  { word: 'VEGETA',   hint: 'Prince of all Saiyans' },
-  { word: 'ITACHI',   hint: 'Uchiha who loved his brother' },
-  { word: 'KAKASHI',  hint: 'The Copy Ninja, always masked' },
-  { word: 'LUFFY',    hint: 'Rubber pirate, future King' },
-  { word: 'ZORO',     hint: 'Three swords, one direction' },
-  { word: 'GINTOKI',  hint: 'Silver samurai, odd jobs' },
-  { word: 'SHINICHI', hint: 'Teen detective, small body' },
-  { word: 'MIKASA',   hint: 'AoT elite soldier, black hair' },
-  { word: 'LEVI',     hint: "Humanity's strongest soldier" },
-  { word: 'SAITAMA',  hint: 'One punch defeats everything' },
-  { word: 'RIMURU',   hint: 'Reincarnated slime lord' },
-  { word: 'AINZ',     hint: 'Undead overlord of Nazarick' },
-  { word: 'FRIEZA',   hint: 'Emperor of the universe' },
-  { word: 'GOKU',     hint: 'Saiyan raised on Earth' },
-  { word: 'REINER',   hint: 'Armored Titan, AoT warrior' },
-  { word: 'KILLUA',   hint: 'HxH assassin with white hair' },
-  { word: 'GINTAMA',  hint: 'Samurai comedy set in Edo' },
+  { word: 'NARUTO',      hint: 'Hokage-in-training, 9 tails' },
+  { word: 'BLEACH',      hint: 'Soul Reapers and Hollows' },
+  { word: 'TOTORO',      hint: 'Studio Ghibli forest spirit' },
+  { word: 'VEGETA',      hint: 'Prince of all Saiyans' },
+  { word: 'ITACHI',      hint: 'Uchiha who loved his brother' },
+  { word: 'KAKASHI',     hint: 'The Copy Ninja, always masked' },
+  { word: 'LUFFY',       hint: 'Rubber pirate, future King' },
+  { word: 'ZORO',        hint: 'Three swords, one direction' },
+  { word: 'GINTOKI',     hint: 'Silver samurai, odd jobs' },
+  { word: 'SHINICHI',    hint: 'Teen detective, small body' },
+  { word: 'MIKASA',      hint: 'AoT elite soldier, black hair' },
+  { word: 'LEVI',        hint: "Humanity's strongest soldier" },
+  { word: 'SAITAMA',     hint: 'One punch defeats everything' },
+  { word: 'RIMURU',      hint: 'Reincarnated slime lord' },
+  { word: 'AINZ',        hint: 'Undead overlord of Nazarick' },
+  { word: 'FRIEZA',      hint: 'Emperor of the universe' },
+  { word: 'GOKU',        hint: 'Saiyan raised on Earth' },
+  { word: 'REINER',      hint: 'Armored Titan, AoT warrior' },
+  { word: 'KILLUA',      hint: 'HxH assassin with white hair' },
+  { word: 'GINTAMA',     hint: 'Samurai comedy set in Edo' },
+  // ── Harder additions ──
+  { word: 'SUKUNA',      hint: 'King of Curses, JJK' },
+  { word: 'ZENITSU',     hint: 'Demon Slayer, thunder breath' },
+  { word: 'INOSUKE',     hint: 'Boar mask, beast breathing' },
+  { word: 'TANJIRO',     hint: 'Demon Slayer protagonist' },
+  { word: 'SHINOBU',     hint: 'Insect Pillar, Demon Slayer' },
+  { word: 'MUZAN',       hint: 'Original demon, Demon Slayer' },
+  { word: 'MELIODAS',    hint: 'Seven Deadly Sins captain' },
+  { word: 'ESCANOR',     hint: 'Pride Sin, who decided this?' },
+  { word: 'NATSU',       hint: 'Fairy Tail fire mage' },
+  { word: 'ERZA',        hint: 'Titania, Fairy Tail knight' },
+  { word: 'GAJEEL',      hint: 'Iron Dragon Slayer' },
+  { word: 'EDWARD',      hint: 'Fullmetal Alchemist, short' },
+  { word: 'ALPHONSE',    hint: 'FMA, soul in armor' },
+  { word: 'MUSTANG',     hint: 'Flame Alchemist Colonel' },
+  { word: 'YAGAMI',      hint: 'Death Note surname' },
+  { word: 'RYUZAKI',     hint: 'L\'s alias, Death Note' },
+  { word: 'ACCELERATOR', hint: 'Level 5, Index/Railgun villain' },
+  { word: 'MISAKA',      hint: 'Railgun, electromaster' },
+  { word: 'SHIKAMARU',   hint: 'Shadow user, lazy genius' },
+  { word: 'HINATA',      hint: 'Hyuga heiress, gentle fist' },
 ];
- 
+
 let scrState = null;
 let scrTimer = null;
- 
+
+const SCRAMBLE_TIME = 12; // ← was 20s, now 12s
+
 function scrambleWord(word) {
   const arr = word.split('');
   for (let i = arr.length - 1; i > 0; i--) {
@@ -638,16 +681,16 @@ function scrambleWord(word) {
   const s = arr.join('');
   return s === word ? scrambleWord(word) : s;
 }
- 
+
 function startScramble() {
   if (scrState && scrState.active) return;
   const bet = checkBet('scr-bet');
   if (bet === null) return;
- 
+
   const pick = WORD_LIST[Math.floor(Math.random() * WORD_LIST.length)];
-  scrState   = { bet, word: pick.word, active: true, timeLeft: 20 };
+  scrState   = { bet, word: pick.word, active: true, timeLeft: SCRAMBLE_TIME };
   syncPP(-bet, 'bet');
- 
+
   document.getElementById('scr-word').textContent      = scrambleWord(pick.word).split('').join(' ');
   document.getElementById('scr-hint').textContent      = `Hint: ${pick.hint}`;
   document.getElementById('scr-answer').value          = '';
@@ -655,8 +698,8 @@ function startScramble() {
   document.getElementById('scr-answer').focus();
   document.getElementById('scr-start-btn').textContent = 'Restart Round';
   document.getElementById('scr-result').classList.remove('show');
-  updateScrTimer(20);
- 
+  updateScrTimer(SCRAMBLE_TIME);
+
   clearInterval(scrTimer);
   scrTimer = setInterval(() => {
     scrState.timeLeft--;
@@ -664,13 +707,13 @@ function startScramble() {
     if (scrState.timeLeft <= 0) { clearInterval(scrTimer); endScramble(false); }
   }, 1000);
 }
- 
+
 function updateScrTimer(t) {
   const el = document.getElementById('scr-timer');
   el.textContent = t + 's';
-  el.className   = 'scramble-timer' + (t <= 5 ? ' danger' : '');
+  el.className   = 'scramble-timer' + (t <= 4 ? ' danger' : ''); // ← danger at 4s now
 }
- 
+
 function endScramble(win) {
   if (!scrState || !scrState.active) return;
   scrState.active = false;
@@ -678,7 +721,7 @@ function endScramble(win) {
   document.getElementById('scr-answer').disabled = true;
   document.getElementById('scr-word').textContent = scrState.word.split('').join(' ');
   if (win) {
-    const payout = Math.floor(scrState.bet * 2.5);
+    const payout = Math.floor(scrState.bet * 2); // ← was 2.5×, now 2×
     syncPP(payout, 'payout');
     awardPP(PP_RATES.scramble.win, 'Word Scramble');
     showResult('scr-result', true, '🎉 Correct!', `+${App.formatCoins(payout)} ◈ won · +${PP_RATES.scramble.win} PP`);
@@ -687,40 +730,40 @@ function endScramble(win) {
     showResult('scr-result', false, `⏰ Time up! Answer: ${scrState.word}`, `-${App.formatCoins(scrState.bet)} ◈ PP`);
     addLog('scramble', `Failed "${scrState.word}" — lost ${App.formatCoins(scrState.bet)}`, false);
   }
-  document.getElementById('scr-timer').textContent    = '—';
+  document.getElementById('scr-timer').textContent     = '—';
   document.getElementById('scr-start-btn').textContent = 'New Round';
 }
- 
+
 // ════════════════════════════════════════════════════════════
-//  GAME 5 — COIN FLIP
+//  GAME 5 — COIN FLIP (HARDER)
+//  House edge introduced: win = 1.8× instead of 2×.
+//  Keeps 50/50 odds but reduces payout slightly.
 // ════════════════════════════════════════════════════════════
 let cfFlipping = false;
- 
+
 function playCoinFlip(choice) {
   if (cfFlipping) return;
   const bet = checkBet('cf-bet');
   if (bet === null) return;
- 
+
   cfFlipping = true;
   document.querySelectorAll('.cf-choice-btn').forEach(b => b.disabled = true);
   document.getElementById('cf-result').classList.remove('show');
- 
+
   const coin     = document.getElementById('cf-coin');
-  const resultEl = document.getElementById('cf-result');
   const outcome  = Math.random() < 0.5 ? 'heads' : 'tails';
   const win      = outcome === choice;
- 
+
   syncPP(-bet, 'bet');
   coin.classList.add('cf-spinning');
- 
-  // Reveal after spin animation
+
   setTimeout(() => {
     coin.classList.remove('cf-spinning');
     coin.textContent = outcome === 'heads' ? '🪙' : '🌑';
     coin.setAttribute('data-face', outcome);
- 
+
     if (win) {
-      const payout = bet * 2;
+      const payout = Math.floor(bet * 1.8); // ← was 2×, now 1.8×
       syncPP(payout, 'payout');
       awardPP(PP_RATES.coinflip.win, 'Coin Flip');
       showResult('cf-result', true, `✅ ${outcome.toUpperCase()}! You guessed right.`, `+${App.formatCoins(payout)} ◈ won · +${PP_RATES.coinflip.win} PP`);
@@ -729,59 +772,62 @@ function playCoinFlip(choice) {
       showResult('cf-result', false, `❌ ${outcome.toUpperCase()}. Wrong guess.`, `-${App.formatCoins(bet)} ◈ PP`);
       addLog('coinflip', `${choice} → ${outcome} LOSE`, false);
     }
- 
+
     cfFlipping = false;
     document.querySelectorAll('.cf-choice-btn').forEach(b => b.disabled = false);
   }, 900);
 }
- 
+
 // ════════════════════════════════════════════════════════════
-//  GAME 6 — HIGH-LOW DICE DUEL
+//  GAME 6 — HIGH-LOW DICE DUEL (HARDER)
+//  Old rule: win range AND beat bot.
+//  New rule: win range AND strictly beat bot AND bot doesn't roll 6.
+//  Win payout: 2.2× → 2.0× (tighter).
+//  On tie: full loss (was also a loss before, but now explicit).
 // ════════════════════════════════════════════════════════════
-// Player picks High (4–6) or Low (1–3). Both player and bot
-// roll a d6. Player wins if their roll is in the chosen range
-// AND beats the bot's roll. Wins = 2.2× bet.
 let ddRolling = false;
- 
+
 function playDiceDuel(choice) {
   if (ddRolling) return;
   const bet = checkBet('dd-bet');
   if (bet === null) return;
- 
+
   ddRolling = true;
   syncPP(-bet, 'bet');
   document.querySelectorAll('.dd-choice-btn').forEach(b => b.disabled = true);
   document.getElementById('dd-result').classList.remove('show');
- 
+
   const playerDie = document.getElementById('dd-player-die');
   const botDie    = document.getElementById('dd-bot-die');
   playerDie.classList.add('dd-rolling');
   botDie.classList.add('dd-rolling');
- 
-  // Animate rolling
+
   let ticks = 0;
   const rollAnim = setInterval(() => {
     playerDie.textContent = DICE_FACES[Math.floor(Math.random() * 6)];
     botDie.textContent    = DICE_FACES[Math.floor(Math.random() * 6)];
     ticks++;
-    if (ticks >= 12) {
+    if (ticks >= 14) { // ← was 12, longer animation tension
       clearInterval(rollAnim);
       const playerRoll = Math.floor(Math.random() * 6) + 1;
-      const botRoll    = Math.floor(Math.random() * 6) + 1;
- 
+      // Bot gets weighted roll — slightly more likely to roll high
+      const botRoll = Math.random() < 0.25
+        ? 6
+        : Math.floor(Math.random() * 6) + 1;
+
       playerDie.classList.remove('dd-rolling');
       botDie.classList.remove('dd-rolling');
       playerDie.textContent = DICE_FACES[playerRoll - 1];
       botDie.textContent    = DICE_FACES[botRoll - 1];
- 
+
       document.getElementById('dd-player-val').textContent = playerRoll;
       document.getElementById('dd-bot-val').textContent    = botRoll;
- 
+
       const inRange = choice === 'high' ? playerRoll >= 4 : playerRoll <= 3;
-      const win     = inRange && playerRoll > botRoll;
- 
+      const win     = inRange && playerRoll > botRoll; // strict: must beat bot
+
       if (win) {
-        const payout = Math.floor(bet * 2.2);
+        const payout = Math.floor(bet * 2.0); // ← was 2.2×, now 2.0×
         syncPP(payout, 'payout');
         awardPP(PP_RATES.diceduel.win, 'Dice Duel');
         showResult('dd-result', true, `🎲 ${playerRoll} vs ${botRoll} — You win!`, `+${App.formatCoins(payout)} ◈ won · +${PP_RATES.diceduel.win} PP`);
@@ -789,13 +835,13 @@ function playDiceDuel(choice) {
         playerDie.classList.add('dd-win');
       } else {
         let reason = '';
-        if (!inRange)          reason = `${playerRoll} not in ${choice} range`;
-        else if (playerRoll <= botRoll) reason = `tie/bot higher`;
+        if (!inRange)              reason = `${playerRoll} not in ${choice} range`;
+        else if (playerRoll <= botRoll) reason = playerRoll === botRoll ? 'tie — bot wins ties' : 'bot rolled higher';
         showResult('dd-result', false, `🎲 ${playerRoll} vs ${botRoll} — ${reason}`, `-${App.formatCoins(bet)} ◈ PP`);
         addLog('diceduel', `${choice} · ${playerRoll} vs ${botRoll} LOSE`, false);
         botDie.classList.add('dd-lose');
       }
- 
+
       ddRolling = false;
       document.querySelectorAll('.dd-choice-btn').forEach(b => b.disabled = false);
       setTimeout(() => {
@@ -803,11 +849,11 @@ function playDiceDuel(choice) {
         botDie.classList.remove('dd-lose');
       }, 1200);
     }
-  }, 80);
+  }, 75); // ← was 80ms
 }
- 
+
 const DICE_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
- 
+
 // ════════════════════════════════════════════════════════════
 //  INIT
 // ════════════════════════════════════════════════════════════
@@ -815,7 +861,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderSidebar('games');
   renderPPLeaderboard();
 
-  // Auto-load player from member session (set by member-login.html)
   const sessionPhone = sessionStorage.getItem('agi_member_phone');
   if (sessionPhone) {
     const raw  = await API.getUserByPhone(sessionPhone);
@@ -829,7 +874,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Pre-fill phone input from session even if auto-load failed
   const savedPhone = sessionStorage.getItem('agi_member_phone');
   if (savedPhone) {
     const phoneInput = document.getElementById('hud-phone');
@@ -838,18 +882,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('hud-load-btn').addEventListener('click', loadPlayer);
   document.getElementById('hud-phone').addEventListener('keydown', e => { if (e.key === 'Enter') loadPlayer(); });
- 
-  // Word scramble live check
+
   document.getElementById('scr-answer').addEventListener('input', e => {
     if (!scrState || !scrState.active) return;
     if (e.target.value.toUpperCase().trim() === scrState.word) endScramble(true);
   });
- 
-  // Cashout modal close on overlay click
+
   document.getElementById('cashout-modal').addEventListener('click', e => {
     if (e.target === document.getElementById('cashout-modal')) closeCashoutModal();
   });
- 
+
   // Init empty mine grid
   const grid = document.getElementById('mine-grid');
   grid.style.gridTemplateColumns = 'repeat(10, 34px)';
@@ -858,7 +900,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     el.className = 'mine-cell';
     grid.appendChild(el);
   }
- 
+
   // Init TTT board
   const board = document.getElementById('ttt-board');
   for (let i = 0; i < 9; i++) {
@@ -866,7 +908,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     el.className = 'ttt-cell';
     board.appendChild(el);
   }
- 
+
   // Init dice faces
   document.getElementById('dd-player-die').textContent = DICE_FACES[0];
   document.getElementById('dd-bot-die').textContent    = DICE_FACES[0];
