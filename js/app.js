@@ -1,30 +1,34 @@
 const App = (() => {
-  function parseUser(raw) {
-    if (!raw) return null;
-    const d = typeof raw.data === 'string' ? JSON.parse(raw.data) : (raw.data || {});
-    return {
-      id:          raw.id,
-      name:        d.name || d.username || 'Unknown',
-      phone:       d.phoneNumber || '',
-      coins:       Number(d.primos || d.coins || d.balance || 0),
-      bank:        Number(d.bank || 0),
-      netWorth:    Number(d.primos || d.coins || d.balance || 0) + Number(d.bank || 0),
-      primePoints: Number(d.primePoints || 100),
-      ppHistory:   Array.isArray(d.ppHistory) ? d.ppHistory : [],
-      cards:       Array.isArray(d.cards) ? d.cards : [],
-      souvenirs:   Array.isArray(d.souvenirs) ? d.souvenirs : [],
-      guild:       d.guild || null,
-      role:        d.role || null,
-      rank:        d.rank || null,
-      avatar:      d.avatar || null,
-      bio:         d.bio || null,
-      joinedAt:    d.registeredAt || d.joinedAt || raw.created_at || null,
-      updatedAt:   raw.updated_at || null,
-      // Store raw data for update operations
-      _raw:        d,
-      _rowId:      raw.id,
-    };
-  }
+ function parseUser(raw) {
+  if (!raw) return null;
+  const d = typeof raw.data === 'string' ? JSON.parse(raw.data) : (raw.data || {});
+  return {
+    id:          raw.id,
+    name:        d.name || d.username || 'Unknown',
+    phone:       d.phoneNumber || '',
+    coins:       Number(d.primos || d.coins || d.balance || 0),
+    bank:        Number(d.bank || 0),
+    netWorth:    Number(d.primos || d.coins || d.balance || 0) + Number(d.bank || 0),
+    primePoints: Number(d.primePoints || 100),
+    ppHistory:   Array.isArray(d.ppHistory) ? d.ppHistory : [],
+    cards:       Array.isArray(d.cards) ? d.cards : [],
+    souvenirs:   Array.isArray(d.souvenirs) ? d.souvenirs : [],
+    guild:       d.guild || null,
+    role:        d.role || null,
+    rank:        d.rank || null,
+    avatar:      d.avatar || null,
+    bio:         d.bio || null,
+    joinedAt:    d.registeredAt || d.joinedAt || raw.created_at || null,
+    updatedAt:   raw.updated_at || null,
+    // New: gems, bounty, and misc assets
+    gemsBag:     d.gemsBag || { diamond: null, ruby: null, sapphire: null, emerald: null, opal: null },
+    bounty:      Number(d.bounty || 0),
+    assets:      d.assets || { gold: 0, stark: 0, land: 0, tech: 0, fuel: 0 },
+    // Store raw data for update operations
+    _raw:        d,
+    _rowId:      raw.id,
+  };
+}
  
   function parseUsers(rows) {
     if (!rows) return [];
