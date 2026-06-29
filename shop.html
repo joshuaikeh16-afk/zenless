@@ -757,9 +757,9 @@
             <input class="shop-search" id="search-input" type="text" placeholder="Search cards…" oninput="applyFilters()"/>
           </div>
           <select class="sort-select" id="sort-select" onchange="applyFilters()">
-            <option value="rarity">R</option>
-            <option value="price-asc">SR</option>
-            <option value="price-desc">SSR</option>
+            <option value="rarity">Rarity</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
             <option value="name">Name A–Z</option>
           </select>
         </div>
@@ -1019,6 +1019,43 @@ function renderCardTile(card) {
   `;
 }
 
+// ── Shop tabs (Cards / Items) ─────────────────────────────────
+function switchShopTab(tab) {
+  const cardsGrid = document.getElementById('cards-grid');
+  const itemsGrid = document.getElementById('items-grid');
+  const tabCards  = document.getElementById('tab-cards');
+  const tabItems  = document.getElementById('tab-items');
+  const sidebar   = document.getElementById('shop-sidebar');
+  const controls  = document.getElementById('shop-controls');
+
+  if (tab === 'items') {
+    cardsGrid.style.display = 'none';
+    itemsGrid.style.display = 'grid';
+    tabItems.classList.add('active');
+    tabCards.classList.remove('active');
+    if (sidebar)  sidebar.style.display  = 'none';
+    if (controls) controls.style.display = 'none';
+    if (!itemsGrid.dataset.loaded) loadItems();
+  } else {
+    itemsGrid.style.display = 'none';
+    cardsGrid.style.display = 'grid';
+    tabCards.classList.add('active');
+    tabItems.classList.remove('active');
+    if (sidebar)  sidebar.style.display  = '';
+    if (controls) controls.style.display = '';
+  }
+}
+
+// Placeholder loader — there's no confirmed items data source wired up yet
+// (no __items-style row in the economy_full table referenced anywhere).
+// Shows an honest empty state instead of spinning forever. Swap this out
+// once the items table/endpoint is confirmed.
+async function loadItems() {
+  const itemsGrid = document.getElementById('items-grid');
+  itemsGrid.dataset.loaded = 'true';
+  itemsGrid.innerHTML = `<div class="shop-empty"><div class="shop-empty-icon">🎒</div><div class="shop-empty-text">Items shop coming soon.</div></div>`;
+}
+
 // ── Confirm modal & purchase ──────────────────────────────────
 function openConfirm(listingIndex) {
   const card = catalogue.find(c => c.listingIndex === listingIndex);
@@ -1200,7 +1237,6 @@ async function submitEditPrice() {
 
 function removeListing(listingIndex) {
   removeTarget = listingIndex;
-  alert('removeTarget: ' + removeTarget);
   const errEl = document.getElementById('remove-listing-error');
   errEl.style.display = 'none';
   errEl.textContent   = '';
@@ -1243,17 +1279,17 @@ async function submitRemoveListing() {
       return;
     }
 
-  //   document.getElementById('remove-listing-overlay').classList.remove('open');
-  //   removeTarget = null;
-  //   await loadCatalogue();
-  // } catch (e) {
-  //   console.error('Remove listing error:', e);
-  //   errEl.textContent   = 'Could not remove listing — try again.';
-  //   errEl.style.display = 'block';
-  // } finally {
-  //   btn.disabled    = false;
-  //   btn.textContent = 'Remove';
-  // }
+    document.getElementById('remove-listing-overlay').classList.remove('open');
+    removeTarget = null;
+    await loadCatalogue();
+  } catch (e) {
+    console.error('Remove listing error:', e);
+    errEl.textContent   = 'Could not remove listing — try again.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Remove';
+  }
 }
 </script>
   <div class="confirm-overlay" id="own-listing-overlay" onclick="this.classList.remove('open')">
@@ -1280,6 +1316,19 @@ async function submitRemoveListing() {
       <button class="confirm-buy" id="edit-price-btn" onclick="submitEditPrice()">Update Price</button>
     </div>
     <div class="modal-error-text" id="edit-price-error"></div>
+  </div>
+</div>
+  <!-- Remove Listing Modal -->
+<div class="confirm-overlay" id="remove-listing-overlay" onclick="closeRemoveListing(event)">
+  <div class="confirm-box" style="text-align:center;">
+    <div style="font-size:40px;margin-bottom:0.75rem;">🗑️</div>
+    <div class="confirm-name">Remove Listing</div>
+    <div class="confirm-desc" style="margin-top:0.5rem;">This will take your card off the shop. You can list it again later.</div>
+    <div class="confirm-actions">
+      <button class="confirm-cancel" onclick="closeRemoveListing()">Cancel</button>
+      <button class="confirm-buy" id="remove-listing-btn" onclick="submitRemoveListing()" style="background:#c0392b;">Remove</button>
+    </div>
+    <div class="modal-error-text" id="remove-listing-error"></div>
   </div>
 </div>
 </body>
