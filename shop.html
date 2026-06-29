@@ -180,6 +180,26 @@
       color: var(--text-3);
     }
 
+    /* ── Shop tabs (Cards / Items) ─────────────────────── */
+    .shop-tab-btn {
+      background: var(--bg-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.55rem 1.1rem;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-2);
+      cursor: pointer;
+      font-family: var(--font-display);
+      transition: all 0.15s;
+    }
+    .shop-tab-btn:hover { color: var(--text); }
+    .shop-tab-btn.active {
+      background: var(--accent-dim, rgba(124,93,250,0.12));
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
     /* ── Search / sort bar ────────────────────────────── */
     .shop-controls {
       display: flex;
@@ -684,6 +704,10 @@
         <div class="banner-title">🃏 Card Shop</div>
         <div class="banner-sub">Collect rare cards. Flex on the leaderboard.</div>
       </div>
+      <div class="wallet-pill" id="wallet-pill" style="display:none;">
+        <div class="wallet-pill-label">Your Primos</div>
+        <div class="wallet-pill-val" id="wallet-pill-val">—</div>
+      </div>
     </div>
 
     <!-- Shop body -->
@@ -716,8 +740,14 @@
 
       <!-- Main content -->
       <div>
+        <!-- Tabs: Cards vs Items -->
+        <div class="shop-tabs fade-in" style="display:flex;gap:8px;margin-bottom:1rem;">
+          <button class="shop-tab-btn active" id="tab-cards" onclick="switchShopTab('cards')">🃏 Cards</button>
+          <button class="shop-tab-btn" id="tab-items" onclick="switchShopTab('items')">🎒 Items</button>
+        </div>
+
         <!-- Controls -->
-        <div class="shop-controls fade-in">
+        <div class="shop-controls fade-in" id="shop-controls">
           <div class="search-wrap">
             <span class="search-ico">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -741,6 +771,9 @@
             <div class="shop-empty-text">Loading cards…</div>
           </div>
         </div>
+
+        <!-- Items grid (Bank Capacity upgrades + Tools) -->
+        <div class="cards-grid" id="items-grid" style="display:none;"></div>
       </div>
     </div>
 
@@ -805,7 +838,7 @@ const ECONOMY_API = {
 // ── State ────────────────────────────────────────────────────
 let catalogue      = [];   // loaded from __shop
 let activeRarity   = 'all';
-let currentPlayer  = null; // { userId, name } if logged in
+let currentPlayer  = null; // full parsed user (id, name, coins, primePoints, _raw, ...) once logged in
 let confirmTarget  = null;
 
 // ── Init ─────────────────────────────────────────────────────
