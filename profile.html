@@ -796,6 +796,36 @@
       ? user.souvenirs.map(s => `<div class="inv-item"><span>🎁</span><span>${s.name || s}</span></div>`).join('')
       : '<div class="inv-empty">No souvenirs yet</div>';
 
+
+    const gems = user.gemsBag || {};
+    const gemList = [
+      { key: 'diamond',  icon: '💎', label: 'Diamond'  },
+      { key: 'ruby',     icon: '❤️', label: 'Ruby'      },
+      { key: 'sapphire', icon: '💙', label: 'Sapphire'  },
+      { key: 'emerald',  icon: '💚', label: 'Emerald'   },
+      { key: 'opal',     icon: '🤍', label: 'Opal'      },
+    ];
+    const gemRows = gemList.map(g => `
+      <div class="balance-item">
+        <div class="balance-item-label">${g.icon} ${g.label}</div>
+        <div class="balance-item-val" style="${gems[g.key] == null ? 'color:var(--text-3);font-weight:500;' : ''}">
+          ${gems[g.key] != null ? gems[g.key] : 'Empty'}
+        </div>
+      </div>`).join('');
+
+    const assets = user.assets || {};
+    const assetList = [
+      { key: 'gold',  icon: '🥇', label: 'Gold'  },
+      { key: 'stark', icon: '⚙️', label: 'Stark' },
+      { key: 'land',  icon: '🏞️', label: 'Land'  },
+      { key: 'tech',  icon: '💻', label: 'Tech'  },
+      { key: 'fuel',  icon: '⛽', label: 'Fuel'  },
+    ];
+    const assetRows = assetList.map(a => `
+      <div class="balance-item">
+        <div class="balance-item-label">${a.icon} ${a.label}</div>
+        <div class="balance-item-val">${(assets[a.key] || 0).toLocaleString()}</div>
+      </div>`).join('');
     const guildBadge = user.guild ? `<div class="hero-meta-item">⚔️ ${user.guild}</div>` : '';
     const joinDate   = user.joinedAt ? timeAgoFull(user.joinedAt) : null;
     const roleBadge  = user.role ? App.roleBadge(user.role) : '';
