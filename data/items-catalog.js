@@ -72,27 +72,6 @@ const CARD_SHOP = {
       "price": 750000,
       "type": "upgrade",
       "description": "+5,000,000 bank capacity"
-    },
-    {
-      "id": "bank_50m",
-      "name": "🏦 Mega Bank Vault",
-      "price": 7500000,
-      "type": "upgrade",
-      "description": "+50,000,000 bank capacity"
-    },
-    {
-      "id": "bank_500m",
-      "name": "🏦 Giga Bank Vault",
-      "price": 75000000,
-      "type": "upgrade",
-      "description": "+500,000,000 bank capacity"
-    },
-    {
-      "id": "bank_1t",
-      "name": "🏦 Terra Bank Vault",
-      "price": 150000000000,
-      "type": "upgrade",
-      "description": "+1,000,000,000,000 bank capacity"
     }
   ],
   "services": [
