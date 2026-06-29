@@ -800,6 +800,7 @@
 </div>
 
 <script src="data/config.js"></script>
+<script src="data/items-catalog.js"></script>
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
 <script src="js/profile.js"></script>
@@ -1030,7 +1031,7 @@ function switchShopTab(tab) {
 
   if (tab === 'items') {
     cardsGrid.style.display = 'none';
-    itemsGrid.style.display = 'grid';
+    itemsGrid.style.display = 'block'; // loadItems() lays out its own per-section grids
     tabItems.classList.add('active');
     tabCards.classList.remove('active');
     if (sidebar)  sidebar.style.display  = 'none';
@@ -1046,14 +1047,117 @@ function switchShopTab(tab) {
   }
 }
 
-// Placeholder loader — there's no confirmed items data source wired up yet
-// (no __items-style row in the economy_full table referenced anywhere).
-// Shows an honest empty state instead of spinning forever. Swap this out
-// once the items table/endpoint is confirmed.
+// Real catalog loader — pulls from data/items-catalog.js (CARD_SHOP),
+// which mirrors the WhatsApp bot's .shop catalog exactly.
+//
+// NOTE on buying: card purchases go through a confirmed working
+// endpoint, /api/buy. As of this build, there is NO confirmed
+// equivalent endpoint for items yet — so the buy button below calls
+// a best-guess route (/api/shop/buy) that mirrors the bot's
+// ".shop buy <item_id>" command shape. If that route doesn't exist
+// yet on the server, the button will show a clear error rather than
+// silently doing nothing. Swap ITEMS_BUY_ENDPOINT below once the
+// real route is confirmed.
+const ITEMS_BUY_ENDPOINT = '/api/shop/buy';
+
+const ITEM_SECTION_META = {
+  tools:    { title: '🛠️ Tools',    color: 'var(--shop-rare)' },
+  upgrades: { title: '🏦 Upgrades', color: 'var(--shop-legendary)' },
+  services: { title: '🎟️ Services', color: 'var(--shop-epic)' },
+};
+
 async function loadItems() {
   const itemsGrid = document.getElementById('items-grid');
   itemsGrid.dataset.loaded = 'true';
-  itemsGrid.innerHTML = `<div class="shop-empty"><div class="shop-empty-icon">🎒</div><div class="shop-empty-text">Items shop coming soon.</div></div>`;
+
+  if (typeof CARD_SHOP === 'undefined') {
+    itemsGrid.innerHTML = `<div class="shop-empty"><div class="shop-empty-icon">⚠️</div><div class="shop-empty-text">Item catalog failed to load.<br>Check that data/items-catalog.js is included.</div></div>`;
+    return;
+  }
+
+  const sections = ['tools', 'upgrades', 'services'];
+  itemsGrid.style.display = 'block'; // override grid — we lay out section by section below
+  itemsGrid.innerHTML = sections.map(sec => {
+    const items = getItemsByType(sec);
+    const meta  = ITEM_SECTION_META[sec];
+    if (!items.length) return '';
+    return `
+      <div style="margin-bottom:1.5rem;">
+        <div class="filter-title" style="margin-bottom:0.75rem;color:${meta.color};">${meta.title}</div>
+        <div class="cards-grid">
+          ${items.map(item => renderItemTile(item)).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderItemTile(item) {
+  const isLoggedIn = !!currentPlayer;
+  const buyBtnHTML = isLoggedIn
+    ? `<button class="buy-btn" onclick="event.stopPropagation();buyItem('${item.id}')">Buy</button>`
+    : `<button class="buy-btn" onclick="window.location.href='member-login.html'">Log in</button>`;
+
+  return `
+    <div class="shop-card tier-mid fade-in" style="--tier-color:var(--shop-rare);">
+      <div class="card-art" style="height:90px;font-size:40px;">
+        <div class="card-art-emoji">${item.name.split(' ')[0]}</div>
+      </div>
+      <div class="card-body">
+        <div class="card-name">${item.name.replace(/^\S+\s/, '')}</div>
+        <div class="card-desc">${item.description || ''}</div>
+        <div class="card-footer">
+          <div class="card-price">🪙 ${App.formatCoins(item.price)}</div>
+          ${buyBtnHTML}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function buyItem(itemId) {
+  if (!currentPlayer) return;
+  const item = getItemById(itemId);
+  if (!item) { App.showToast('Item not found.', 'error'); return; }
+
+  try {
+    const res = await fetch(ITEMS_BUY_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'x-api-key':    ECONOMY_API.key,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        groupId:  ECONOMY_API.groupId,
+        buyerId:  currentPlayer.userId,
+        item_id:  itemId,
+      }),
+    });
+
+    if (res.status === 404) {
+      App.showToast(`Buying items isn't connected to the server yet (${ITEMS_BUY_ENDPOINT} not found).`, 'error');
+      return;
+    }
+
+    const result = await res.json();
+    if (!res.ok || result?.success === false || result?.error) {
+      App.showToast(result?.message || result?.error || 'Purchase failed — try again.', 'error');
+      return;
+    }
+
+    App.showToast(`✅ Bought ${item.name}!`, 'success');
+    // Re-load player + items so any balance/effect change reflects immediately
+    const phone = localStorage.getItem('agi_member_phone');
+    if (phone) {
+      const raw  = await API.getUserByPhone(phone);
+      const user = App.parseUser(raw?.[0]);
+      if (user) currentPlayer = { userId: user.id, name: user.name };
+    }
+    await loadItems();
+  } catch (e) {
+    console.error('Buy item error:', e);
+    App.showToast('Purchase failed — try again.', 'error');
+  }
 }
 
 // ── Confirm modal & purchase ──────────────────────────────────
