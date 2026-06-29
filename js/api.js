@@ -109,27 +109,22 @@ const API = (() => {
 // new value over there so the bot (.balance, .deck, etc.) stays in sync.
 //
 // This is BEST-EFFORT ONLY: Supabase remains the source of truth. If this
-// call fails (network blip, CORS, bot offline) we just log it — we never
-// block or roll back the Supabase write because of it.
+// call fails we just log it — we never block or roll back the Supabase
+// write because of it.
 //
-// NOTE: this endpoint is plain http:// on a non-standard port. Since the
-// site itself is served over https:// (GitHub Pages), browsers will block
-// this as "mixed content" unless the bot host is moved behind https, or
-// this call is proxied through something that is. This is the most likely
-// reason a value updates on the website but not in the bot's database —
-// please confirm in a real browser's console/network tab on the live site.
-const BOT_ECONOMY_URL = 'http://jobs.hidencloud.com:24633/api/economy/users';
-const BOT_ECONOMY_KEY = '936f46f583278e85da40457c6be357fd22b87f63dd4ca1c0';
+// The bot's real endpoint is plain http://, which https:// pages can't
+// call directly (mixed content). So instead of hitting it from the
+// browser, we call OUR OWN /api/bot-economy/[lid] serverless function
+// (same origin, https) and IT forwards the request to the bot server-side,
+// where mixed-content rules don't apply. See /api/bot-economy/[lid].js.
+const BOT_ECONOMY_URL = '/api/bot-economy';
 
 async function syncBotEconomy(lid, payload) {
   if (!lid) return false;
   try {
     const res = await fetch(`${BOT_ECONOMY_URL}/${encodeURIComponent(lid)}`, {
       method: 'PATCH',
-      headers: {
-        'x-api-key': BOT_ECONOMY_KEY,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
