@@ -825,6 +825,81 @@
       color: var(--text-3);
     }
     .invest-holding strong { color: var(--text-2); }
+
+    .invest-afford {
+      margin-top: 0.5rem;
+      font-size: 11px;
+      color: var(--text-3);
+      line-height: 1.4;
+      padding: 0.4rem 0.55rem;
+      background: rgba(124,93,250,0.08);
+      border: 1px solid rgba(124,93,250,0.18);
+      border-radius: var(--radius);
+    }
+    .invest-afford strong { color: var(--accent); }
+    .invest-afford-none {
+      background: rgba(232,79,107,0.08);
+      border-color: rgba(232,79,107,0.2);
+      color: #d98b97;
+    }
+    .invest-max-btn {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 11px;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      font-family: var(--font-display);
+    }
+    .invest-max-btn:hover { opacity: 0.8; }
+
+    /* ── Broader visual polish pass ──────────────────────── */
+
+    /* Stronger, more legible card surfaces across cards/items/invest */
+    .shop-card {
+      background: linear-gradient(180deg, var(--bg-2) 0%, color-mix(in srgb, var(--bg-2) 92%, #000) 100%);
+    }
+    .shop-card.tier-mid,
+    .invest-card {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    }
+    .shop-card.tier-mid:hover,
+    .invest-card:hover {
+      box-shadow: 0 10px 28px rgba(0,0,0,0.32);
+      border-color: color-mix(in srgb, var(--tier-color) 55%, var(--border));
+    }
+
+    /* Section headers inside Items tab — give them real visual weight */
+    #items-grid .filter-title {
+      font-size: 12.5px;
+      letter-spacing: 0.8px;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Items tab buy button — match invest-buy-btn green for consistency */
+    #items-grid .buy-btn {
+      background: var(--shop-uncommon);
+    }
+    #items-grid .buy-btn:hover { opacity: 0.85; }
+
+    /* Owned-item tiles: dim consistently, no hover lift confusion */
+    .shop-card.owned { opacity: 0.5; }
+    .shop-card.owned:hover { box-shadow: none; border-color: var(--border); }
+    .owned-label {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 0.35rem 0;
+    }
+
+    /* Wallet pill — clearer label/value contrast */
+    .wallet-pill-val { letter-spacing: -0.2px; }
+
+    /* Tab bar container gets a faint separating rule so it doesn't float */
+    .shop-tabs { border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; }
   </style>
 </head>
 <body>
@@ -1381,6 +1456,14 @@ function riskBadgeHTML(asset) {
 function renderInvestTile(asset) {
   const isLoggedIn = !!currentPlayer;
   const holding    = isLoggedIn ? (currentPlayer.assets?.[asset.id] || 0) : 0;
+  const primos     = isLoggedIn ? (currentPlayer.primos || 0) : 0;
+  const maxAfford  = asset.rate > 0 ? Math.floor(primos / asset.rate) : 0;
+
+  const affordHTML = isLoggedIn
+    ? maxAfford > 0
+      ? `<div class="invest-afford">You can afford <strong>${maxAfford.toLocaleString()}</strong> with your Primos — <button class="invest-max-btn" onclick="event.stopPropagation();fillMaxQty('${asset.id}', ${maxAfford})">use max</button></div>`
+      : `<div class="invest-afford invest-afford-none">Not enough Primos for even 1 unit (need 🪙 ${App.formatCoins(asset.rate)})</div>`
+    : '';
 
   const tradeControlsHTML = isLoggedIn
     ? `
@@ -1389,6 +1472,7 @@ function renderInvestTile(asset) {
         <button class="invest-trade-btn invest-buy-btn" id="invbuy-${asset.id}" onclick="event.stopPropagation();tradeAsset('${asset.id}','buy')">Buy</button>
         <button class="invest-trade-btn invest-sell-btn" id="invsell-${asset.id}" onclick="event.stopPropagation();tradeAsset('${asset.id}','sell')">Sell</button>
       </div>
+      ${affordHTML}
       <div class="invest-holding">You hold: <strong>${holding.toLocaleString()}</strong></div>
     `
     : `<button class="buy-btn" style="width:100%;" onclick="window.location.href='member-login.html'">Log in to trade</button>`;
@@ -1409,6 +1493,14 @@ function renderInvestTile(asset) {
       </div>
     </div>
   `;
+}
+
+function fillMaxQty(assetId, maxQty) {
+  const input = document.getElementById(`qty-${assetId}`);
+  if (input) {
+    input.value = maxQty;
+    input.focus();
+  }
 }
 
 async function tradeAsset(assetId, action) {
