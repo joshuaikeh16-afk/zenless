@@ -689,6 +689,142 @@
 
     .fw-label { color: var(--text-3); font-size: 11px; display: block; }
     .fw-val { font-family: var(--font-display); font-weight: 700; color: var(--gold); font-size: 15px; }
+
+    /* ── Extra shop polish ───────────────────────────────── */
+
+    /* Animated sheen sweeping across the banner, on a loop */
+    .shop-banner {
+      background-size: 200% 200%;
+      animation: bannerDrift 14s ease-in-out infinite;
+    }
+    @keyframes bannerDrift {
+      0%, 100% { background-position: 0% 50%; }
+      50%      { background-position: 100% 50%; }
+    }
+
+    /* Wallet pill gentle pulse to draw the eye when balance updates */
+    .wallet-pill { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+    .wallet-pill-val { transition: color 0.2s ease; }
+    @keyframes pillPop {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+    .wallet-pill.pop { animation: pillPop 0.35s ease; }
+
+    /* Tabs: lift + underline sweep on hover/active */
+    .shop-tab-btn { position: relative; overflow: hidden; }
+    .shop-tab-btn::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      height: 2px;
+      background: var(--accent);
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.25s ease;
+    }
+    .shop-tab-btn:hover { transform: translateY(-1px); }
+    .shop-tab-btn.active::after { transform: scaleX(1); }
+
+    /* Buy/sell buttons: subtle press + glow on success */
+    .buy-btn, .invest-trade-btn {
+      position: relative;
+    }
+    @keyframes successFlash {
+      0%   { box-shadow: 0 0 0 0 rgba(60,185,122,0.6); }
+      100% { box-shadow: 0 0 0 10px rgba(60,185,122,0); }
+    }
+    .flash-success { animation: successFlash 0.6s ease-out; }
+
+    /* ── Investments tab ──────────────────────────────────── */
+    .invest-banner {
+      background: linear-gradient(135deg, #0f2a1f 0%, #0f1525 55%, #1a1606 100%);
+      background-size: 200% 200%;
+      animation: bannerDrift 16s ease-in-out infinite;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .invest-banner-title {
+      font-family: var(--font-display);
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .invest-banner-sub {
+      font-size: 12.5px;
+      color: rgba(255,255,255,0.55);
+      margin-top: 4px;
+    }
+
+    .invest-card { cursor: default; }
+    .invest-card:hover { transform: translateY(-2px); }
+
+    .risk-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 99px;
+      letter-spacing: 0.3px;
+    }
+    .risk-secure { background: rgba(60,185,122,0.16); color: var(--shop-uncommon); }
+    .risk-low    { background: rgba(248,166,35,0.14);  color: var(--shop-legendary); }
+    .risk-mid    { background: rgba(248,166,35,0.22);  color: var(--shop-legendary); }
+    .risk-high   { background: rgba(232,79,107,0.18);  color: var(--shop-mythic); }
+    .risk-high   { animation: riskPulse 1.8s ease-in-out infinite; }
+    @keyframes riskPulse {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.55; }
+    }
+
+    .invest-trade-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 0.6rem;
+    }
+    .invest-qty-input {
+      flex: 1;
+      min-width: 0;
+      background: var(--bg-3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.4rem 0.5rem;
+      font-size: 12.5px;
+      color: var(--text);
+      outline: none;
+      font-family: var(--font-body);
+      transition: border-color 0.15s;
+    }
+    .invest-qty-input:focus { border-color: var(--accent); }
+
+    .invest-trade-btn {
+      border: none;
+      border-radius: var(--radius);
+      padding: 0.4rem 0.7rem;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: var(--font-display);
+      transition: opacity 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .invest-trade-btn:hover { opacity: 0.85; }
+    .invest-trade-btn:active { transform: scale(0.95); }
+    .invest-trade-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .invest-buy-btn  { background: var(--shop-uncommon); color: #fff; }
+    .invest-sell-btn { background: var(--shop-mythic);   color: #fff; }
+
+    .invest-holding {
+      margin-top: 0.45rem;
+      font-size: 11px;
+      color: var(--text-3);
+    }
+    .invest-holding strong { color: var(--text-2); }
   </style>
 </head>
 <body>
@@ -740,10 +876,11 @@
 
       <!-- Main content -->
       <div>
-        <!-- Tabs: Cards vs Items -->
+        <!-- Tabs: Cards vs Items vs Investments -->
         <div class="shop-tabs fade-in" style="display:flex;gap:8px;margin-bottom:1rem;">
           <button class="shop-tab-btn active" id="tab-cards" onclick="switchShopTab('cards')">🃏 Cards</button>
           <button class="shop-tab-btn" id="tab-items" onclick="switchShopTab('items')">🎒 Items</button>
+          <button class="shop-tab-btn" id="tab-invest" onclick="switchShopTab('invest')">📈 Investments</button>
         </div>
 
         <!-- Controls -->
@@ -774,6 +911,9 @@
 
         <!-- Items grid (Bank Capacity upgrades + Tools) -->
         <div class="cards-grid" id="items-grid" style="display:none;"></div>
+
+        <!-- Investments grid (Global Financial Exchange) -->
+        <div id="invest-grid" style="display:none;"></div>
       </div>
     </div>
 
@@ -837,6 +977,17 @@ const ECONOMY_API = {
 };
 
 // ── State ────────────────────────────────────────────────────
+function flashWallet(newPrimos) {
+  const pillVal = document.getElementById('wallet-pill-val');
+  const pill    = document.getElementById('wallet-pill');
+  if (pillVal) pillVal.textContent = App.formatCoins(newPrimos);
+  if (pill) {
+    pill.classList.remove('pop');
+    void pill.offsetWidth; // restart animation
+    pill.classList.add('pop');
+  }
+}
+
 let catalogue      = [];   // loaded from __shop
 let activeRarity   = 'all';
 let currentPlayer  = null; // full parsed user (id, name, coins, primePoints, _raw, ...) once logged in
@@ -850,7 +1001,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (phone) {
     const raw  = await API.getUserByPhone(phone);
     const user = App.parseUser(raw?.[0]);
- currentPlayer = { userId: user.id, name: user.name };
+    currentPlayer = {
+      userId:       user.id,
+      name:         user.name,
+      primos:       user.coins,
+      inventory:    (user._raw?.inventory && typeof user._raw.inventory === 'object' && !Array.isArray(user._raw.inventory)) ? user._raw.inventory : {},
+      bankCapacity: user._raw?.bankCapacity || 0,
+      assets:       (user._raw?.assets && typeof user._raw.assets === 'object' && !Array.isArray(user._raw.assets)) ? user._raw.assets : {},
+    };
+    const pill = document.getElementById('wallet-pill');
+    if (pill) {
+      pill.style.display = '';
+      document.getElementById('wallet-pill-val').textContent = App.formatCoins(currentPlayer.primos);
+    }
   }
 
   await loadCatalogue();
@@ -1020,28 +1183,35 @@ function renderCardTile(card) {
   `;
 }
 
-// ── Shop tabs (Cards / Items) ─────────────────────────────────
+// ── Shop tabs (Cards / Items / Investments) ───────────────────
 function switchShopTab(tab) {
-  const cardsGrid = document.getElementById('cards-grid');
-  const itemsGrid = document.getElementById('items-grid');
-  const tabCards  = document.getElementById('tab-cards');
-  const tabItems  = document.getElementById('tab-items');
-  const sidebar   = document.getElementById('shop-sidebar');
-  const controls  = document.getElementById('shop-controls');
+  const cardsGrid  = document.getElementById('cards-grid');
+  const itemsGrid  = document.getElementById('items-grid');
+  const investGrid = document.getElementById('invest-grid');
+  const tabCards   = document.getElementById('tab-cards');
+  const tabItems   = document.getElementById('tab-items');
+  const tabInvest  = document.getElementById('tab-invest');
+  const sidebar    = document.getElementById('shop-sidebar');
+  const controls   = document.getElementById('shop-controls');
+
+  cardsGrid.style.display  = 'none';
+  itemsGrid.style.display  = 'none';
+  investGrid.style.display = 'none';
+  [tabCards, tabItems, tabInvest].forEach(b => b.classList.remove('active'));
+  if (sidebar)  sidebar.style.display  = 'none';
+  if (controls) controls.style.display = 'none';
 
   if (tab === 'items') {
-    cardsGrid.style.display = 'none';
     itemsGrid.style.display = 'block'; // loadItems() lays out its own per-section grids
     tabItems.classList.add('active');
-    tabCards.classList.remove('active');
-    if (sidebar)  sidebar.style.display  = 'none';
-    if (controls) controls.style.display = 'none';
     if (!itemsGrid.dataset.loaded) loadItems();
+  } else if (tab === 'invest') {
+    investGrid.style.display = 'block';
+    tabInvest.classList.add('active');
+    if (!investGrid.dataset.loaded) loadInvestments();
   } else {
-    itemsGrid.style.display = 'none';
     cardsGrid.style.display = 'grid';
     tabCards.classList.add('active');
-    tabItems.classList.remove('active');
     if (sidebar)  sidebar.style.display  = '';
     if (controls) controls.style.display = '';
   }
@@ -1050,14 +1220,12 @@ function switchShopTab(tab) {
 // Real catalog loader — pulls from data/items-catalog.js (CARD_SHOP),
 // which mirrors the WhatsApp bot's .shop catalog exactly.
 //
-// NOTE on buying: card purchases go through a confirmed working
-// endpoint, /api/buy. As of this build, there is NO confirmed
-// equivalent endpoint for items yet — so the buy button below calls
-// a best-guess route (/api/shop/buy) that mirrors the bot's
-// ".shop buy <item_id>" command shape. If that route doesn't exist
-// yet on the server, the button will show a clear error rather than
-// silently doing nothing. Swap ITEMS_BUY_ENDPOINT below once the
-// real route is confirmed.
+// NOTE on buying: card purchases go through /api/buy, against the
+// WhatsApp bot's economy server. Item purchases (bank upgrades, tools)
+// go through /api/shop/buy instead — a separate Vercel function that
+// talks to Supabase directly, since bankCapacity/inventory/primos all
+// live there. See /api/shop/buy.js for the not-enough-primos and
+// already-own-this-tool checks.
 const ITEMS_BUY_ENDPOINT = '/api/shop/buy';
 
 const ITEM_SECTION_META = {
@@ -1094,12 +1262,19 @@ async function loadItems() {
 
 function renderItemTile(item) {
   const isLoggedIn = !!currentPlayer;
-  const buyBtnHTML = isLoggedIn
-    ? `<button class="buy-btn" onclick="event.stopPropagation();buyItem('${item.id}')">Buy</button>`
+  const alreadyOwned = item.type === 'tool'
+    && isLoggedIn
+    && currentPlayer.inventory
+    && currentPlayer.inventory[item.id] >= 1;
+
+  const buyBtnHTML = alreadyOwned
+    ? `<span class="owned-label">✅ Owned</span>`
+    : isLoggedIn
+    ? `<button class="buy-btn" id="buy-btn-${item.id}" onclick="event.stopPropagation();buyItem('${item.id}')">Buy</button>`
     : `<button class="buy-btn" onclick="window.location.href='member-login.html'">Log in</button>`;
 
   return `
-    <div class="shop-card tier-mid fade-in" style="--tier-color:var(--shop-rare);">
+    <div class="shop-card tier-mid fade-in ${alreadyOwned ? 'owned' : ''}" style="--tier-color:var(--shop-rare);">
       <div class="card-art" style="height:90px;font-size:40px;">
         <div class="card-art-emoji">${item.name.split(' ')[0]}</div>
       </div>
@@ -1120,28 +1295,24 @@ async function buyItem(itemId) {
   const item = getItemById(itemId);
   if (!item) { App.showToast('Item not found.', 'error'); return; }
 
+  const btn = document.getElementById(`buy-btn-${itemId}`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Buying…'; }
+
   try {
     const res = await fetch(ITEMS_BUY_ENDPOINT, {
       method: 'POST',
-      headers: {
-        'x-api-key':    ECONOMY_API.key,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        groupId:  ECONOMY_API.groupId,
-        buyerId:  currentPlayer.userId,
-        item_id:  itemId,
+        buyerId: currentPlayer.userId,
+        item_id: itemId,
       }),
     });
 
-    if (res.status === 404) {
-      App.showToast(`Buying items isn't connected to the server yet (${ITEMS_BUY_ENDPOINT} not found).`, 'error');
-      return;
-    }
+    const result = await res.json().catch(() => null);
 
-    const result = await res.json();
-    if (!res.ok || result?.success === false || result?.error) {
-      App.showToast(result?.message || result?.error || 'Purchase failed — try again.', 'error');
+    if (!res.ok || result?.success === false) {
+      App.showToast(result?.error || 'Purchase failed — try again.', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Buy'; }
       return;
     }
 
@@ -1151,12 +1322,164 @@ async function buyItem(itemId) {
     if (phone) {
       const raw  = await API.getUserByPhone(phone);
       const user = App.parseUser(raw?.[0]);
-      if (user) currentPlayer = { userId: user.id, name: user.name };
+      if (user) {
+        currentPlayer = {
+          userId:       user.id,
+          name:         user.name,
+          primos:       user.coins,
+          inventory:    (user._raw?.inventory && typeof user._raw.inventory === 'object' && !Array.isArray(user._raw.inventory)) ? user._raw.inventory : {},
+          bankCapacity: user._raw?.bankCapacity || 0,
+          assets:       (user._raw?.assets && typeof user._raw.assets === 'object' && !Array.isArray(user._raw.assets)) ? user._raw.assets : {},
+        };
+        flashWallet(currentPlayer.primos);
+      }
     }
     await loadItems();
   } catch (e) {
     console.error('Buy item error:', e);
     App.showToast('Purchase failed — try again.', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Buy'; }
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  INVESTMENTS — Global Financial Exchange
+//  Holdings live in data.assets (gold/stark/land/oil/tech/bonds/art).
+//  Buy/sell both go through /api/shop/invest, which does the "enough
+//  primos" / "enough holdings" checks server-side. See that file.
+// ════════════════════════════════════════════════════════════
+const INVEST_BUY_ENDPOINT = '/api/shop/invest';
+
+async function loadInvestments() {
+  const grid = document.getElementById('invest-grid');
+  grid.dataset.loaded = 'true';
+
+  if (typeof CARD_SHOP === 'undefined' || !CARD_SHOP.investments) {
+    grid.innerHTML = `<div class="shop-empty"><div class="shop-empty-icon">⚠️</div><div class="shop-empty-text">Investment catalog failed to load.<br>Check that data/items-catalog.js is included.</div></div>`;
+    return;
+  }
+
+  grid.innerHTML = `
+    <div class="invest-banner fade-in">
+      <div class="invest-banner-title">📈 Global Financial Exchange</div>
+      <div class="invest-banner-sub">Live trade rates · buy low, sell high, manage your risk.</div>
+    </div>
+    <div class="cards-grid">
+      ${CARD_SHOP.investments.map(a => renderInvestTile(a)).join('')}
+    </div>
+  `;
+}
+
+function riskBadgeHTML(asset) {
+  if (asset.secure || asset.riskPct === 0) {
+    return `<span class="risk-badge risk-secure">🛡️ Secure</span>`;
+  }
+  const cls = asset.riskPct >= 10 ? 'risk-high' : asset.riskPct >= 5 ? 'risk-mid' : 'risk-low';
+  return `<span class="risk-badge ${cls}">⚠️ ${asset.riskPct}% Risk</span>`;
+}
+
+function renderInvestTile(asset) {
+  const isLoggedIn = !!currentPlayer;
+  const holding    = isLoggedIn ? (currentPlayer.assets?.[asset.id] || 0) : 0;
+
+  const tradeControlsHTML = isLoggedIn
+    ? `
+      <div class="invest-trade-row">
+        <input type="number" min="1" step="1" placeholder="Qty" class="invest-qty-input" id="qty-${asset.id}">
+        <button class="invest-trade-btn invest-buy-btn" id="invbuy-${asset.id}" onclick="event.stopPropagation();tradeAsset('${asset.id}','buy')">Buy</button>
+        <button class="invest-trade-btn invest-sell-btn" id="invsell-${asset.id}" onclick="event.stopPropagation();tradeAsset('${asset.id}','sell')">Sell</button>
+      </div>
+      <div class="invest-holding">You hold: <strong>${holding.toLocaleString()}</strong></div>
+    `
+    : `<button class="buy-btn" style="width:100%;" onclick="window.location.href='member-login.html'">Log in to trade</button>`;
+
+  return `
+    <div class="shop-card tier-mid invest-card fade-in" style="--tier-color:${asset.secure ? 'var(--shop-uncommon)' : 'var(--shop-legendary)'};">
+      <div class="card-art" style="height:80px;font-size:36px;">
+        <div class="card-art-emoji">${asset.name.split(' ')[0]}</div>
+      </div>
+      <div class="card-body">
+        <div class="card-name">${asset.name.replace(/^\S+\s/, '')}</div>
+        <div class="card-desc">${asset.description || ''}</div>
+        ${riskBadgeHTML(asset)}
+        <div class="card-footer" style="margin-top:0.5rem;">
+          <div class="card-price">🪙 ${App.formatCoins(asset.rate)} <span style="font-size:10px;color:var(--text-3);font-weight:500;">/ unit</span></div>
+        </div>
+        ${tradeControlsHTML}
+      </div>
+    </div>
+  `;
+}
+
+async function tradeAsset(assetId, action) {
+  if (!currentPlayer) return;
+  const asset = typeof getInvestmentById === 'function' ? getInvestmentById(assetId) : null;
+  if (!asset) { App.showToast('Asset not found.', 'error'); return; }
+
+  const qtyInput = document.getElementById(`qty-${assetId}`);
+  const qty = parseInt(qtyInput?.value);
+  if (!qty || qty <= 0) {
+    App.showToast('Enter a valid quantity first.', 'error');
+    qtyInput?.focus();
+    return;
+  }
+
+  const buyBtn  = document.getElementById(`invbuy-${assetId}`);
+  const sellBtn = document.getElementById(`invsell-${assetId}`);
+  const activeBtn = action === 'buy' ? buyBtn : sellBtn;
+  [buyBtn, sellBtn].forEach(b => { if (b) b.disabled = true; });
+  if (activeBtn) activeBtn.textContent = '…';
+
+  try {
+    const res = await fetch(INVEST_BUY_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        buyerId:  currentPlayer.userId,
+        asset_id: assetId,
+        action,
+        amount: qty,
+      }),
+    });
+    const result = await res.json().catch(() => null);
+
+    if (!res.ok || result?.success === false) {
+      App.showToast(result?.error || 'Trade failed — try again.', 'error');
+      return;
+    }
+
+    App.showToast(
+      action === 'buy'
+        ? `✅ Bought ${qty.toLocaleString()} ${asset.name}`
+        : `✅ Sold ${qty.toLocaleString()} ${asset.name}`,
+      'success'
+    );
+
+    // Refresh player snapshot (primos + assets) so the tile and wallet pill stay accurate
+    const phone = localStorage.getItem('agi_member_phone');
+    if (phone) {
+      const raw  = await API.getUserByPhone(phone);
+      const user = App.parseUser(raw?.[0]);
+      if (user) {
+        currentPlayer = {
+          userId:       user.id,
+          name:         user.name,
+          primos:       user.coins,
+          inventory:    (user._raw?.inventory && typeof user._raw.inventory === 'object' && !Array.isArray(user._raw.inventory)) ? user._raw.inventory : {},
+          bankCapacity: user._raw?.bankCapacity || 0,
+          assets:       (user._raw?.assets && typeof user._raw.assets === 'object' && !Array.isArray(user._raw.assets)) ? user._raw.assets : {},
+        };
+        flashWallet(currentPlayer.primos);
+      }
+    }
+    await loadInvestments();
+  } catch (e) {
+    console.error('Trade error:', e);
+    App.showToast('Trade failed — try again.', 'error');
+  } finally {
+    [buyBtn, sellBtn].forEach(b => { if (b) b.disabled = false; });
+    if (buyBtn)  buyBtn.textContent  = 'Buy';
+    if (sellBtn) sellBtn.textContent = 'Sell';
   }
 }
 
