@@ -17,7 +17,7 @@
 // ════════════════════════════════════════════════════════════════
 
 const SUPABASE_URL   = process.env.SUPABASE_URL   || 'https://padybdvevwazfilxopqy.supabase.co';
-const SUPABASE_KEY   = process.env.SUPABASE_KEY   || '';
+const SUPABASE_KEY   = process.env.SUPABASE_KEY   || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhZHliZHZldndhemZpbHhvcHF5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzM5OTgwNCwiZXhwIjoyMDkyOTc1ODA0fQ.bI3epdb6N4T21At5xkAHcJnKbPKUd0-l2vzr4xGZN8w';
 const SUPABASE_TABLE = process.env.SUPABASE_TABLE || 'economy_full';
 
 // Keep in sync with /data/items-catalog.js → CARD_SHOP.investments.
