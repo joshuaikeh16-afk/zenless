@@ -35,6 +35,31 @@ const SUPABASE_URL   = process.env.SUPABASE_URL   || 'https://padybdvevwazfilxop
 const SUPABASE_KEY   = process.env.SUPABASE_KEY   || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhZHliZHZldndhemZpbHhvcHF5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzM5OTgwNCwiZXhwIjoyMDkyOTc1ODA0fQ.bI3epdb6N4T21At5xkAHcJnKbPKUd0-l2vzr4xGZN8w';
 const SUPABASE_TABLE = process.env.SUPABASE_TABLE || 'economy_full';
 
+// Mirror to the WhatsApp bot's separate economy store, keyed by `lid`
+// (NOT the Supabase row id). This is server-side, so — unlike a browser
+// call — it's not blocked by mixed-content rules and can hit the bot's
+// plain http:// endpoint directly. Best-effort: if this fails we still
+// return success for the Supabase write, since that's the website's
+// source of truth, but we log it so failures are visible.
+const BOT_ECONOMY_BASE = 'http://jobs.hidencloud.com:24633/api/economy/users';
+const BOT_ECONOMY_KEY  = process.env.BOT_ECONOMY_KEY || '936f46f583278e85da40457c6be357fd22b87f63dd4ca1c0';
+
+async function syncBotEconomy(lid, payload) {
+  if (!lid) return false;
+  try {
+    const res = await fetch(`${BOT_ECONOMY_BASE}/${encodeURIComponent(lid)}`, {
+      method: 'PATCH',
+      headers: { 'x-api-key': BOT_ECONOMY_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return true;
+  } catch (err) {
+    console.error('[shop/buy] Bot economy sync error', err);
+    return false;
+  }
+}
+
 // Keep this in sync with /data/items-catalog.js. Re-declared here (not
 // imported) because Vercel functions run in their own isolated bundle —
 // duplicating a small static catalog is simpler than wiring up shared
@@ -160,6 +185,15 @@ export default async function handler(req, res) {
     console.error('[shop/buy] Supabase write error', err);
     return res.status(502).json({ success: false, error: 'Purchase could not be saved — try again. You were NOT charged.' });
   }
+
+  // Mirror the updated fields to the bot's economy store too. lid lives on
+  // the same data object Supabase just confirmed — best-effort, doesn't
+  // block or fail the response if the bot is unreachable.
+  await syncBotEconomy(updatedRow.data.lid, {
+    primos: updatedRow.data.primos,
+    ...(updates.bankCapacity !== undefined ? { bankCapacity: updatedRow.data.bankCapacity } : {}),
+    ...(updates.inventory    !== undefined ? { inventory: updatedRow.data.inventory }       : {}),
+  });
 
   return res.status(200).json({
     success: true,
