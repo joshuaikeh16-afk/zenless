@@ -20,6 +20,28 @@ const SUPABASE_URL   = process.env.SUPABASE_URL   || 'https://padybdvevwazfilxop
 const SUPABASE_KEY   = process.env.SUPABASE_KEY   || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhZHliZHZldndhemZpbHhvcHF5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzM5OTgwNCwiZXhwIjoyMDkyOTc1ODA0fQ.bI3epdb6N4T21At5xkAHcJnKbPKUd0-l2vzr4xGZN8w';
 const SUPABASE_TABLE = process.env.SUPABASE_TABLE || 'economy_full';
 
+// Mirror to the WhatsApp bot's separate economy store, keyed by `lid`.
+// Server-side call, so no mixed-content restriction applies here.
+// Best-effort: doesn't block or fail the response if unreachable.
+const BOT_ECONOMY_BASE = 'http://jobs.hidencloud.com:24633/api/economy/users';
+const BOT_ECONOMY_KEY  = process.env.BOT_ECONOMY_KEY || '936f46f583278e85da40457c6be357fd22b87f63dd4ca1c0';
+
+async function syncBotEconomy(lid, payload) {
+  if (!lid) return false;
+  try {
+    const res = await fetch(`${BOT_ECONOMY_BASE}/${encodeURIComponent(lid)}`, {
+      method: 'PATCH',
+      headers: { 'x-api-key': BOT_ECONOMY_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return true;
+  } catch (err) {
+    console.error('[shop/invest] Bot economy sync error', err);
+    return false;
+  }
+}
+
 // Keep in sync with /data/items-catalog.js → CARD_SHOP.investments.
 const INVESTMENTS = [
   { id: 'gold',  name: '🥇 Solid Gold Bullion',         rate: 42396,   riskPct: 0 },
@@ -136,6 +158,11 @@ export default async function handler(req, res) {
     console.error('[shop/invest] Supabase write error', err);
     return res.status(502).json({ success: false, error: 'Trade could not be saved — try again. Nothing was charged.' });
   }
+
+  await syncBotEconomy(updatedRow.data.lid, {
+    primos: updatedRow.data.primos,
+    assets: updatedRow.data.assets,
+  });
 
   return res.status(200).json({
     success: true,
