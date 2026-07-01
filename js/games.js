@@ -699,12 +699,81 @@ function bestTTTMove(b) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  GAME 3 — NUMBER CRASH (HARDER)
-//  Crash point distribution skewed lower:
-//  ~40% of games crash before 1.5×, ~20% before 1.2×.
+//  GAME 3 — NUMBER CRASH with flying jet
+//  A canvas-drawn flight path replaces the static bar.
+//  The jet emoji rides the curve in real time; the trail
+//  behind it grows as the multiplier climbs. On crash the
+//  arena shakes and the jet explodes. On cashout it banks
+//  off-screen with a success flash.
+//  Underlying crash-point math is unchanged from before.
 // ════════════════════════════════════════════════════════════
 let crashState    = null;
 let crashInterval = null;
+let crashTrail    = []; // [{x,y,color}] points drawn this round
+
+// Curve helpers — maps a multiplier value to an (x,y) position
+// on the canvas so the jet follows the same shape as the
+// mathematically generated crash-point distribution.
+function crashCurvePoint(canvas, mult, maxMult) {
+  const W = canvas.width, H = canvas.height;
+  const pad = 24;
+  // x: linear progress through life of round
+  const x = pad + ((mult - 1) / (Math.max(maxMult, mult + 0.5) - 1)) * (W - pad * 2);
+  // y: exponential curve (rises steeply toward the right)
+  const t = (mult - 1) / (Math.max(maxMult, mult + 0.5) - 1);
+  const y = H - pad - Math.pow(t, 0.55) * (H - pad * 2);
+  return { x: Math.min(x, W - pad), y: Math.max(y, pad) };
+}
+
+function drawCrashCanvas(state, exploded) {
+  const canvas = document.getElementById('crash-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  canvas.width  = W;
+  canvas.height = H;
+
+  ctx.clearRect(0, 0, W, H);
+
+  if (!state || crashTrail.length < 2) return;
+
+  const mult    = state.current;
+  const maxMult = state.crashAt;
+
+  // Draw trail
+  ctx.lineWidth   = 3;
+  ctx.lineJoin    = 'round';
+  ctx.lineCap     = 'round';
+  ctx.strokeStyle = exploded ? '#ef4444' : '#7C5DFA';
+  ctx.shadowColor = exploded ? '#ef4444' : '#a78bfa';
+  ctx.shadowBlur  = 10;
+  ctx.beginPath();
+  crashTrail.forEach((pt, i) => {
+    if (i === 0) ctx.moveTo(pt.x, pt.y);
+    else ctx.lineTo(pt.x, pt.y);
+  });
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Draw jet or explosion at current position
+  const tip = crashTrail[crashTrail.length - 1];
+  ctx.font = '28px serif';
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  if (exploded) {
+    ctx.font = '34px serif';
+    ctx.fillText('💥', tip.x, tip.y);
+  } else {
+    // Rotate the jet to follow the curve angle
+    const prev  = crashTrail.length > 1 ? crashTrail[crashTrail.length - 2] : tip;
+    const angle = Math.atan2(tip.y - prev.y, tip.x - prev.x);
+    ctx.save();
+    ctx.translate(tip.x, tip.y);
+    ctx.rotate(angle);
+    ctx.fillText('🛩️', 0, 0);
+    ctx.restore();
+  }
+}
 
 function startCrash() {
   if (crashState && crashState.running) return;
@@ -722,24 +791,43 @@ function startCrash() {
   }
   crashAt = +crashAt.toFixed(2);
 
-  crashState = { bet, crashAt, current: 1.00, running: true, cashedOut: false };
+  crashState  = { bet, crashAt, current: 1.00, running: true, cashedOut: false };
+  crashTrail  = [];
   syncPP(-bet, 'bet');
 
   document.getElementById('crash-start-btn').disabled   = true;
   document.getElementById('crash-cashout-btn').disabled = false;
-  document.getElementById('crash-sub').textContent      = 'Running — cash out before it crashes!';
+  document.getElementById('crash-sub').textContent      = 'Buckle up — cash out before the crash!';
   document.getElementById('crash-result').classList.remove('show');
+  document.getElementById('crash-mult').style.color     = 'var(--gold)';
+  const arena = document.getElementById('crash-arena');
+  if (arena) arena.classList.remove('shake');
 
   let tick = 0;
   crashInterval = setInterval(() => {
     tick += 0.07;
     crashState.current = +(1 + Math.pow(tick, 1.7) * 0.04).toFixed(2);
-    const pct   = Math.min(100, ((crashState.current - 1) / (crashState.crashAt - 1)) * 100);
-    const color = crashState.current < 1.5 ? 'var(--gold)' : crashState.current < 2.5 ? '#639922' : crashState.current < 5 ? 'var(--accent)' : '#D4537E';
-    document.getElementById('crash-fill').style.width  = pct + '%';
-    document.getElementById('crash-mult').style.color  = color;
-    document.getElementById('crash-mult').textContent  = crashState.current.toFixed(2) + '×';
-    if (crashState.current >= crashState.crashAt) { clearInterval(crashInterval); crashBoom(); }
+
+    const color = crashState.current < 1.5 ? 'var(--gold)'
+                : crashState.current < 2.5 ? '#639922'
+                : crashState.current < 5   ? 'var(--accent)'
+                : '#D4537E';
+
+    document.getElementById('crash-mult').style.color = color;
+    document.getElementById('crash-mult').textContent = crashState.current.toFixed(2) + '×';
+
+    // Record trail point for this tick
+    const canvas = document.getElementById('crash-canvas');
+    if (canvas) {
+      const pt = crashCurvePoint(canvas, crashState.current, crashAt);
+      crashTrail.push(pt);
+      drawCrashCanvas(crashState, false);
+    }
+
+    if (crashState.current >= crashState.crashAt) {
+      clearInterval(crashInterval);
+      crashBoom();
+    }
   }, 65);
 }
 
@@ -753,25 +841,49 @@ function crashCashout() {
   syncPP(payout, 'payout');
   awardPP(PP_RATES.crash.win, 'Number Crash');
 
+  // Jet banks off to the right — add a few more trail points heading up-right
+  const canvas = document.getElementById('crash-canvas');
+  if (canvas) {
+    const last = crashTrail[crashTrail.length - 1] || { x: 0, y: canvas.height / 2 };
+    for (let i = 1; i <= 6; i++) {
+      crashTrail.push({ x: last.x + i * 18, y: last.y - i * 14 });
+    }
+    drawCrashCanvas(crashState, false);
+  }
+
   document.getElementById('crash-cashout-btn').disabled = true;
   document.getElementById('crash-start-btn').disabled   = false;
-  document.getElementById('crash-sub').textContent      = `Cashed out at ${crashState.current.toFixed(2)}×`;
-  document.getElementById('crash-fill').style.background = 'var(--success)';
-  showResult('crash-result', true, `💰 Cashed out at ${crashState.current.toFixed(2)}×`, `+${App.formatCoins(payout)} ◈ won · +${PP_RATES.crash.win} PP`);
+  document.getElementById('crash-sub').textContent      = `Cashed out at ${crashState.current.toFixed(2)}× ✅`;
+  document.getElementById('crash-mult').style.color     = 'var(--success)';
+  showResult('crash-result', true,
+    `💰 Cashed out at ${crashState.current.toFixed(2)}×`,
+    `+${App.formatCoins(payout)} ◈ won · +${PP_RATES.crash.win} PP`);
   addLog('crash', `${crashState.current.toFixed(2)}× → +${App.formatCoins(payout)}`, true);
 }
 
 function crashBoom() {
   crashState.running = false;
+
+  // Draw explosion on canvas, then shake the arena
+  drawCrashCanvas(crashState, true);
+  const arena = document.getElementById('crash-arena');
+  if (arena) {
+    arena.classList.remove('shake');
+    void arena.offsetWidth; // force reflow so re-adding the class retriggers
+    arena.classList.add('shake');
+    setTimeout(() => arena.classList.remove('shake'), 500);
+  }
+
   document.getElementById('crash-cashout-btn').disabled = true;
   document.getElementById('crash-start-btn').disabled   = false;
   document.getElementById('crash-mult').textContent     = '💥 ' + crashState.crashAt.toFixed(2) + '×';
   document.getElementById('crash-mult').style.color     = 'var(--danger)';
   document.getElementById('crash-sub').textContent      = 'Crashed!';
-  document.getElementById('crash-fill').style.background = 'var(--danger)';
-  document.getElementById('crash-fill').style.width     = '100%';
+
   if (!crashState.cashedOut) {
-    showResult('crash-result', false, `💥 Crashed at ${crashState.crashAt.toFixed(2)}×`, `-${App.formatCoins(crashState.bet)} ◈ PP`);
+    showResult('crash-result', false,
+      `💥 Crashed at ${crashState.crashAt.toFixed(2)}×`,
+      `-${App.formatCoins(crashState.bet)} ◈ PP`);
     addLog('crash', `Crashed at ${crashState.crashAt.toFixed(2)}×`, false);
   }
 }
