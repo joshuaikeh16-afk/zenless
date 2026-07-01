@@ -973,8 +973,8 @@
     content.style.display = 'block';
     content.innerHTML = renderProfile(user);
 
-    // Claim button state
-    const status = PPApi.getClaimStatus(user._raw);
+    // Claim button state — checks DB + localStorage fallback
+    const status = getEffectiveClaimStatus(user._raw);
     setClaimButtonState(status);
 
     requestAnimationFrame(() => {
@@ -988,6 +988,25 @@
     });
 
     document.title = `${user.name} — AniGamble HQ`;
+  }
+
+  function getEffectiveClaimStatus(rawData) {
+    // Primary: DB value (most reliable once propagated)
+    const dbStatus = PPApi.getClaimStatus(rawData);
+    if (!dbStatus.canClaim) return dbStatus;
+
+    // Fallback: localStorage timestamp set immediately after claiming,
+    // catches the window where the DB read is still returning cached data.
+    const localTs = localStorage.getItem('agi_last_claim_at');
+    if (localTs) {
+      const localMs       = new Date(localTs).getTime();
+      const msRemaining   = PPApi.CLAIM_COOLDOWN_MS - (Date.now() - localMs);
+      if (msRemaining > 0) return { canClaim: false, msRemaining };
+      // Expired — clear the stale localStorage entry
+      localStorage.removeItem('agi_last_claim_at');
+    }
+
+    return dbStatus; // { canClaim: true }
   }
 
   function formatMsRemaining(ms) {
@@ -1040,7 +1059,18 @@
 
       if (result.claimed) {
         App.showToast(`+${result.amount} Prime Points claimed! 🎉`, 'success');
-        loadMyProfile();
+        // Lock the button immediately using the server-confirmed lastClaimAt
+        // so a stale re-fetch can't re-enable it before Supabase propagates.
+        const claimedMs   = result.lastClaimAt ? new Date(result.lastClaimAt).getTime() : Date.now();
+        const msRemaining = PPApi.CLAIM_COOLDOWN_MS - (Date.now() - claimedMs);
+        setClaimButtonState({ canClaim: false, msRemaining: Math.max(0, msRemaining) });
+        // Also store in localStorage as a fallback — if Supabase returns a
+        // cached read on the next page load before the write propagates,
+        // this prevents the button showing as claimable during that window.
+        localStorage.setItem('agi_last_claim_at', result.lastClaimAt || new Date().toISOString());
+        // Reload the rest of the profile (PP balance, history) after a short
+        // pause so Supabase has time to reflect the write on the read path.
+        setTimeout(() => loadMyProfile(), 800);
       } else {
         // On cooldown — update button without full reload
         App.showToast(`Already claimed today — back in ${formatMsRemaining(result.msRemaining)}`, 'info');
