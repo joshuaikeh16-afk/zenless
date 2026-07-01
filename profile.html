@@ -796,36 +796,6 @@
       ? user.souvenirs.map(s => `<div class="inv-item"><span>🎁</span><span>${s.name || s}</span></div>`).join('')
       : '<div class="inv-empty">No souvenirs yet</div>';
 
-
-    const gems = user.gemsBag || {};
-    const gemList = [
-      { key: 'diamond',  icon: '💎', label: 'Diamond'  },
-      { key: 'ruby',     icon: '❤️', label: 'Ruby'      },
-      { key: 'sapphire', icon: '💙', label: 'Sapphire'  },
-      { key: 'emerald',  icon: '💚', label: 'Emerald'   },
-      { key: 'opal',     icon: '🤍', label: 'Opal'      },
-    ];
-    const gemRows = gemList.map(g => `
-      <div class="balance-item">
-        <div class="balance-item-label">${g.icon} ${g.label}</div>
-        <div class="balance-item-val" style="${gems[g.key] == null ? 'color:var(--text-3);font-weight:500;' : ''}">
-          ${gems[g.key] != null ? gems[g.key] : 'Empty'}
-        </div>
-      </div>`).join('');
-
-    const assets = user.assets || {};
-    const assetList = [
-      { key: 'gold',  icon: '🥇', label: 'Gold'  },
-      { key: 'stark', icon: '⚙️', label: 'Stark' },
-      { key: 'land',  icon: '🏞️', label: 'Land'  },
-      { key: 'tech',  icon: '💻', label: 'Tech'  },
-      { key: 'fuel',  icon: '⛽', label: 'Fuel'  },
-    ];
-    const assetRows = assetList.map(a => `
-      <div class="balance-item">
-        <div class="balance-item-label">${a.icon} ${a.label}</div>
-        <div class="balance-item-val">${(assets[a.key] || 0).toLocaleString()}</div>
-      </div>`).join('');
     const guildBadge = user.guild ? `<div class="hero-meta-item">⚔️ ${user.guild}</div>` : '';
     const joinDate   = user.joinedAt ? timeAgoFull(user.joinedAt) : null;
     const roleBadge  = user.role ? App.roleBadge(user.role) : '';
@@ -1047,33 +1017,40 @@
     const phone = localStorage.getItem('agi_member_phone');
     const btn   = document.getElementById('claim-pp-btn');
     const label = document.getElementById('claim-pp-label');
-    if (!phone || !btn) return;
+    if (!phone || !btn || !currentUser) return;
 
     btn.disabled = true;
     label.textContent = 'Claiming...';
 
-    const rows = await API.getUserByPhone(phone);
-    const row  = rows?.[0];
-    if (!row) {
+    try {
+      const res = await fetch('/api/claim-pp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: currentUser.id }),
+      });
+
+      const result = await res.json().catch(() => null);
+
+      if (!res.ok || !result?.success) {
+        App.showToast(result?.error || "Couldn't save your claim — try again.", 'error');
+        label.textContent = '🎁 Claim Daily PP';
+        btn.disabled = false;
+        return;
+      }
+
+      if (result.claimed) {
+        App.showToast(`+${result.amount} Prime Points claimed! 🎉`, 'success');
+        loadMyProfile();
+      } else {
+        // On cooldown — update button without full reload
+        App.showToast(`Already claimed today — back in ${formatMsRemaining(result.msRemaining)}`, 'info');
+        setClaimButtonState({ canClaim: false, msRemaining: result.msRemaining });
+      }
+    } catch (e) {
+      console.error('Claim PP error:', e);
       App.showToast("Couldn't reach the server — try again.", 'error');
       label.textContent = '🎁 Claim Daily PP';
       btn.disabled = false;
-      return;
-    }
-
-    const data   = typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {});
-    const result = await PPApi.claimDailyPP(row.id, data);
-
-    if (result.claimed) {
-      App.showToast(`+${result.amount} Prime Points claimed! 🎉`, 'success');
-      loadMyProfile();
-    } else if (result.failed) {
-      App.showToast("Couldn't save your claim — check your connection and try again.", 'error');
-      label.textContent = '🎁 Claim Daily PP';
-      btn.disabled = false;
-    } else {
-      App.showToast(`Already claimed today — back in ${formatMsRemaining(result.msRemaining)}`, 'info');
-      setClaimButtonState({ canClaim: false, msRemaining: result.msRemaining });
     }
   }
 
