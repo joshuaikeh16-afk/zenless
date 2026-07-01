@@ -268,23 +268,23 @@
 .result-banner.show { display: block; }
 .result-amt { font-size: 22px; margin: 4px 0; }
 
-/* ── Minesweeper ────────────────────────────────────── */
+/* ── Mine Vault (redesigned Minesweeper) ────────────── */
 .mine-grid {
   display: inline-grid;
-  gap: 3px;
+  gap: 5px;
   margin: 0.75rem auto;
   user-select: none;
 }
 .mine-cell {
-  width: 34px;
-  height: 34px;
+  width: 56px;
+  height: 56px;
   background: var(--bg-3);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.1s;
@@ -294,13 +294,39 @@
 .mine-cell.revealed  { background: var(--bg); border-color: transparent; cursor: default; }
 .mine-cell.flagged   { background: rgba(212,83,126,0.12); border-color: #D4537E; }
 .mine-cell.mine-boom { background: rgba(226,75,74,0.15); border-color: var(--danger); animation: shake 0.3s ease; }
+.mine-cell.mine-zero { background: rgba(29,158,117,0.14); border-color: var(--success); }
 .n1{color:#378ADD}.n2{color:#1D9E75}.n3{color:#E24B4A}
 .n4{color:#7F77DD}.n5{color:#D85A30}.n6{color:#639922}
 .n7{color:#D4537E}.n8{color:var(--text-3)}
-.mine-info { display:flex; gap:1.25rem; margin-bottom:0.5rem; font-size:12px; }
+.mine-info { display:flex; gap:1.25rem; margin-bottom:0.5rem; font-size:12px; flex-wrap:wrap; }
 .mine-info span { color:var(--text-3); }
 .mine-info strong { color:var(--text); font-family:var(--font-display); }
 .mine-tip { font-size:11px; color:var(--text-3); text-align:center; margin-top:0.4rem; }
+
+.mine-pot-row {
+  background: var(--bg-3);
+  border: 1px solid rgba(167,139,250,0.25);
+  border-radius: var(--radius);
+  padding: 0.7rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mine-pot-label { font-size: 11.5px; color: var(--text-3); }
+.mine-pot-val {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gold);
+}
+.mine-pot-tier {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+}
 
 /* ── Tic-Tac-Toe ────────────────────────────────────── */
 .ttt-board {
@@ -773,7 +799,7 @@
       <!-- ───────────── LEFT: Games ───────────── -->
       <div>
         <div class="game-tabs">
-          <button class="game-tab active" onclick="switchGame('minesweeper', this)">💣 Minesweeper</button>
+          <button class="game-tab active" onclick="switchGame('minesweeper', this)">💎 Mine Vault</button>
           <button class="game-tab" onclick="switchGame('tictactoe', this)">✖ Tic-Tac-Toe</button>
           <button class="game-tab" onclick="switchGame('crash', this)">📈 Number Crash</button>
           <button class="game-tab" onclick="switchGame('scramble', this)">🔤 Word Scramble</button>
@@ -781,11 +807,11 @@
           <button class="game-tab" onclick="switchGame('diceduel', this)">🎲 Dice Duel</button>
         </div>
 
-        <!-- ══ MINESWEEPER ══════════════════════════════ -->
+        <!-- ══ MINE VAULT (redesigned Minesweeper) ══════ -->
         <div class="game-panel active" id="panel-minesweeper">
           <div class="game-card">
-            <div class="game-title">💣 Minesweeper <span class="pp-reward-tag">◈ +50 PP on win</span></div>
-            <div class="game-desc">10×10 grid, 20 mines. Reveal every safe cell to win 4× your bet and earn 50 Prime Points. One wrong click and it's over.</div>
+            <div class="game-title">💎 Mine Vault <span class="pp-reward-tag">◈ +50 PP on cash out</span></div>
+            <div class="game-desc">5×5 vault. Pick how many mines (1–24) — more mines means bigger gem multipliers, but way worse odds. Reveal tiles, bank gems as you go, cash out anytime. Hit a mine and you lose everything still in the pot.</div>
 
             <div class="bet-row">
               <label>Bet:</label>
@@ -798,10 +824,27 @@
               </div>
             </div>
 
+            <div class="bet-row">
+              <label>Mines (1–24):</label>
+              <input type="number" class="bet-input" id="mine-count-input" value="5" min="1" max="24" style="width:70px;" oninput="updateMineRiskPreview()" />
+              <div class="bet-presets">
+                <button class="preset-btn" onclick="setMineCount(2)">2 · Safer</button>
+                <button class="preset-btn" onclick="setMineCount(5)">5</button>
+                <button class="preset-btn" onclick="setMineCount(12)">12</button>
+                <button class="preset-btn" onclick="setMineCount(20)">20 · Risky</button>
+              </div>
+            </div>
+
             <div class="mine-info">
               <span>Safe left: <strong id="mine-cells-left">—</strong></span>
-              <span>Mines: <strong id="mine-mine-count">20</strong></span>
-              <span>Win: <strong id="mine-win-amount" style="color:var(--gold)">—</strong></span>
+              <span>Mines: <strong id="mine-mine-count">5</strong></span>
+              <span>Tier mult: <strong id="mine-risk-mult" style="color:#a78bfa">×0.40</strong></span>
+            </div>
+
+            <div class="mine-pot-row">
+              <div class="mine-pot-label">💰 In the pot</div>
+              <div class="mine-pot-val" id="mine-pot-val">🪙 0</div>
+              <div class="mine-pot-tier" id="mine-pot-tier">—</div>
             </div>
 
             <div style="overflow-x:auto;text-align:center;">
@@ -809,7 +852,11 @@
             </div>
             <div class="mine-tip">Right-click to 🚩 flag a suspected mine</div>
 
-            <button class="play-btn" id="mine-start-btn" onclick="startMinesweeper()">Start Game</button>
+            <div class="crash-btn-row" style="margin-top:0.75rem;">
+              <button class="play-btn" style="flex:1;margin-top:0;" id="mine-start-btn" onclick="startMinesweeper()">Start Vault</button>
+              <button class="cashout-btn" id="mine-cashout-btn" onclick="mineCashout()" disabled>Cash Out 💰</button>
+            </div>
+
             <div class="result-banner" id="mine-result"></div>
             <div class="game-log">
               <div class="game-log-title">Recent</div>
@@ -886,7 +933,7 @@
         <div class="game-panel" id="panel-scramble">
           <div class="game-card">
             <div class="game-title">🔤 Word Scramble <span class="pp-reward-tag">◈ +25 PP on win</span></div>
-            <div class="game-desc">Unscramble an anime word in 20 seconds. Win = 2.5× bet + 25 PP. Timeout or wrong answer = full loss. Letters are jumbled hard.</div>
+            <div class="game-desc">Unscramble a word in 20 seconds. Win = 2.5× bet + 25 PP. Timeout or wrong answer = full loss. Letters are jumbled hard.</div>
 
             <div class="bet-row">
               <label>Bet:</label>
