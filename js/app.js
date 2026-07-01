@@ -9,7 +9,7 @@ const App = (() => {
     coins:       Number(d.primos || d.coins || d.balance || 0),
     bank:        Number(d.bank || 0),
     netWorth:    Number(d.primos || d.coins || d.balance || 0) + Number(d.bank || 0),
-    primePoints: Number(d.primePoints || 100),
+    primePoints: Number(d.primePoints || 0),
     ppHistory:   Array.isArray(d.ppHistory) ? d.ppHistory : [],
     cards:       Array.isArray(d.cards) ? d.cards : [],
     souvenirs:   Array.isArray(d.souvenirs) ? d.souvenirs : [],
