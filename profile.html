@@ -667,171 +667,6 @@
       flex-wrap: wrap;
     }
 
-    /* ── Card Detail Modal (bigger, cinematic) ───────── */
-    .card-modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 500;
-      background: rgba(0,0,0,.8);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      align-items: center;
-      justify-content: center;
-      padding: 1.25rem;
-      animation: fadeIn .2s ease;
-    }
-    .card-modal-overlay.open { display: flex; }
-
-    .card-modal {
-      width: 100%;
-      max-width: 560px;
-      max-height: 92vh;
-      overflow-y: auto;
-      background: var(--bg-2);
-      border: 1px solid var(--border-2);
-      border-radius: var(--radius-xl, 20px);
-      box-shadow: 0 30px 100px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.04);
-      animation: popupIn .28s cubic-bezier(0.22, 1, 0.36, 1);
-      position: relative;
-      scrollbar-width: none;
-    }
-    .card-modal::-webkit-scrollbar { display: none; }
-
-    .card-modal-close {
-      position: absolute;
-      top: 14px; right: 14px;
-      width: 34px; height: 34px;
-      border-radius: 50%;
-      background: rgba(0,0,0,.5);
-      border: 1px solid rgba(255,255,255,.15);
-      color: #fff;
-      font-size: 17px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: blur(8px);
-      z-index: 3;
-      transition: background .15s;
-    }
-    .card-modal-close:hover { background: rgba(255,255,255,.18); }
-
-    .card-modal-stage {
-      position: relative;
-      padding: 2.5rem 1.5rem 1.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      min-height: 340px;
-    }
-
-    .card-modal-stage-bg {
-      position: absolute;
-      inset: 0;
-      filter: blur(38px) saturate(1.4);
-      opacity: .55;
-      transform: scale(1.3);
-      background-size: cover;
-      background-position: center;
-    }
-
-    .card-modal-stage-glow {
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(ellipse at center, transparent 30%, var(--bg-2) 85%);
-    }
-
-    .card-modal-art {
-      position: relative;
-      width: 210px;
-      max-width: 60%;
-      border-radius: 14px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.6);
-      animation: cardFloat 3.5s ease-in-out infinite;
-    }
-    .card-modal-art img { width: 100%; display: block; border-radius: 14px; }
-
-    .card-modal-art-fallback {
-      width: 210px;
-      max-width: 60%;
-      aspect-ratio: 5/7;
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 64px;
-      background: var(--bg-3);
-      border: 1px solid var(--border-2);
-      box-shadow: 0 20px 60px rgba(0,0,0,.5);
-    }
-
-    @keyframes cardFloat {
-      0%, 100% { transform: translateY(0); }
-      50%      { transform: translateY(-8px); }
-    }
-
-    .card-modal-body { padding: 0 1.5rem 1.75rem; position: relative; }
-
-    .card-modal-tier {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 11.5px;
-      font-weight: 700;
-      letter-spacing: .06em;
-      padding: 3px 11px;
-      border-radius: 20px;
-      margin-bottom: .6rem;
-    }
-
-    .card-modal-name {
-      font-family: var(--font-display);
-      font-size: 21px;
-      font-weight: 700;
-      color: var(--text);
-      margin-bottom: 2px;
-      line-height: 1.25;
-    }
-
-    .card-modal-series {
-      font-size: 12.5px;
-      color: var(--text-3);
-      margin-bottom: 1.1rem;
-    }
-
-    .card-modal-stats {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1px;
-      background: var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-      margin-bottom: 1rem;
-    }
-
-    .card-modal-stat-cell {
-      background: var(--bg-3);
-      padding: .85rem .9rem;
-    }
-
-    .card-modal-stat-lbl {
-      font-size: 10px;
-      color: var(--text-3);
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      font-weight: 600;
-      margin-bottom: 3px;
-    }
-
-    .card-modal-stat-val {
-      font-family: var(--font-display);
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--text);
-    }
-
     /* ── Misc ─────────────────────────────────────────── */
     .gold   { color: var(--gold); }
     .purple { color: var(--pp-color); }
@@ -886,11 +721,6 @@
   <div class="user-popup" id="user-popup-inner"></div>
 </div>
 
-<!-- Card Detail Modal -->
-<div class="card-modal-overlay" id="card-modal-overlay" onclick="closeCardModal(event)">
-  <div class="card-modal" id="card-modal-inner"></div>
-</div>
-
 <script src="data/config.js"></script>
 <script src="js/api.js"></script>
 <script src="js/app.js"></script>
@@ -904,12 +734,21 @@
   function renderProfile(user) {
     const ppHistory = user.ppHistory || [];
     const ppPoints  = user.primePoints || 0;
-    const pets      = user.pets || [];
-    const investments = user.investments || [];
+    const assets    = user.assets || {};
+    const gemsBag   = user.gemsBag || {};
+    const bounty    = Number(user.bounty || 0);
+
+    const ASSET_ICONS = { gold: '🪙', stark: '⚙️', land: '🏞️', tech: '🖥️', fuel: '⛽' };
+    const GEM_ICONS    = { diamond: '💎', ruby: '❤️‍🔥', sapphire: '🔷', emerald: '💚', opal: '🌈' };
+
+    const assetEntries = Object.entries(assets).filter(([, v]) => v);
+    const gemEntries    = Object.entries(gemsBag).filter(([, v]) => v);
 
     const cardsWorth = (user.cards || []).reduce((sum, c) => sum + (Number(c?.worth) || 0), 0);
-    const investWorth = investments.reduce((sum, i) => sum + (Number(i?.worth ?? i?.value ?? i?.amount) || 0), 0);
-    const totalAssets = (user.netWorth || 0) + cardsWorth + investWorth;
+    // Raw resource counts (gold/stark/land/tech/fuel) don't carry a known
+    // per-unit price here, so they're shown as holdings, not folded into
+    // the dollar total below. Total Assets = net worth + card worth + bounty.
+    const totalAssets = (user.netWorth || 0) + cardsWorth + bounty;
 
     const recentPP = ppHistory.slice(0, 8).map(h => {
       const d = h.timestamp ? new Date(h.timestamp) : null;
@@ -951,30 +790,29 @@
       ? user.souvenirs.map(s => `<div class="inv-item"><span>🎁</span><span>${s.name || s}</span></div>`).join('')
       : '<div class="inv-empty">No souvenirs yet</div>';
 
-    const petItems = pets.length
-      ? pets.map(p => {
-          const pet = typeof p === 'object' ? p : { name: p };
-          return `
-            <div class="inv-item">
-              ${pet.imageUrl ? `<img src="${pet.imageUrl}" style="width:30px;height:30px;object-fit:cover;border-radius:6px;flex-shrink:0;">` : `<span style="font-size:18px;">🐾</span>`}
-              <div style="min-width:0;flex:1;">
-                <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${pet.name || pet.species || 'Pet'}</div>
-                ${pet.species && pet.name ? `<div style="font-size:10px;color:var(--text-3);">${pet.species}</div>` : ''}
-              </div>
-            </div>`;
-        }).join('')
-      : '<div class="inv-empty">No pets yet — visit the Zoo 🐾</div>';
+    const petItems = '<div class="inv-empty">No pets yet — visit the Zoo 🐾</div>';
 
-    const investItems = investments.length
-      ? investments.map(inv => {
-          const worth = Number(inv?.worth ?? inv?.value ?? inv?.amount) || 0;
-          return `
-            <div class="balance-item">
-              <div class="balance-item-label">📈 ${inv.name || 'Investment'}</div>
-              <div class="balance-item-val gold">${App.formatCoins(worth)}</div>
-            </div>`;
-        }).join('')
-      : '<div class="inv-empty">No investments yet</div>';
+    const assetItems = assetEntries.length
+      ? assetEntries.map(([key, qty]) => `
+          <div class="inv-item">
+            <span style="font-size:18px;">${ASSET_ICONS[key] || '📦'}</span>
+            <div style="min-width:0;flex:1;">
+              <div style="font-size:12px;font-weight:600;color:var(--text);text-transform:capitalize;">${key}</div>
+            </div>
+            <span style="font-size:12px;font-weight:700;color:var(--text-2);">${Number(qty).toLocaleString()}</span>
+          </div>`).join('')
+      : '<div class="inv-empty">No assets yet — check the Shop\'s Investments tab</div>';
+
+    const gemItems = gemEntries.length
+      ? gemEntries.map(([key, val]) => `
+          <div class="inv-item">
+            <span style="font-size:18px;">${GEM_ICONS[key] || '💠'}</span>
+            <div style="min-width:0;flex:1;">
+              <div style="font-size:12px;font-weight:600;color:var(--text);text-transform:capitalize;">${key}</div>
+            </div>
+            <span style="font-size:12px;font-weight:700;color:var(--text-2);">${typeof val === 'number' ? val.toLocaleString() : val}</span>
+          </div>`).join('')
+      : '<div class="inv-empty">No gems yet</div>';
 
     const guildBadge = user.guild ? `<div class="hero-meta-item">⚔️ ${user.guild}</div>` : '';
     const joinDate   = user.joinedAt ? timeAgoFull(user.joinedAt) : null;
@@ -1058,8 +896,8 @@
             <div class="balance-item-val blue">${App.formatCoins(cardsWorth)}</div>
           </div>
           <div class="balance-item">
-            <div class="balance-item-label">📈 Investments worth</div>
-            <div class="balance-item-val">${App.formatCoins(investWorth)}</div>
+            <div class="balance-item-label">🎯 Bounty</div>
+            <div class="balance-item-val">${App.formatCoins(bounty)}</div>
           </div>
           <div class="balance-item balance-total">
             <div class="balance-item-label"><strong>Total Assets</strong></div>
@@ -1078,17 +916,22 @@
           </div>
         </div>
 
-        <!-- Deck & Investments card -->
+        <!-- Deck card -->
         <div class="profile-card fade-in">
           <div class="card-title">🎴 Deck</div>
           <div style="font-size:12.5px;color:var(--text-3);margin-bottom:.75rem;">Manage your 9-card deck showcase.</div>
           <a href="deck.html" class="promo-btn" style="width:100%;justify-content:center;">
             Open My Deck →
           </a>
+        </div>
 
+        <!-- Assets (from Shop Investments tab) -->
+        <div class="profile-card fade-in">
+          <div class="card-title">📦 Assets</div>
+          <div class="inv-grid">${assetItems}</div>
           <div style="margin-top:1.25rem;">
-            <div class="card-title">📈 Investments</div>
-            ${investItems}
+            <div class="card-title">💎 Gems</div>
+            <div class="inv-grid">${gemItems}</div>
           </div>
         </div>
 
@@ -1109,7 +952,7 @@
 
         <!-- Pets -->
         <div class="profile-card full-width fade-in">
-          <div class="card-title">🐾 Pets (${pets.length})</div>
+          <div class="card-title">🐾 Pets</div>
           <div class="inv-grid">${petItems}</div>
           <a href="zoo.html" class="promo-btn" style="margin-top:.9rem;">Visit the Zoo →</a>
         </div>
@@ -1149,12 +992,20 @@
 
   /* ── Global Ranking ───────────────────────────────────
      Ranks the user by total worth (net worth + card worth +
-     investment worth) against everyone else on the platform.
+     bounty) against everyone else on the platform. Raw resource
+     counts (gold/stark/land/tech/fuel) aren't priced anywhere in
+     this file, so they're left out of the score — fold them in
+     once you tell me the per-unit prices from the Shop.
      NOTE: this expects an API method that returns all users
      (e.g. API.getAllUsers / API.getLeaderboard). Wire the
      correct function name below once confirmed — until then
      this fails gracefully and shows "—".
   ─────────────────────────────────────────────────────── */
+  function scoreUser(u) {
+    const cw = (u.cards || []).reduce((s, c) => s + (Number(c?.worth) || 0), 0);
+    return (u.netWorth || 0) + cw + Number(u.bounty || 0);
+  }
+
   async function loadGlobalRank(user) {
     const el = document.getElementById('global-rank-val');
     if (!el) return;
@@ -1170,15 +1021,10 @@
 
       const totals = allRaw.map(r => {
         const u = App.parseUser(r);
-        if (!u) return 0;
-        const cw = (u.cards || []).reduce((s, c) => s + (Number(c?.worth) || 0), 0);
-        const iw = (u.investments || []).reduce((s, i) => s + (Number(i?.worth ?? i?.value ?? i?.amount) || 0), 0);
-        return (u.netWorth || 0) + cw + iw;
+        return u ? scoreUser(u) : 0;
       }).sort((a, b) => b - a);
 
-      const cardsWorth = (user.cards || []).reduce((s, c) => s + (Number(c?.worth) || 0), 0);
-      const investWorth = (user.investments || []).reduce((s, i) => s + (Number(i?.worth ?? i?.value ?? i?.amount) || 0), 0);
-      const myTotal = (user.netWorth || 0) + cardsWorth + investWorth;
+      const myTotal = scoreUser(user);
 
       const rank = totals.findIndex(t => t <= myTotal) + 1;
       el.textContent = rank > 0 ? `#${rank}` : '—';
@@ -1371,77 +1217,14 @@
     document.body.style.overflow = '';
   }
 
-  /* ── Card Detail Modal (bigger cinematic view) ───────── */
-  function openCardModal(cardJsonStr) {
-    let card = {};
-    try { card = JSON.parse(cardJsonStr); } catch (e) { card = {}; }
-
-    const overlay = document.getElementById('card-modal-overlay');
-    const inner   = document.getElementById('card-modal-inner');
-    const tierColor = TIER_COLORS[card.tier] || '#9ca3af';
-
-    const art = card.preRenderedUrl
-      ? `<div class="card-modal-art"><img src="${card.preRenderedUrl}" alt="${card.name || 'Card'}"></div>`
-      : `<div class="card-modal-art-fallback">🃏</div>`;
-
-    const stageBg = card.preRenderedUrl
-      ? `<div class="card-modal-stage-bg" style="background-image:url('${card.preRenderedUrl}');"></div>`
-      : '';
-
-    const acquired = card.acquiredAt ? timeAgoFull(card.acquiredAt) : '—';
-
-    inner.innerHTML = `
-      <button class="card-modal-close" onclick="closeCardModal()">✕</button>
-      <div class="card-modal-stage">
-        ${stageBg}
-        <div class="card-modal-stage-glow"></div>
-        ${art}
-      </div>
-      <div class="card-modal-body">
-        <div class="card-modal-tier" style="color:${tierColor};background:${tierColor}22;border:1px solid ${tierColor}55;">
-          ${card.badge || card.tier || 'Card'}
-        </div>
-        <div class="card-modal-name">${card.name || 'Unknown Card'}</div>
-        <div class="card-modal-series">${card.seriesName || ''}</div>
-
-        <div class="card-modal-stats">
-          <div class="card-modal-stat-cell">
-            <div class="card-modal-stat-lbl">Worth</div>
-            <div class="card-modal-stat-val gold">${App.formatCoins(card.worth || 0)}</div>
-          </div>
-          <div class="card-modal-stat-cell">
-            <div class="card-modal-stat-lbl">Tier</div>
-            <div class="card-modal-stat-val" style="color:${tierColor}">${card.tier || '—'}</div>
-          </div>
-          <div class="card-modal-stat-cell">
-            <div class="card-modal-stat-lbl">Acquired</div>
-            <div class="card-modal-stat-val" style="font-size:13px;">${acquired}</div>
-          </div>
-          <div class="card-modal-stat-cell">
-            <div class="card-modal-stat-lbl">Card ID</div>
-            <div class="card-modal-stat-val" style="font-size:12px;color:var(--text-3);">${card.id || '—'}</div>
-          </div>
-        </div>
-      </div>
-    `;
-
-    overlay.classList.add('open');
-    document.body.style.overflow = 'hidden';
-  }
-
-  function closeCardModal(e) {
-    if (e && e.target !== document.getElementById('card-modal-overlay')) return;
-    const overlay = document.getElementById('card-modal-overlay');
-    overlay.classList.remove('open');
-    document.body.style.overflow = '';
-  }
+  // Note: openCardModal / closeCardModal are defined in app.js — that
+  // version already fetches full card lore + owner list from `_shop`
+  // and shows a full-bleed image, so this file no longer defines its own.
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       const userOverlay = document.getElementById('user-popup-overlay');
-      const cardOverlay = document.getElementById('card-modal-overlay');
-      if (cardOverlay.classList.contains('open')) closeCardModal({ target: cardOverlay });
-      else if (userOverlay.classList.contains('open')) closeUserPopup({ target: userOverlay });
+      if (userOverlay.classList.contains('open')) closeUserPopup({ target: userOverlay });
     }
   });
 
