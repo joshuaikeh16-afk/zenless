@@ -49,35 +49,40 @@ function refreshHUD() {
   document.getElementById('hud-avatar').innerHTML = App.renderAvatar(currentPlayer, 42);
   document.getElementById('hud-name').textContent  = currentPlayer.name;
   document.getElementById('hud-name').className    = 'hud-name';
-  document.getElementById('hud-coins').textContent  = App.formatCoins(currentPlayer.coins);
-}
-
-async function syncCoins(delta) {
-  if (!currentPlayer) return false;
-  const newCoins = Math.max(0, currentPlayer.coins + delta);
-  const updatedData = { ...currentPlayer._raw, primos: newCoins, coins: newCoins };
-  const result = await API.updateUser(currentPlayer.id, { data: updatedData });
-  if (!result) return false;
-  currentPlayer._raw     = updatedData;
-  currentPlayer.coins    = newCoins;
-  currentPlayer.netWorth = newCoins + (currentPlayer.bank || 0);
-  refreshHUD();
-  syncBotEconomy(updatedData.lid, { primos: newCoins }); // fire-and-forget mirror to WhatsApp bot, see api.js
-  return true;
+  document.getElementById('hud-pp').textContent     = (currentPlayer.primePoints || 0).toLocaleString();
 }
 
 // ────────────────────────────────────────────────────────────
-// ENTRY PASS — flat 5 primo cover charge, never paid back out.
+// ENTRY PASS — flat 5 Prime Point cover charge, never paid back out.
+// Uses the same PPApi.adjustPP write path the rest of the site
+// already relies on for Prime Points, so it actually persists.
 // ────────────────────────────────────────────────────────────
+let ppSyncChain = Promise.resolve();
+function queuePPSync(fn) {
+  const result = ppSyncChain.then(fn);
+  ppSyncChain  = result.catch(() => {});
+  return result;
+}
+
 async function payEntry(label) {
   if (!currentPlayer) { App.showToast('Load your player first!', 'info'); return false; }
-  if ((currentPlayer.coins || 0) < ENTRY_FEE) {
-    App.showToast(`You need ${ENTRY_FEE} 🪙 for an entry pass`, 'info');
+  if ((currentPlayer.primePoints || 0) < ENTRY_FEE) {
+    App.showToast(`You need ${ENTRY_FEE} ◈ Prime Points for an entry pass`, 'info');
     return false;
   }
-  const ok = await syncCoins(-ENTRY_FEE);
-  if (!ok) { App.showToast('Could not process entry pass — try again', 'info'); return false; }
-  App.showToast(`🎟️ Entry pass paid (${ENTRY_FEE} 🪙) — enjoy ${label}!`, 'info');
+  const res = await queuePPSync(() =>
+    PPApi.adjustPP(currentPlayer.id, currentPlayer._raw, -ENTRY_FEE, `Arcade entry — ${label}`, 'game')
+  );
+  if (!res || res.failed) {
+    App.showToast('Could not process entry pass — try again', 'info');
+    return false;
+  }
+  currentPlayer.primePoints = res.primePoints;
+  currentPlayer.rank        = res.rank;
+  currentPlayer.ppHistory   = res.ppHistory;
+  currentPlayer._raw        = { ...currentPlayer._raw, primePoints: res.primePoints, rank: res.rank, ppHistory: res.ppHistory };
+  refreshHUD();
+  App.showToast(`🎟️ Entry pass paid (${ENTRY_FEE} ◈) — enjoy ${label}!`, 'info');
   return true;
 }
 
@@ -175,7 +180,7 @@ function initSnakeGame() {
   document.getElementById('snake-score').textContent = '0';
   document.getElementById('snake-speed').textContent = '1.0x';
   document.getElementById('snake-overlay').innerHTML = '';
-  document.getElementById('snake-start-btn').textContent = `Restart — ${ENTRY_FEE} 🪙`;
+  document.getElementById('snake-start-btn').textContent = `Restart — ${ENTRY_FEE} ◈`;
   clearInterval(snake.timer);
   snake.timer = setInterval(snakeTick, snake.speed);
   drawSnake();
@@ -232,7 +237,7 @@ function snakeGameOver() {
   if (snake.score > hs) { setHS('snake', snake.score); App.showToast('🏆 New high score!', 'info'); }
   refreshAllHighScores();
   document.getElementById('snake-overlay').innerHTML = `<div class="stage-gameover">💥 Game Over<br><span>Score: ${snake.score}</span></div>`;
-  document.getElementById('snake-start-btn').textContent = `Play Again — ${ENTRY_FEE} 🪙`;
+  document.getElementById('snake-start-btn').textContent = `Play Again — ${ENTRY_FEE} ◈`;
 }
 function snakeSetDir(x, y) {
   if (!snake || !snake.active) return;
@@ -271,7 +276,7 @@ function initTetris() {
   document.getElementById('tet-lines').textContent = '0';
   document.getElementById('tet-level').textContent = '1';
   document.getElementById('tet-overlay').innerHTML = '';
-  document.getElementById('tet-start-btn').textContent = `Restart — ${ENTRY_FEE} 🪙`;
+  document.getElementById('tet-start-btn').textContent = `Restart — ${ENTRY_FEE} ◈`;
   clearInterval(tetris.timer);
   tetris.timer = setInterval(tetrisDrop, tetris.dropInterval);
   drawTetris();
@@ -389,7 +394,7 @@ function tetrisGameOver() {
   if (tetris.score > hs) { setHS('tetris', tetris.score); App.showToast('🏆 New high score!', 'info'); }
   refreshAllHighScores();
   document.getElementById('tet-overlay').innerHTML = `<div class="stage-gameover">💥 Game Over<br><span>Score: ${tetris.score}</span></div>`;
-  document.getElementById('tet-start-btn').textContent = `Play Again — ${ENTRY_FEE} 🪙`;
+  document.getElementById('tet-start-btn').textContent = `Play Again — ${ENTRY_FEE} ◈`;
 }
 function tetrisMove(dx) {
   if (!tetris || !tetris.active) return;
@@ -429,7 +434,7 @@ function initMemory() {
   document.getElementById('mem-combo').textContent = '×1';
   document.getElementById('mem-time').textContent = '0s';
   document.getElementById('mem-overlay').innerHTML = '';
-  document.getElementById('mem-start-btn').textContent = `Restart — ${ENTRY_FEE} 🪙`;
+  document.getElementById('mem-start-btn').textContent = `Restart — ${ENTRY_FEE} ◈`;
   clearInterval(memory.timer);
   memory.timer = setInterval(() => {
     if (memory.active) document.getElementById('mem-time').textContent = Math.floor((Date.now() - memory.startTime) / 1000) + 's';
@@ -485,7 +490,7 @@ function memoryWin() {
   if (hs === 0 || memory.moves < hs) { setHS('memory_moves', memory.moves); App.showToast('🏆 New best moves!', 'info'); }
   refreshAllHighScores();
   document.getElementById('mem-overlay').innerHTML = `<div class="stage-gameover">🎉 Cleared!<br><span>${memory.moves} moves · ${time}s</span></div>`;
-  document.getElementById('mem-start-btn').textContent = `Play Again — ${ENTRY_FEE} 🪙`;
+  document.getElementById('mem-start-btn').textContent = `Play Again — ${ENTRY_FEE} ◈`;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -512,7 +517,7 @@ function initTyping() {
   document.getElementById('typ-wpm').textContent = '0';
   document.getElementById('typ-acc').textContent = '100%';
   document.getElementById('typ-overlay').innerHTML = '';
-  document.getElementById('typ-start-btn').textContent = `Restart — ${ENTRY_FEE} 🪙`;
+  document.getElementById('typ-start-btn').textContent = `Restart — ${ENTRY_FEE} ◈`;
   const input = document.getElementById('typ-input');
   input.value = ''; input.disabled = false; input.focus();
   renderTypingText();
@@ -555,7 +560,7 @@ function finishTyping() {
   if (wpm > hs) { setHS('typing_wpm', wpm); App.showToast('🏆 New best WPM!', 'info'); }
   refreshAllHighScores();
   document.getElementById('typ-overlay').innerHTML = `<div class="stage-gameover">✅ Done!<br><span>${wpm} WPM · ${acc}% accuracy</span></div>`;
-  document.getElementById('typ-start-btn').textContent = `Play Again — ${ENTRY_FEE} 🪙`;
+  document.getElementById('typ-start-btn').textContent = `Play Again — ${ENTRY_FEE} ◈`;
 }
 const KB_ROWS = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 function renderKeyboardHighlight(nextChar) {
@@ -582,7 +587,7 @@ function initReaction() {
   reaction = { streak: 0, active: true, windowMs: 1400, round: 0 };
   document.getElementById('rx-streak').textContent = '0';
   document.getElementById('rx-overlay').innerHTML = '';
-  document.getElementById('rx-start-btn').textContent = `Restart — ${ENTRY_FEE} 🪙`;
+  document.getElementById('rx-start-btn').textContent = `Restart — ${ENTRY_FEE} ◈`;
   document.getElementById('rx-arena').innerHTML = '<div class="rx-msg">Get ready…</div>';
   setTimeout(reactionSpawn, 900);
 }
@@ -616,7 +621,7 @@ function reactionMiss() {
   if (reaction.streak > hs) { setHS('reaction_streak', reaction.streak); App.showToast('🏆 New best streak!', 'info'); }
   refreshAllHighScores();
   document.getElementById('rx-overlay').innerHTML = `<div class="stage-gameover">Streak ended<br><span>${reaction.streak} hits</span></div>`;
-  document.getElementById('rx-start-btn').textContent = `Play Again — ${ENTRY_FEE} 🪙`;
+  document.getElementById('rx-start-btn').textContent = `Play Again — ${ENTRY_FEE} ◈`;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -647,7 +652,7 @@ function initBreaker() {
   document.getElementById('brk-lives').textContent = '3';
   document.getElementById('brk-level').textContent = '1';
   document.getElementById('brk-overlay').innerHTML = '';
-  document.getElementById('brk-start-btn').textContent = `Restart — ${ENTRY_FEE} 🪙`;
+  document.getElementById('brk-start-btn').textContent = `Restart — ${ENTRY_FEE} ◈`;
   cancelAnimationFrame(breaker.raf);
   setupBreakerControls();
   breakerLoop();
@@ -774,7 +779,7 @@ function breakerGameOver() {
   if (breaker.score > hs) { setHS('breaker', breaker.score); App.showToast('🏆 New high score!', 'info'); }
   refreshAllHighScores();
   document.getElementById('brk-overlay').innerHTML = `<div class="stage-gameover">💥 Game Over<br><span>Score: ${breaker.score}</span></div>`;
-  document.getElementById('brk-start-btn').textContent = `Play Again — ${ENTRY_FEE} 🪙`;
+  document.getElementById('brk-start-btn').textContent = `Play Again — ${ENTRY_FEE} ◈`;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -805,7 +810,7 @@ function initTrivia() {
   document.getElementById('triv-score').textContent = '0';
   document.getElementById('triv-streak').textContent = '0';
   document.getElementById('triv-overlay').innerHTML = '';
-  document.getElementById('triv-start-btn').textContent = `Restart — ${ENTRY_FEE} 🪙`;
+  document.getElementById('triv-start-btn').textContent = `Restart — ${ENTRY_FEE} ◈`;
   triviaShowQuestion();
 }
 function triviaShowQuestion() {
@@ -852,7 +857,7 @@ function triviaFinish() {
   document.getElementById('triv-opts').innerHTML = '';
   document.getElementById('triv-timerbar').style.width = '0%';
   document.getElementById('triv-overlay').innerHTML = `<div class="stage-gameover">🎓 Quiz Complete!<br><span>Score: ${trivia.score}</span></div>`;
-  document.getElementById('triv-start-btn').textContent = `Play Again — ${ENTRY_FEE} 🪙`;
+  document.getElementById('triv-start-btn').textContent = `Play Again — ${ENTRY_FEE} ◈`;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -881,7 +886,7 @@ function initSlider() {
   slider = { n, tiles, moves: 0, active: true };
   document.getElementById('slider-moves').textContent = '0';
   document.getElementById('slider-overlay').innerHTML = '';
-  document.getElementById('slider-start-btn').textContent = `Restart — ${ENTRY_FEE} 🪙`;
+  document.getElementById('slider-start-btn').textContent = `Restart — ${ENTRY_FEE} ◈`;
   renderSlider();
 }
 function isSolved(tiles) {
@@ -926,7 +931,7 @@ function sliderWin() {
   if (hs === 0 || slider.moves < hs) { setHS(key, slider.moves); App.showToast('🏆 New best!', 'info'); }
   refreshAllHighScores();
   document.getElementById('slider-overlay').innerHTML = `<div class="stage-gameover">🧩 Solved!<br><span>${slider.moves} moves</span></div>`;
-  document.getElementById('slider-start-btn').textContent = `Play Again — ${ENTRY_FEE} 🪙`;
+  document.getElementById('slider-start-btn').textContent = `Play Again — ${ENTRY_FEE} ◈`;
 }
 
 // ════════════════════════════════════════════════════════════
