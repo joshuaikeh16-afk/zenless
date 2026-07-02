@@ -33,7 +33,7 @@
   background: linear-gradient(135deg, rgba(124,93,250,0.04) 0%, transparent 60%);
   pointer-events: none;
 }
-.hud-coins { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--gold); display: flex; align-items: center; gap: 5px; }
+.hud-pp-badge { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: #a78bfa; display: flex; align-items: center; gap: 5px; }
 .hud-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
 .hud-name  { font-size: 14px; font-weight: 600; color: var(--text); }
 .hud-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
@@ -245,7 +245,7 @@
     <!-- Page header -->
     <div class="page-header fade-in">
       <div class="page-title">Arcade</div>
-      <div class="page-sub">Pure skill games · 5 🪙 entry pass per round · no wagers, no payouts</div>
+      <div class="page-sub">Pure skill games · 5 ◈ entry pass per round · no wagers, no payouts</div>
     </div>
 
     <!-- Player HUD -->
@@ -253,11 +253,11 @@
       <div id="hud-avatar"></div>
       <div>
         <div id="hud-name" class="hud-not-loaded">Not loaded</div>
-        <div class="hud-label" style="margin-top:4px;">Prime Coins</div>
-        <div class="hud-coins">🪙 <span id="hud-coins">—</span></div>
+        <div class="hud-label" style="margin-top:4px;">Prime Points</div>
+        <div class="hud-pp-badge">◈ <span id="hud-pp">0</span></div>
       </div>
       <div class="hud-right">
-        <div class="hud-entry-note">🎟️ Entry pass: 5 🪙 / round</div>
+        <div class="hud-entry-note">🎟️ Entry pass: 5 ◈ / round</div>
         <div id="hud-load-section" style="display:flex;align-items:center;gap:8px;">
           <input type="text" class="hud-input" id="hud-phone" placeholder="Your phone number…" />
           <button class="hud-btn" id="hud-load-btn">Load Player</button>
@@ -286,7 +286,7 @@
             <div class="game-desc">Classic snake with a glowing trail. Speed ramps up with every bite — how long can you survive?</div>
             <div class="entry-row">
               <div class="hs-chip">🏆 Best: <strong id="snake-hs">0</strong></div>
-              <button class="play-btn" id="snake-start-btn" onclick="startSnake()">Play — 5 🪙 Entry</button>
+              <button class="play-btn" id="snake-start-btn" onclick="startSnake()">Play — 5 ◈ Entry</button>
             </div>
             <div class="arcade-stage">
               <canvas id="snake-canvas"></canvas>
@@ -307,7 +307,7 @@
             <div class="game-desc">Full rotation, ghost piece, and satisfying line-clear flashes. Levels speed up the drop every 10 lines.</div>
             <div class="entry-row">
               <div class="hs-chip">🏆 Best: <strong id="tet-hs">0</strong></div>
-              <button class="play-btn" id="tet-start-btn" onclick="startTetris()">Play — 5 🪙 Entry</button>
+              <button class="play-btn" id="tet-start-btn" onclick="startTetris()">Play — 5 ◈ Entry</button>
             </div>
             <div class="tetris-layout">
               <div class="arcade-stage" style="margin:0;">
@@ -342,7 +342,7 @@
             <div class="game-desc">Flip pairs of anime-themed cards. Match quickly in a row to build a combo multiplier.</div>
             <div class="entry-row">
               <div class="hs-chip">🏆 Best: <strong id="mem-hs">—</strong> moves</div>
-              <button class="play-btn" id="mem-start-btn" onclick="startMemory()">Play — 5 🪙 Entry</button>
+              <button class="play-btn" id="mem-start-btn" onclick="startMemory()">Play — 5 ◈ Entry</button>
             </div>
             <div class="mem-stats">
               <span>Moves: <strong id="mem-moves">0</strong></span>
@@ -363,7 +363,7 @@
             <div class="game-desc">Type the sentence as fast and accurately as you can. Watch the keyboard highlight your next key.</div>
             <div class="entry-row">
               <div class="hs-chip">🏆 Best: <strong id="typ-hs">0</strong> wpm</div>
-              <button class="play-btn" id="typ-start-btn" onclick="startTyping()">Play — 5 🪙 Entry</button>
+              <button class="play-btn" id="typ-start-btn" onclick="startTyping()">Play — 5 ◈ Entry</button>
             </div>
             <div class="typ-stats">
               <span>WPM: <strong id="typ-wpm">0</strong></span>
@@ -385,7 +385,7 @@
             <div class="game-desc">Tap the target before it vanishes. Each hit shrinks your reaction window — chase the streak.</div>
             <div class="entry-row">
               <div class="hs-chip">🏆 Best streak: <strong id="rx-hs">0</strong></div>
-              <button class="play-btn" id="rx-start-btn" onclick="startReaction()">Play — 5 🪙 Entry</button>
+              <button class="play-btn" id="rx-start-btn" onclick="startReaction()">Play — 5 ◈ Entry</button>
             </div>
             <div class="rx-stats"><span>Streak: <strong id="rx-streak">0</strong></span></div>
             <div style="position:relative;">
@@ -402,7 +402,7 @@
             <div class="game-desc">Break every brick. Catch power-ups: ⚡ multi-ball, 📏 wide paddle, 🔫 auto-laser. Clear a level to go harder.</div>
             <div class="entry-row">
               <div class="hs-chip">🏆 Best: <strong id="brk-hs">0</strong></div>
-              <button class="play-btn" id="brk-start-btn" onclick="startBreaker()">Play — 5 🪙 Entry</button>
+              <button class="play-btn" id="brk-start-btn" onclick="startBreaker()">Play — 5 ◈ Entry</button>
             </div>
             <div class="brk-stats">
               <span>Score: <strong id="brk-score">0</strong></span>
@@ -424,7 +424,7 @@
             <div class="game-desc">10 anime + general knowledge questions. Answer fast — 15 seconds each — and chain a streak bonus.</div>
             <div class="entry-row">
               <div class="hs-chip">🏆 Best: <strong id="triv-hs">0</strong></div>
-              <button class="play-btn" id="triv-start-btn" onclick="startTrivia()">Play — 5 🪙 Entry</button>
+              <button class="play-btn" id="triv-start-btn" onclick="startTrivia()">Play — 5 ◈ Entry</button>
             </div>
             <div class="triv-top">
               <span id="triv-qnum">Q0/10</span>
@@ -446,7 +446,7 @@
             <div class="game-desc">Slide numbered tiles back into order. Switch between 3×3 and 4×4 boards.</div>
             <div class="entry-row">
               <div class="hs-chip">🏆 Best: <strong id="slider-hs">—</strong> moves</div>
-              <button class="play-btn" id="slider-start-btn" onclick="startSlider()">Play — 5 🪙 Entry</button>
+              <button class="play-btn" id="slider-start-btn" onclick="startSlider()">Play — 5 ◈ Entry</button>
             </div>
             <div class="slider-size-row">
               <button class="slider-size-btn active" id="slider-size-3" onclick="setSliderSize(3)">3×3</button>
