@@ -200,12 +200,12 @@ function renderSidebar(activePage) {
   };
  
   const pages = [
- //   { id: 'index',       label: 'Overview',    href: 'index.html' },
+ { id: 'index',       label: 'Overview',    href: 'index.html' },
     { id: 'leaderboard', label: 'Leaderboard', href: 'leaderboard.html' },
-    //{ id: 'profile',     label: 'Profile', href: 'profile.html' },
-    //{ id: 'guilds',      label: 'Guilds',      href: 'guilds.html' },
-   // { id: 'games',       label: 'Games',       href: 'games.html' },
-   // { id: 'forex',       label: 'Markets',     href: 'forex.html' },
+    { id: 'profile',     label: 'Profile', href: 'profile.html' },
+    { id: 'guilds',      label: 'Guilds',      href: 'guilds.html' },
+   { id: 'games',       label: 'Games',       href: 'games.html' },
+   { id: 'forex',       label: 'Markets',     href: 'forex.html' },
     { id: 'staff',       label: 'Shop',       href: 'shop.html' },
      //{ id: 'admin',       label: 'Deck',       href: 'deck.html' },
   ];
