@@ -1,7 +1,7 @@
  const CONFIG = {
   supabase: {
     url: 'https://padybdvevwazfilxopqy.supabase.co',
-    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhZHliZHZldndhemZpbHhvcHF5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzM5OTgwNCwiZXhwIjoyMDkyOTc1ODA0fQ.bI3epdb6N4T21At5xkAHcJnKbPKUd0-l2vzr4xGZN8w',
+    key: '936f46f583278e85da0457c6be357fd22b87f63dd4ca1c0',
     table: 'economy_full',
   },
   mongo: {
