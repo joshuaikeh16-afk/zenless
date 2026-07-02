@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   // Fetch listings, update price, save back
   const getRes = await fetch(
     `http://jobs.hidencloud.com:24633/api/economy/shop/${encodeURIComponent(groupId)}`,
-    { headers: { 'x-api-key': '936f46f583278e85da40457c6be357fd22b87f63dd4ca1c0' } }
+    { headers: { 'x-api-key': '936f46f583278e85da0457c6be357fd22b87f63dd4ca1c0' } }
   );
   const listings = await getRes.json();
   const idx = listingIndex - 1;
