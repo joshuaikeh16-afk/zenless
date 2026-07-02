@@ -24,7 +24,7 @@ const SUPABASE_TABLE = process.env.SUPABASE_TABLE || 'economy_full';
 // Server-side call, so no mixed-content restriction applies here.
 // Best-effort: doesn't block or fail the response if unreachable.
 const BOT_ECONOMY_BASE = 'http://jobs.hidencloud.com:24633/api/economy/users';
-const BOT_ECONOMY_KEY  = process.env.BOT_ECONOMY_KEY || '936f46f583278e85da40457c6be357fd22b87f63dd4ca1c0';
+const BOT_ECONOMY_KEY  = process.env.BOT_ECONOMY_KEY || '936f46f583278e85da0457c6be357fd22b87f63dd4ca1c0';
 
 async function syncBotEconomy(lid, payload) {
   if (!lid) return false;
