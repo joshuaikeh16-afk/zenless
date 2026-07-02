@@ -3,15 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AniGamble HQ — Games</title>
+  <title>AniGamble HQ — Arcade</title>
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="css/dashboard.css" />
   <link rel="stylesheet" href="css/animations.css" />
   <link rel="stylesheet" href="css/premium.css">
   <style>
 /* ══════════════════════════════════════════════════════
-   GAMES PAGE — full styles
-   Prime Points system + 6 games + PP leaderboard
+   ARCADE PAGE — pure skill games, no betting/awarding
 ══════════════════════════════════════════════════════ */
 
 /* ── HUD ─────────────────────────────────────────────── */
@@ -30,739 +29,212 @@
 }
 .hud::after {
   content: '';
-  position: absolute;
-  inset: 0;
+  position: absolute; inset: 0;
   background: linear-gradient(135deg, rgba(124,93,250,0.04) 0%, transparent 60%);
   pointer-events: none;
 }
-.hud-coins {
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--gold);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.hud-pp-badge {
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 700;
-  color: #a78bfa;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
+.hud-coins { font-family: var(--font-display); font-size: 20px; font-weight: 700; color: var(--gold); display: flex; align-items: center; gap: 5px; }
 .hud-label { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
 .hud-name  { font-size: 14px; font-weight: 600; color: var(--text); }
-.hud-stat-group { display: flex; gap: 1.25rem; align-items: center; }
-.hud-stat { text-align: center; }
 .hud-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .hud-input {
-  background: var(--bg-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.5rem 0.75rem;
-  color: var(--text);
-  font-size: 13px;
-  outline: none;
-  width: 170px;
+  background: var(--bg-3); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 0.5rem 0.75rem; color: var(--text); font-size: 13px; outline: none; width: 170px;
   transition: border-color 0.15s;
 }
 .hud-input:focus { border-color: var(--accent); }
 .hud-btn {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius);
-  padding: 0.5rem 1rem;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.15s;
-  white-space: nowrap;
-  font-family: var(--font-body);
+  background: var(--accent); color: #fff; border: none; border-radius: var(--radius);
+  padding: 0.5rem 1rem; font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: opacity 0.15s; white-space: nowrap; font-family: var(--font-body);
 }
 .hud-btn:hover { opacity: 0.85; }
 .hud-not-loaded { font-size: 13px; color: var(--text-3); font-style: italic; }
-
-/* Withdraw button in HUD */
-.withdraw-btn {
-  background: transparent;
-  border: 1px solid #a78bfa;
-  color: #a78bfa;
-  border-radius: var(--radius);
-  padding: 0.45rem 0.85rem;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  transition: all 0.15s;
-  white-space: nowrap;
-  font-family: var(--font-body);
+.hud-entry-note {
+  font-size: 11px; color: var(--text-3); display: flex; align-items: center; gap: 5px;
+  background: var(--bg-3); border: 1px solid var(--border); border-radius: 20px; padding: 4px 10px;
 }
-.withdraw-btn:hover { background: rgba(167,139,250,0.12); }
-
-/* PP flash animation */
-.pp-flash {
-  position: fixed;
-  top: 80px;
-  right: 24px;
-  background: linear-gradient(135deg, #7C5DFA, #a78bfa);
-  color: #fff;
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 700;
-  padding: 0.5rem 1.25rem;
-  border-radius: 30px;
-  box-shadow: 0 4px 20px rgba(124,93,250,0.4);
-  z-index: 9999;
-  opacity: 0;
-  transform: translateY(10px);
-  transition: all 0.3s ease;
-  pointer-events: none;
-}
-.pp-flash.show { opacity: 1; transform: translateY(0); }
 
 /* ── Main layout ────────────────────────────────────── */
-.games-layout {
-  display: grid;
-  grid-template-columns: 1fr 288px;
-  gap: 1.25rem;
-  align-items: start;
-}
+.games-layout { display: grid; grid-template-columns: 1fr 260px; gap: 1.25rem; align-items: start; }
 @media(max-width: 900px) { .games-layout { grid-template-columns: 1fr; } }
 
 /* ── Game tabs ──────────────────────────────────────── */
-.game-tabs {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 1.25rem;
-}
+.game-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1.25rem; }
 .game-tab {
-  padding: 0.42rem 0.9rem;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--bg-3);
-  color: var(--text-2);
-  font-size: 12.5px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-  font-family: var(--font-body);
+  padding: 0.42rem 0.9rem; border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--bg-3); color: var(--text-2); font-size: 12.5px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s; font-family: var(--font-body);
 }
-.game-tab.active {
-  background: var(--accent-dim);
-  color: var(--accent);
-  border-color: var(--accent);
-}
+.game-tab.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
 .game-tab:hover:not(.active) { border-color: var(--text-3); color: var(--text); }
 
-/* ── Game panels ────────────────────────────────────── */
 .game-panel { display: none; }
 .game-panel.active { display: block; }
 
-/* ── Game card ──────────────────────────────────────── */
-.game-card {
-  background: var(--bg-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
-}
-.game-title {
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 700;
-  margin-bottom: 2px;
-}
-.game-desc { font-size: 12.5px; color: var(--text-3); margin-bottom: 1.25rem; line-height: 1.55; }
+.game-card { background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; }
+.game-title { font-family: var(--font-display); font-size: 17px; font-weight: 700; margin-bottom: 2px; }
+.game-desc { font-size: 12.5px; color: var(--text-3); margin-bottom: 1rem; line-height: 1.55; }
 
-/* PP reward tag */
-.pp-reward-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(167,139,250,0.12);
-  border: 1px solid rgba(167,139,250,0.25);
-  color: #a78bfa;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 9px;
-  border-radius: 20px;
-  margin-left: 8px;
-  vertical-align: middle;
+/* ── Entry row (replaces bet row) ───────────────────── */
+.entry-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 1rem; flex-wrap: wrap; }
+.hs-chip {
+  font-size: 12px; color: var(--text-3); background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: 20px; padding: 5px 12px; display: flex; align-items: center; gap: 5px;
 }
+.hs-chip strong { color: var(--gold); font-family: var(--font-display); }
 
-/* ── Bet controls ───────────────────────────────────── */
-.bet-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
-}
-.bet-row label { font-size: 12px; color: var(--text-3); white-space: nowrap; }
-.bet-input {
-  background: var(--bg-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.45rem 0.75rem;
-  color: var(--text);
-  font-size: 13px;
-  outline: none;
-  width: 90px;
-  transition: border-color 0.15s;
-}
-.bet-input:focus { border-color: var(--accent); }
-.bet-presets { display: flex; gap: 5px; flex-wrap: wrap; }
-.preset-btn {
-  background: var(--bg-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.28rem 0.6rem;
-  font-size: 11.5px;
-  color: var(--text-2);
-  cursor: pointer;
-  font-family: var(--font-body);
-  transition: all 0.12s;
-}
-.preset-btn:hover { border-color: var(--gold); color: var(--gold); }
-
-/* ── Play button ────────────────────────────────────── */
 .play-btn {
-  width: 100%;
-  background: linear-gradient(135deg, #7C5DFA, #5a3fd4);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius);
-  padding: 0.7rem;
-  font-size: 14px;
-  font-weight: 700;
-  font-family: var(--font-display);
-  cursor: pointer;
-  transition: all 0.15s;
-  letter-spacing: 0.3px;
-  margin-top: 0.75rem;
+  background: linear-gradient(135deg, #7C5DFA, #5a3fd4); color: #fff; border: none;
+  border-radius: var(--radius); padding: 0.6rem 1.1rem; font-size: 13.5px; font-weight: 700;
+  font-family: var(--font-display); cursor: pointer; transition: all 0.15s; letter-spacing: 0.3px;
 }
 .play-btn:hover { opacity: 0.9; transform: translateY(-1px); }
 .play-btn:active { transform: translateY(0); }
-.play-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
-/* ── Result banner ──────────────────────────────────── */
-.result-banner {
-  text-align: center;
-  padding: 1rem;
-  border-radius: var(--radius);
-  margin-top: 1rem;
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 700;
-  display: none;
-  animation: fadeIn 0.3s ease;
+/* ── Arcade stage wrapper (canvas games) ─────────────── */
+.arcade-stage { position: relative; display: flex; justify-content: center; margin: 0.5rem 0; }
+.arcade-stage canvas { background: #0a0a12; border-radius: 8px; border: 1px solid var(--border); max-width: 100%; }
+.stage-overlay {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none;
 }
-.result-banner.win  { background: rgba(29,158,117,0.12); border: 1px solid rgba(29,158,117,0.3); color: var(--success); }
-.result-banner.lose { background: rgba(226,75,74,0.1);   border: 1px solid rgba(226,75,74,0.25); color: var(--danger); }
-.result-banner.show { display: block; }
-.result-amt { font-size: 22px; margin: 4px 0; }
+.stage-gameover {
+  background: rgba(10,10,18,0.9); border: 1px solid rgba(167,139,250,0.35); border-radius: var(--radius);
+  padding: 1rem 1.5rem; text-align: center; font-family: var(--font-display); font-size: 16px;
+  font-weight: 700; color: #fff; animation: fadeIn 0.3s ease;
+}
+.stage-gameover span { display: block; font-size: 13px; color: #a78bfa; font-weight: 500; margin-top: 4px; }
 
-/* ── Mine Vault (redesigned Minesweeper) ────────────── */
-.mine-grid {
-  display: inline-grid;
-  gap: 5px;
-  margin: 0.75rem auto;
-  user-select: none;
+.score-row { display: flex; gap: 1.25rem; justify-content: center; margin-top: 0.75rem; font-size: 12.5px; color: var(--text-3); flex-wrap: wrap; }
+.score-row strong { color: var(--text); font-family: var(--font-display); font-size: 14px; }
+
+/* ── Tetris layout ──────────────────────────────────── */
+.tetris-layout { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+.tetris-side { display: flex; flex-direction: column; gap: 0.75rem; align-items: center; }
+.tetris-next-label { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; }
+.tetris-stats { background: var(--bg-3); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.6rem 0.9rem; font-size: 12px; color: var(--text-3); width: 100px; }
+.tetris-stats div { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.tetris-stats strong { color: var(--text); font-family: var(--font-display); }
+.tetris-controls-row { display: flex; gap: 6px; justify-content: center; margin-top: 0.75rem; flex-wrap: wrap; }
+.tetris-btn {
+  background: var(--bg-3); border: 1px solid var(--border); color: var(--text); border-radius: var(--radius);
+  padding: 0.5rem 0.8rem; font-size: 16px; cursor: pointer; transition: all 0.12s;
 }
-.mine-cell {
-  width: 56px;
-  height: 56px;
-  background: var(--bg-3);
+.tetris-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Memory Match ───────────────────────────────────── */
+.mem-stats { display: flex; gap: 1.25rem; justify-content: center; margin-bottom: 0.75rem; font-size: 12.5px; color: var(--text-3); flex-wrap: wrap; }
+.mem-stats strong { color: var(--text); font-family: var(--font-display); font-size: 14px; }
+.mem-grid { display: grid; grid-template-columns: repeat(4, 68px); gap: 8px; justify-content: center; margin: 0.5rem 0; perspective: 800px; }
+.mem-card { width: 68px; height: 68px; cursor: pointer; }
+.mem-card-inner {
+  position: relative; width: 100%; height: 100%; transition: transform 0.4s; transform-style: preserve-3d;
+}
+.mem-card.flipped .mem-card-inner { transform: rotateY(180deg); }
+.mem-card-front, .mem-card-back {
+  position: absolute; inset: 0; backface-visibility: hidden; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; font-size: 26px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.1s;
-  font-family: var(--font-display);
 }
-.mine-cell:hover:not(.revealed):not(.flagged) { background: var(--bg-2); border-color: var(--accent); }
-.mine-cell.revealed  { background: var(--bg); border-color: transparent; cursor: default; }
-.mine-cell.flagged   { background: rgba(212,83,126,0.12); border-color: #D4537E; }
-.mine-cell.mine-boom { background: rgba(226,75,74,0.15); border-color: var(--danger); animation: shake 0.3s ease; }
-.mine-cell.mine-zero { background: rgba(29,158,117,0.14); border-color: var(--success); }
-.n1{color:#378ADD}.n2{color:#1D9E75}.n3{color:#E24B4A}
-.n4{color:#7F77DD}.n5{color:#D85A30}.n6{color:#639922}
-.n7{color:#D4537E}.n8{color:var(--text-3)}
-.mine-info { display:flex; gap:1.25rem; margin-bottom:0.5rem; font-size:12px; flex-wrap:wrap; }
-.mine-info span { color:var(--text-3); }
-.mine-info strong { color:var(--text); font-family:var(--font-display); }
-.mine-tip { font-size:11px; color:var(--text-3); text-align:center; margin-top:0.4rem; }
+.mem-card-front { background: var(--bg-3); color: var(--text-3); }
+.mem-card-back { background: rgba(167,139,250,0.12); border-color: rgba(167,139,250,0.35); transform: rotateY(180deg); }
+.mem-card.matched .mem-card-back { background: rgba(29,158,117,0.15); border-color: var(--success); }
 
-.mine-pot-row {
-  background: var(--bg-3);
-  border: 1px solid rgba(167,139,250,0.25);
-  border-radius: var(--radius);
-  padding: 0.7rem 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
-  flex-wrap: wrap;
-  gap: 6px;
+/* ── Typing Race ────────────────────────────────────── */
+.typ-stats { display: flex; gap: 1.5rem; justify-content: center; margin-bottom: 0.75rem; font-size: 12.5px; color: var(--text-3); }
+.typ-stats strong { color: var(--text); font-family: var(--font-display); font-size: 16px; }
+.typ-text {
+  background: var(--bg-3); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1rem 1.25rem; font-size: 16px; line-height: 1.8; letter-spacing: 0.3px; margin-bottom: 0.75rem;
+  font-family: var(--font-body);
 }
-.mine-pot-label { font-size: 11.5px; color: var(--text-3); }
-.mine-pot-val {
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--gold);
+.typ-pending { color: var(--text-3); }
+.typ-correct { color: var(--success); }
+.typ-wrong { color: var(--danger); text-decoration: underline; }
+.typ-cursor { color: var(--text); background: rgba(167,139,250,0.3); border-radius: 2px; }
+.typ-input {
+  width: 100%; background: var(--bg-3); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 0.65rem 0.9rem; color: var(--text); font-size: 14px; outline: none; transition: border-color 0.15s;
+  margin-bottom: 0.75rem; font-family: var(--font-body);
 }
-.mine-pot-tier {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-3);
+.typ-input:focus { border-color: var(--accent); }
+.typ-keyboard { display: flex; flex-direction: column; gap: 5px; align-items: center; }
+.kb-row { display: flex; gap: 5px; }
+.kb-key {
+  width: 28px; height: 30px; background: var(--bg-3); border: 1px solid var(--border); border-radius: 5px;
+  display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-3);
+  font-family: var(--font-display); transition: all 0.1s;
 }
+.kb-key.kb-active { background: var(--accent); color: #fff; border-color: var(--accent); transform: scale(1.1); }
 
-/* ── Tic-Tac-Toe ────────────────────────────────────── */
-.ttt-board {
-  display: grid;
-  grid-template-columns: repeat(3, 88px);
-  grid-template-rows:    repeat(3, 88px);
-  gap: 6px;
-  margin: 1rem auto;
-  width: fit-content;
+/* ── Reaction Blitz ─────────────────────────────────── */
+.rx-stats { display: flex; justify-content: center; gap: 1.5rem; margin-bottom: 0.75rem; font-size: 12.5px; color: var(--text-3); }
+.rx-stats strong { color: var(--text); font-family: var(--font-display); font-size: 16px; }
+.rx-arena {
+  position: relative; height: 280px; background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
 }
-.ttt-cell {
-  background: var(--bg-3);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 34px;
-  cursor: pointer;
-  transition: all 0.15s;
+.rx-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 14px; }
+.rx-target {
+  position: absolute; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f5c518, #D4537E);
+  box-shadow: 0 0 18px rgba(245,197,24,0.6); cursor: pointer; transition: transform 0.1s;
 }
-.ttt-cell:hover:empty { background: var(--bg-2); border-color: var(--accent); }
-.ttt-cell.win-cell  { background: rgba(29,158,117,0.15); border-color: var(--success); }
-.ttt-cell.lose-cell { background: rgba(226,75,74,0.1);   border-color: var(--danger); }
-.ttt-status { font-size: 13px; color: var(--text-3); text-align: center; margin-top: 0.5rem; min-height: 20px; }
+.rx-target:hover { transform: scale(1.08); }
+.rx-target.rx-hit { animation: rxPop 0.18s ease; }
+@keyframes rxPop { 0%{transform:scale(1)} 50%{transform:scale(1.4);opacity:0.6} 100%{transform:scale(0);opacity:0} }
 
-/* ── Number Crash ───────────────────────────────────── */
-.crash-arena {
-  position: relative;
-  background: var(--bg-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin: 1rem 0;
-  overflow: hidden;
-}
-.crash-arena.shake { animation: crashShake 0.45s ease; }
-@keyframes crashShake {
-  0%,100% { transform: translate(0,0); }
-  15%     { transform: translate(-6px,3px); }
-  30%     { transform: translate(6px,-3px); }
-  45%     { transform: translate(-4px,4px); }
-  60%     { transform: translate(4px,-2px); }
-  75%     { transform: translate(-2px,2px); }
-}
-.crash-canvas { display: block; width: 100%; height: 180px; }
-.crash-mult-overlay {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%,-50%);
-  text-align: center;
-  pointer-events: none;
-}
-.crash-multiplier {
-  font-family: var(--font-display);
-  font-size: 52px;
-  font-weight: 700;
-  line-height: 1;
-  transition: color 0.15s;
-  text-shadow: 0 2px 12px rgba(0,0,0,0.5);
-}
-.crash-sub { font-size: 12px; color: var(--text-3); margin-top: 4px; }
-.crash-btn-row { display: flex; gap: 8px; }
-.cashout-btn {
-  flex: 1;
-  background: var(--success);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius);
-  padding: 0.65rem;
-  font-size: 14px;
-  font-weight: 700;
-  font-family: var(--font-display);
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-.cashout-btn:hover   { opacity: 0.85; }
-.cashout-btn:disabled{ opacity: 0.35; cursor: not-allowed; }
+/* ── Brick Breaker ──────────────────────────────────── */
+.brk-stats { display: flex; justify-content: center; gap: 1.5rem; margin-bottom: 0.5rem; font-size: 12.5px; color: var(--text-3); }
+.brk-stats strong { color: var(--text); font-family: var(--font-display); font-size: 14px; }
 
-/* ── Word Scramble ──────────────────────────────────── */
-.scramble-word {
-  font-family: var(--font-display);
-  font-size: 36px;
-  font-weight: 700;
-  letter-spacing: 10px;
-  text-align: center;
-  color: var(--accent);
-  margin: 1rem 0;
-  text-transform: uppercase;
+/* ── Trivia Quiz ────────────────────────────────────── */
+.triv-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; font-size: 12px; color: var(--text-3); }
+.triv-top strong { color: var(--text); font-family: var(--font-display); }
+.triv-timerbar-wrap { height: 4px; background: var(--bg-3); border-radius: 4px; overflow: hidden; margin-bottom: 1rem; }
+.triv-timerbar { height: 100%; background: linear-gradient(90deg, #7C5DFA, #a78bfa); width: 100%; }
+.triv-question { font-size: 16px; font-weight: 600; text-align: center; margin-bottom: 1rem; min-height: 44px; display: flex; align-items: center; justify-content: center; padding: 0 0.5rem; }
+.triv-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.triv-opt-btn {
+  background: var(--bg-3); border: 1.5px solid var(--border); color: var(--text); border-radius: var(--radius);
+  padding: 0.65rem 0.75rem; font-size: 13px; cursor: pointer; transition: all 0.15s; font-family: var(--font-body);
 }
-.scramble-hint { font-size: 12px; color: var(--text-3); text-align: center; margin-bottom: 1rem; }
-.scramble-input {
-  width: 100%;
-  background: var(--bg-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.6rem 0.9rem;
-  color: var(--text);
-  font-size: 16px;
-  font-family: var(--font-display);
-  text-align: center;
-  letter-spacing: 4px;
-  outline: none;
-  text-transform: uppercase;
-  transition: border-color 0.15s;
-}
-.scramble-input:focus { border-color: var(--accent); }
-.scramble-timer { text-align: center; font-family: var(--font-display); font-size: 28px; font-weight: 700; margin-top: 0.75rem; }
-.scramble-timer.danger { color: var(--danger); animation: pulse-fast 0.5s ease infinite; }
+.triv-opt-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.triv-opt-btn:disabled { cursor: default; }
+.triv-opt-btn.triv-correct { background: rgba(29,158,117,0.15); border-color: var(--success); color: var(--success); }
+.triv-opt-btn.triv-wrong { background: rgba(226,75,74,0.12); border-color: var(--danger); color: var(--danger); }
 
-/* ── Coin Flip ──────────────────────────────────────── */
-.cf-arena {
-  text-align: center;
-  padding: 1.5rem 1rem;
-  background: var(--bg-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin: 1rem 0;
+/* ── Sliding Puzzle ─────────────────────────────────── */
+.slider-size-row { display: flex; gap: 6px; justify-content: center; margin-bottom: 0.75rem; }
+.slider-size-btn {
+  background: var(--bg-3); border: 1px solid var(--border); color: var(--text-2); border-radius: var(--radius);
+  padding: 0.35rem 0.9rem; font-size: 12px; cursor: pointer; font-family: var(--font-body); transition: all 0.12s;
 }
-.cf-coin {
-  font-size: 72px;
-  line-height: 1;
-  display: block;
-  margin: 0 auto 0.75rem;
-  transition: transform 0.3s;
-  user-select: none;
+.slider-size-btn.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+.slider-grid { display: grid; gap: 5px; width: 260px; margin: 0 auto; aspect-ratio: 1; }
+.slider-tile {
+  background: linear-gradient(135deg, #7C5DFA, #5a3fd4); border-radius: 6px; display: flex; align-items: center;
+  justify-content: center; font-family: var(--font-display); font-size: 20px; font-weight: 700; color: #fff;
+  cursor: pointer; transition: all 0.1s; user-select: none;
 }
-.cf-coin.cf-spinning { animation: coinSpin 0.9s ease; }
-@keyframes coinSpin {
-  0%   { transform: rotateY(0deg) scale(1); }
-  50%  { transform: rotateY(720deg) scale(0.8); }
-  100% { transform: rotateY(1440deg) scale(1); }
-}
-.cf-choice-row {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  margin-top: 0.75rem;
-}
-.cf-choice-btn {
-  flex: 1;
-  max-width: 160px;
-  padding: 0.65rem 1rem;
-  border-radius: var(--radius);
-  border: 1.5px solid var(--border);
-  background: var(--bg-2);
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 700;
-  font-family: var(--font-display);
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-.cf-choice-btn:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); background: rgba(212,167,23,0.08); }
-.cf-choice-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.slider-tile:hover { opacity: 0.85; }
+.slider-tile.empty { background: transparent; cursor: default; }
+.slider-locked { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; color: var(--text-3); font-size: 12px; text-align: center; min-height: 260px; }
 
-/* ── Dice Duel ──────────────────────────────────────── */
-.dd-arena {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1.5rem;
-  padding: 1.5rem 1rem;
-  background: var(--bg-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin: 1rem 0;
-  flex-wrap: wrap;
-}
-.dd-die-wrap { text-align: center; }
-.dd-die-label { font-size: 11px; color: var(--text-3); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-.dd-die {
-  font-size: 64px;
-  line-height: 1;
-  display: block;
-  user-select: none;
-  transition: transform 0.15s;
-}
-.dd-die.dd-rolling { animation: diceShake 0.08s ease infinite; }
-@keyframes diceShake {
-  0%,100%{ transform: translate(0,0) rotate(0deg); }
-  25%    { transform: translate(-2px,2px) rotate(-5deg); }
-  75%    { transform: translate(2px,-2px) rotate(5deg); }
-}
-.dd-die.dd-win  { animation: diceWin 0.4s ease; }
-.dd-die.dd-lose { animation: shake 0.4s ease; }
-@keyframes diceWin {
-  0%,100%{ transform: scale(1); }
-  50%    { transform: scale(1.3) rotate(10deg); }
-}
-.dd-die-val { font-family: var(--font-display); font-size: 13px; font-weight: 700; margin-top: 4px; color: var(--text-3); }
-.dd-vs { font-family: var(--font-display); font-size: 22px; font-weight: 900; color: var(--text-3); }
-.dd-choice-row {
-  display: flex;
-  gap: 10px;
-  margin-top: 0.75rem;
-}
-.dd-choice-btn {
-  flex: 1;
-  padding: 0.65rem;
-  border-radius: var(--radius);
-  border: 1.5px solid var(--border);
-  background: var(--bg-2);
-  color: var(--text);
-  font-size: 13.5px;
-  font-weight: 700;
-  font-family: var(--font-display);
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-}
-.dd-choice-btn span { font-size: 10px; font-weight: 400; color: var(--text-3); font-family: var(--font-body); }
-.dd-choice-btn.high:hover:not(:disabled) { border-color: var(--success); color: var(--success); background: rgba(29,158,117,0.08); }
-.dd-choice-btn.low:hover:not(:disabled)  { border-color: #D4537E; color: #D4537E; background: rgba(212,83,126,0.08); }
-.dd-choice-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-/* ── RIGHT COLUMN ────────────────────────────────────── */
+/* ── Right column: high scores ──────────────────────── */
 .right-col { display: flex; flex-direction: column; gap: 1rem; }
-
-/* ── PP Leaderboard ─────────────────────────────────── */
-.pp-lb {
-  background: var(--bg-2);
-  border: 1px solid rgba(167,139,250,0.25);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  position: sticky;
-  top: 1.5rem;
-}
-.pp-lb-header {
-  padding: 0.85rem 1rem;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: rgba(167,139,250,0.06);
-}
-.pp-lb-title { font-size: 13px; font-weight: 600; color: #a78bfa; }
-.pp-lb-sub   { font-size: 11px; color: var(--text-3); }
-.pp-lb-row {
-  padding: 0.55rem 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.1s;
-}
-.pp-lb-row:last-child { border-bottom: none; }
-.pp-lb-row.pp-lb-me { background: rgba(167,139,250,0.08); }
-.pp-lb-rank { font-size: 13px; font-weight: 700; width: 22px; text-align: center; flex-shrink: 0; }
-.pp-lb-info { flex: 1; min-width: 0; }
-.pp-lb-phone { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pp-lb-sub   { font-size: 10.5px; color: var(--text-3); }
-.pp-lb-pts   { font-family: var(--font-display); font-size: 13px; font-weight: 700; color: #a78bfa; white-space: nowrap; }
-.pp-unit     { font-size: 10px; font-weight: 400; opacity: 0.7; }
-.pp-lb-empty { padding: 1.25rem 1rem; text-align: center; font-size: 12px; color: var(--text-3); line-height: 1.6; }
-
-/* Withdraw from PP leaderboard */
-.pp-lb-footer {
-  padding: 0.75rem 1rem;
-  border-top: 1px solid var(--border);
-  background: rgba(167,139,250,0.04);
-}
-.pp-withdraw-btn {
-  width: 100%;
-  background: rgba(167,139,250,0.12);
-  border: 1px solid rgba(167,139,250,0.3);
-  color: #a78bfa;
-  border-radius: var(--radius);
-  padding: 0.55rem;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-  font-family: var(--font-body);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-.pp-withdraw-btn:hover { background: rgba(167,139,250,0.2); }
-
-/* ── Game log ───────────────────────────────────────── */
-.game-log { margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
-.game-log-title { font-size: 11px; color: var(--text-3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; }
-.log-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.3rem 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 11.5px;
-}
-.log-item:last-child { border-bottom: none; }
-.log-win  { color: var(--success); font-weight: 600; }
-.log-lose { color: var(--danger);  font-weight: 600; }
-.log-game { color: var(--text-3); }
-
-/* ── Cashout Modal ──────────────────────────────────── */
-.cashout-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.65);
-  backdrop-filter: blur(6px);
-  z-index: 2000;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-}
-.cashout-modal-overlay.open { display: flex; }
-.cashout-modal {
-  background: var(--bg-2);
-  border: 1px solid rgba(167,139,250,0.3);
-  border-radius: var(--radius-lg);
-  padding: 1.75rem;
-  width: 100%;
-  max-width: 440px;
-  position: relative;
-  animation: fadeIn 0.25s ease;
-}
-.cashout-modal-title {
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 700;
-  margin-bottom: 0.25rem;
-}
-.cashout-modal-sub { font-size: 12.5px; color: var(--text-3); margin-bottom: 1.5rem; }
-.co-field { margin-bottom: 1rem; }
-.co-field label { display: block; font-size: 11.5px; color: var(--text-3); font-weight: 500; margin-bottom: 5px; }
-.co-field input, .co-field textarea {
-  width: 100%;
-  background: var(--bg-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.6rem 0.85rem;
-  color: var(--text);
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.15s;
-  font-family: var(--font-body);
-}
-.co-field input:focus, .co-field textarea:focus { border-color: #a78bfa; }
-.co-field textarea { resize: vertical; min-height: 70px; }
-.co-player-info {
-  background: var(--bg-3);
-  border-radius: var(--radius);
-  padding: 0.75rem 1rem;
-  margin-bottom: 1.25rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-.co-player-name  { font-weight: 600; font-size: 14px; }
-.co-player-phone { font-size: 12px; color: var(--text-3); }
-.co-pp-balance   { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: #a78bfa; }
-.co-submit-btn {
-  width: 100%;
-  background: linear-gradient(135deg, #7C5DFA, #a78bfa);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius);
-  padding: 0.7rem;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  font-family: var(--font-display);
-  transition: opacity 0.15s;
-  margin-top: 0.5rem;
-}
-.co-submit-btn:hover { opacity: 0.88; }
-.co-close-btn {
-  position: absolute;
-  top: 1rem; right: 1rem;
-  background: var(--bg-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  width: 28px; height: 28px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; font-size: 15px; color: var(--text-3);
-  transition: all 0.15s;
-}
-.co-close-btn:hover { color: var(--text); }
-.co-error {
-  background: rgba(226,75,74,0.1);
-  border: 1px solid rgba(226,75,74,0.25);
-  color: var(--danger);
-  border-radius: var(--radius);
-  padding: 0.6rem 0.85rem;
-  font-size: 12.5px;
-  margin-top: 0.75rem;
-}
-.co-success { margin-top: 0.75rem; }
-.co-success-title { font-weight: 700; font-size: 15px; color: var(--success); margin-bottom: 0.35rem; }
-.co-success-sub   { font-size: 12.5px; color: var(--text-3); margin-bottom: 1rem; line-height: 1.55; }
-.co-wa-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  background: #25D366;
-  color: #fff;
-  text-decoration: none;
-  border-radius: var(--radius);
-  padding: 0.7rem;
-  font-size: 14px;
-  font-weight: 700;
-  font-family: var(--font-display);
-  transition: opacity 0.15s;
-}
-.co-wa-btn:hover { opacity: 0.88; }
+.hs-panel { background: var(--bg-2); border: 1px solid rgba(167,139,250,0.25); border-radius: var(--radius-lg); overflow: hidden; position: sticky; top: 1.5rem; }
+.hs-panel-header { padding: 0.85rem 1rem; border-bottom: 1px solid var(--border); background: rgba(167,139,250,0.06); }
+.hs-panel-title { font-size: 13px; font-weight: 600; color: #a78bfa; }
+.hs-panel-sub { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.hs-row { padding: 0.55rem 1rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.hs-row:last-child { border-bottom: none; }
+.hs-row-name { color: var(--text); }
+.hs-row-val { font-family: var(--font-display); font-weight: 700; color: #a78bfa; }
 
 /* ── Misc ────────────────────────────────────────────── */
-.avatar {
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; color: #fff; flex-shrink: 0;
-}
-.user-cell      { display: flex; align-items: center; gap: 0.6rem; }
-.user-cell-name { font-size: 13px; font-weight: 500; }
-.user-cell-phone{ font-size: 11.5px; color: var(--text-3); }
-.badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
-.badge-purple { background: rgba(127,119,221,0.12); color: #7F77DD; }
-.badge-green  { background: rgba(29,158,117,0.12);  color: var(--success); }
-
-@keyframes shake    { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-4px)} 60%{transform:translateX(4px)} }
-@keyframes fadeIn   { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
-@keyframes pulse-fast { 0%,100%{opacity:1} 50%{opacity:0.5} }
+.avatar { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff; flex-shrink: 0; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
   </style>
 </head>
 <body>
@@ -772,8 +244,8 @@
 
     <!-- Page header -->
     <div class="page-header fade-in">
-      <div class="page-title">Games</div>
-      <div class="page-sub">Bet Prime Coins · Earn Prime Points · Cash out via WhatsApp</div>
+      <div class="page-title">Arcade</div>
+      <div class="page-sub">Pure skill games · 5 🪙 entry pass per round · no wagers, no payouts</div>
     </div>
 
     <!-- Player HUD -->
@@ -781,27 +253,11 @@
       <div id="hud-avatar"></div>
       <div>
         <div id="hud-name" class="hud-not-loaded">Not loaded</div>
-        <div class="hud-stat-group" style="margin-top:4px;">
-          <div class="hud-stat">
-            <div class="hud-label">Prime Coins</div>
-            <div class="hud-coins">🪙 <span id="hud-coins">—</span></div>
-          </div>
-          <div style="width:1px;height:36px;background:var(--border);"></div>
-          <div class="hud-stat">
-            <div class="hud-label">Prime Points</div>
-            <div class="hud-pp-badge">◈ <span id="hud-pp">0</span></div>
-          </div>
-          <div class="hud-stat">
-            <div style="font-size:10px;color:var(--text-3);" id="hud-pp-wins">0W / 0G</div>
-          </div>
-        </div>
+        <div class="hud-label" style="margin-top:4px;">Prime Coins</div>
+        <div class="hud-coins">🪙 <span id="hud-coins">—</span></div>
       </div>
       <div class="hud-right">
-        <button class="withdraw-btn" onclick="openCashoutModal()" title="Withdraw Prime Points via WhatsApp">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
-          Withdraw PP
-        </button>
-        <!-- Load player controls: hidden automatically when user is already logged in -->
+        <div class="hud-entry-note">🎟️ Entry pass: 5 🪙 / round</div>
         <div id="hud-load-section" style="display:flex;align-items:center;gap:8px;">
           <input type="text" class="hud-input" id="hud-phone" placeholder="Your phone number…" />
           <button class="hud-btn" id="hud-load-btn">Load Player</button>
@@ -809,320 +265,216 @@
       </div>
     </div>
 
-    <!-- Main layout -->
     <div class="games-layout">
-
       <!-- ───────────── LEFT: Games ───────────── -->
       <div>
         <div class="game-tabs">
-          <button class="game-tab active" onclick="switchGame('minesweeper', this)">💎 Mine Vault</button>
-          <button class="game-tab" onclick="switchGame('tictactoe', this)">✖ Tic-Tac-Toe</button>
-          <button class="game-tab" onclick="switchGame('crash', this)">📈 Number Crash</button>
-          <button class="game-tab" onclick="switchGame('scramble', this)">🔤 Word Scramble</button>
-          <button class="game-tab" onclick="switchGame('coinflip', this)">🪙 Coin Flip</button>
-          <button class="game-tab" onclick="switchGame('diceduel', this)">🎲 Dice Duel</button>
+          <button class="game-tab active" onclick="switchGame('snake', this)">🐍 Snake</button>
+          <button class="game-tab" onclick="switchGame('tetris', this)">🧱 Tetris</button>
+          <button class="game-tab" onclick="switchGame('memory', this)">🃏 Memory</button>
+          <button class="game-tab" onclick="switchGame('typing', this)">⌨️ Typing Race</button>
+          <button class="game-tab" onclick="switchGame('reaction', this)">⚡ Reaction Blitz</button>
+          <button class="game-tab" onclick="switchGame('breaker', this)">🧱 Brick Breaker</button>
+          <button class="game-tab" onclick="switchGame('trivia', this)">🧠 Trivia</button>
+          <button class="game-tab" onclick="switchGame('slider', this)">🧩 Sliding Puzzle</button>
         </div>
 
-        <!-- ══ MINE VAULT (redesigned Minesweeper) ══════ -->
-        <div class="game-panel active" id="panel-minesweeper">
+        <!-- ══ SNAKE ══════════════════════════════════ -->
+        <div class="game-panel active" id="panel-snake">
           <div class="game-card">
-            <div class="game-title">💎 Mine Vault <span class="pp-reward-tag">◈ +50 PP on cash out</span></div>
-            <div class="game-desc">5×5 vault. Pick how many mines (1–24) — more mines means bigger gem multipliers, but way worse odds. Reveal tiles, bank gems as you go, cash out anytime. Hit a mine and you lose everything still in the pot.</div>
+            <div class="game-title">🐍 Neon Snake</div>
+            <div class="game-desc">Classic snake with a glowing trail. Speed ramps up with every bite — how long can you survive?</div>
+            <div class="entry-row">
+              <div class="hs-chip">🏆 Best: <strong id="snake-hs">0</strong></div>
+              <button class="play-btn" id="snake-start-btn" onclick="startSnake()">Play — 5 🪙 Entry</button>
+            </div>
+            <div class="arcade-stage">
+              <canvas id="snake-canvas"></canvas>
+              <div class="stage-overlay" id="snake-overlay"></div>
+            </div>
+            <div class="score-row">
+              <span>Score: <strong id="snake-score">0</strong></span>
+              <span>Speed: <strong id="snake-speed">1.0x</strong></span>
+            </div>
+            <div class="score-row" style="margin-top:4px;">Arrow keys / WASD / swipe to steer</div>
+          </div>
+        </div>
 
-            <div class="bet-row">
-              <label>Bet:</label>
-              <input type="number" class="bet-input" id="mine-bet" value="100" min="50" />
-              <div class="bet-presets">
-                <button class="preset-btn" onclick="setBet('mine-bet',100)">100</button>
-                <button class="preset-btn" onclick="setBet('mine-bet',250)">250</button>
-                <button class="preset-btn" onclick="setBet('mine-bet',500)">500</button>
-                <button class="preset-btn" onclick="setBet('mine-bet',1000)">1K</button>
+        <!-- ══ TETRIS ═════════════════════════════════ -->
+        <div class="game-panel" id="panel-tetris">
+          <div class="game-card">
+            <div class="game-title">🧱 Tetris</div>
+            <div class="game-desc">Full rotation, ghost piece, and satisfying line-clear flashes. Levels speed up the drop every 10 lines.</div>
+            <div class="entry-row">
+              <div class="hs-chip">🏆 Best: <strong id="tet-hs">0</strong></div>
+              <button class="play-btn" id="tet-start-btn" onclick="startTetris()">Play — 5 🪙 Entry</button>
+            </div>
+            <div class="tetris-layout">
+              <div class="arcade-stage" style="margin:0;">
+                <canvas id="tet-canvas"></canvas>
+                <div class="stage-overlay" id="tet-overlay"></div>
+              </div>
+              <div class="tetris-side">
+                <div class="tetris-next-label">Next</div>
+                <canvas id="tet-next-canvas" width="100" height="100" style="background:#0a0a12;border-radius:8px;border:1px solid var(--border);"></canvas>
+                <div class="tetris-stats">
+                  <div><span>Score</span><strong id="tet-score">0</strong></div>
+                  <div><span>Lines</span><strong id="tet-lines">0</strong></div>
+                  <div><span>Level</span><strong id="tet-level">1</strong></div>
+                </div>
               </div>
             </div>
-
-            <div class="bet-row">
-              <label>Mines (1–24):</label>
-              <input type="number" class="bet-input" id="mine-count-input" value="5" min="1" max="24" style="width:70px;" oninput="updateMineRiskPreview()" />
-              <div class="bet-presets">
-                <button class="preset-btn" onclick="setMineCount(2)">2 · Safer</button>
-                <button class="preset-btn" onclick="setMineCount(5)">5</button>
-                <button class="preset-btn" onclick="setMineCount(12)">12</button>
-                <button class="preset-btn" onclick="setMineCount(20)">20 · Risky</button>
-              </div>
+            <div class="tetris-controls-row">
+              <button class="tetris-btn" onclick="tetrisMove(-1)">⬅</button>
+              <button class="tetris-btn" onclick="tetrisRotatePiece()">🔄</button>
+              <button class="tetris-btn" onclick="tetrisMove(1)">➡</button>
+              <button class="tetris-btn" onclick="tetrisDrop()">⬇</button>
+              <button class="tetris-btn" onclick="tetrisHardDrop()">⏬</button>
             </div>
+            <div class="score-row" style="margin-top:4px;">Arrows to move/rotate · Space to hard drop</div>
+          </div>
+        </div>
 
-            <div class="mine-info">
-              <span>Safe left: <strong id="mine-cells-left">—</strong></span>
-              <span>Mines: <strong id="mine-mine-count">5</strong></span>
-              <span>Tier mult: <strong id="mine-risk-mult" style="color:#a78bfa">×0.40</strong></span>
+        <!-- ══ MEMORY MATCH ═══════════════════════════ -->
+        <div class="game-panel" id="panel-memory">
+          <div class="game-card">
+            <div class="game-title">🃏 Memory Match</div>
+            <div class="game-desc">Flip pairs of anime-themed cards. Match quickly in a row to build a combo multiplier.</div>
+            <div class="entry-row">
+              <div class="hs-chip">🏆 Best: <strong id="mem-hs">—</strong> moves</div>
+              <button class="play-btn" id="mem-start-btn" onclick="startMemory()">Play — 5 🪙 Entry</button>
             </div>
-
-            <div class="mine-pot-row">
-              <div class="mine-pot-label">💰 In the pot</div>
-              <div class="mine-pot-val" id="mine-pot-val">🪙 0</div>
-              <div class="mine-pot-tier" id="mine-pot-tier">—</div>
+            <div class="mem-stats">
+              <span>Moves: <strong id="mem-moves">0</strong></span>
+              <span>Combo: <strong id="mem-combo">×1</strong></span>
+              <span>Time: <strong id="mem-time">0s</strong></span>
             </div>
-
-            <div style="overflow-x:auto;text-align:center;">
-              <div class="mine-grid" id="mine-grid"></div>
-            </div>
-            <div class="mine-tip">Right-click to 🚩 flag a suspected mine</div>
-
-            <div class="crash-btn-row" style="margin-top:0.75rem;">
-              <button class="play-btn" style="flex:1;margin-top:0;" id="mine-start-btn" onclick="startMinesweeper()">Start Vault</button>
-              <button class="cashout-btn" id="mine-cashout-btn" onclick="mineCashout()" disabled>Cash Out 💰</button>
-            </div>
-
-            <div class="result-banner" id="mine-result"></div>
-            <div class="game-log">
-              <div class="game-log-title">Recent</div>
-              <div id="mine-log-list"><span style="color:var(--text-3)">No games yet</span></div>
+            <div style="position:relative;">
+              <div class="mem-grid" id="mem-grid"></div>
+              <div class="stage-overlay" id="mem-overlay" style="position:absolute;"></div>
             </div>
           </div>
         </div>
 
-        <!-- ══ TIC-TAC-TOE ═════════════════════════════ -->
-        <div class="game-panel" id="panel-tictactoe">
+        <!-- ══ TYPING RACE ═════════════════════════════ -->
+        <div class="game-panel" id="panel-typing">
           <div class="game-card">
-            <div class="game-title">✖ Tic-Tac-Toe <span class="pp-reward-tag">◈ +30 PP on win</span></div>
-            <div class="game-desc">Beat our minimax bot. Win = 3× bet + 30 PP. Draw = 0.7× return (house takes 30%). Lose = forfeit. The bot plays perfectly — nearly impossible to beat.</div>
-
-            <div class="bet-row">
-              <label>Bet:</label>
-              <input type="number" class="bet-input" id="ttt-bet" value="150" min="50" />
-              <div class="bet-presets">
-                <button class="preset-btn" onclick="setBet('ttt-bet',150)">150</button>
-                <button class="preset-btn" onclick="setBet('ttt-bet',300)">300</button>
-                <button class="preset-btn" onclick="setBet('ttt-bet',500)">500</button>
-                <button class="preset-btn" onclick="setBet('ttt-bet',1000)">1K</button>
-              </div>
+            <div class="game-title">⌨️ Typing Race</div>
+            <div class="game-desc">Type the sentence as fast and accurately as you can. Watch the keyboard highlight your next key.</div>
+            <div class="entry-row">
+              <div class="hs-chip">🏆 Best: <strong id="typ-hs">0</strong> wpm</div>
+              <button class="play-btn" id="typ-start-btn" onclick="startTyping()">Play — 5 🪙 Entry</button>
             </div>
+            <div class="typ-stats">
+              <span>WPM: <strong id="typ-wpm">0</strong></span>
+              <span>Accuracy: <strong id="typ-acc">100%</strong></span>
+            </div>
+            <div style="position:relative;">
+              <div class="typ-text" id="typ-text">Hit Play to get a sentence…</div>
+              <div class="stage-overlay" id="typ-overlay" style="position:absolute;"></div>
+            </div>
+            <input type="text" class="typ-input" id="typ-input" placeholder="Start typing here…" disabled autocomplete="off" />
+            <div class="typ-keyboard" id="typ-keyboard"></div>
+          </div>
+        </div>
 
-            <div class="ttt-board" id="ttt-board"></div>
-            <div class="ttt-status" id="ttt-status">Set a bet and start to play</div>
-            <button class="play-btn" id="ttt-start-btn" onclick="startTTT()">Start Game</button>
-            <div class="result-banner" id="ttt-result"></div>
-            <div class="game-log">
-              <div class="game-log-title">Recent</div>
-              <div id="ttt-log-list"><span style="color:var(--text-3)">No games yet</span></div>
+        <!-- ══ REACTION BLITZ ══════════════════════════ -->
+        <div class="game-panel" id="panel-reaction">
+          <div class="game-card">
+            <div class="game-title">⚡ Reaction Blitz</div>
+            <div class="game-desc">Tap the target before it vanishes. Each hit shrinks your reaction window — chase the streak.</div>
+            <div class="entry-row">
+              <div class="hs-chip">🏆 Best streak: <strong id="rx-hs">0</strong></div>
+              <button class="play-btn" id="rx-start-btn" onclick="startReaction()">Play — 5 🪙 Entry</button>
+            </div>
+            <div class="rx-stats"><span>Streak: <strong id="rx-streak">0</strong></span></div>
+            <div style="position:relative;">
+              <div class="rx-arena" id="rx-arena"><div class="rx-msg">Hit Play to start</div></div>
+              <div class="stage-overlay" id="rx-overlay" style="position:absolute;"></div>
             </div>
           </div>
         </div>
 
-        <!-- ══ NUMBER CRASH ════════════════════════════ -->
-        <div class="game-panel" id="panel-crash">
+        <!-- ══ BRICK BREAKER ═══════════════════════════ -->
+        <div class="game-panel" id="panel-breaker">
           <div class="game-card">
-            <div class="game-title">📈 Number Crash <span class="pp-reward-tag">◈ +20 PP on cashout</span></div>
-            <div class="game-desc">A multiplier rises. Cash out before it crashes. Crash is random and can drop at 1.01×. Each successful cashout earns 20 Prime Points.</div>
-
-            <div class="bet-row">
-              <label>Bet:</label>
-              <input type="number" class="bet-input" id="crash-bet" value="200" min="50" />
-              <div class="bet-presets">
-                <button class="preset-btn" onclick="setBet('crash-bet',200)">200</button>
-                <button class="preset-btn" onclick="setBet('crash-bet',500)">500</button>
-                <button class="preset-btn" onclick="setBet('crash-bet',1000)">1K</button>
-                <button class="preset-btn" onclick="setBet('crash-bet',2500)">2.5K</button>
-              </div>
+            <div class="game-title">🧱 Brick Breaker</div>
+            <div class="game-desc">Break every brick. Catch power-ups: ⚡ multi-ball, 📏 wide paddle, 🔫 auto-laser. Clear a level to go harder.</div>
+            <div class="entry-row">
+              <div class="hs-chip">🏆 Best: <strong id="brk-hs">0</strong></div>
+              <button class="play-btn" id="brk-start-btn" onclick="startBreaker()">Play — 5 🪙 Entry</button>
             </div>
-
-            <div class="crash-arena" id="crash-arena">
-              <canvas class="crash-canvas" id="crash-canvas"></canvas>
-              <div class="crash-mult-overlay">
-                <div class="crash-multiplier" id="crash-mult" style="color:var(--gold)">1.00×</div>
-                <div class="crash-sub" id="crash-sub">Waiting to launch…</div>
-              </div>
+            <div class="brk-stats">
+              <span>Score: <strong id="brk-score">0</strong></span>
+              <span>Lives: <strong id="brk-lives">3</strong></span>
+              <span>Level: <strong id="brk-level">1</strong></span>
             </div>
-
-            <div class="crash-btn-row" style="margin-top:0.75rem;">
-              <button class="play-btn" style="flex:1;margin-top:0;" id="crash-start-btn" onclick="startCrash()">Launch 🚀</button>
-              <button class="cashout-btn" id="crash-cashout-btn" onclick="crashCashout()" disabled>Cash Out 💰</button>
+            <div class="arcade-stage">
+              <canvas id="brk-canvas" width="360" height="440"></canvas>
+              <div class="stage-overlay" id="brk-overlay"></div>
             </div>
+            <div class="score-row" style="margin-top:4px;">Mouse / touch / arrow keys to move paddle</div>
+          </div>
+        </div>
 
-            <div class="result-banner" id="crash-result"></div>
-            <div class="game-log">
-              <div class="game-log-title">Recent crashes</div>
-              <div id="crash-log-list"><span style="color:var(--text-3)">No games yet</span></div>
+        <!-- ══ TRIVIA QUIZ ══════════════════════════════ -->
+        <div class="game-panel" id="panel-trivia">
+          <div class="game-card">
+            <div class="game-title">🧠 Trivia Quiz</div>
+            <div class="game-desc">10 anime + general knowledge questions. Answer fast — 15 seconds each — and chain a streak bonus.</div>
+            <div class="entry-row">
+              <div class="hs-chip">🏆 Best: <strong id="triv-hs">0</strong></div>
+              <button class="play-btn" id="triv-start-btn" onclick="startTrivia()">Play — 5 🪙 Entry</button>
+            </div>
+            <div class="triv-top">
+              <span id="triv-qnum">Q0/10</span>
+              <span>Score: <strong id="triv-score">0</strong> · Streak: <strong id="triv-streak">0</strong></span>
+            </div>
+            <div class="triv-timerbar-wrap"><div class="triv-timerbar" id="triv-timerbar"></div></div>
+            <div style="position:relative;">
+              <div class="triv-question" id="triv-question">Hit Play to begin the quiz</div>
+              <div class="triv-opts" id="triv-opts"></div>
+              <div class="stage-overlay" id="triv-overlay" style="position:absolute;"></div>
             </div>
           </div>
         </div>
 
-        <!-- ══ WORD SCRAMBLE ═══════════════════════════ -->
-        <div class="game-panel" id="panel-scramble">
+        <!-- ══ SLIDING PUZZLE ═══════════════════════════ -->
+        <div class="game-panel" id="panel-slider">
           <div class="game-card">
-            <div class="game-title">🔤 Word Scramble <span class="pp-reward-tag">◈ +25 PP on win</span></div>
-            <div class="game-desc">Unscramble a word in 20 seconds. Win = 2.5× bet + 25 PP. Timeout or wrong answer = full loss. Letters are jumbled hard.</div>
-
-            <div class="bet-row">
-              <label>Bet:</label>
-              <input type="number" class="bet-input" id="scr-bet" value="100" min="50" />
-              <div class="bet-presets">
-                <button class="preset-btn" onclick="setBet('scr-bet',100)">100</button>
-                <button class="preset-btn" onclick="setBet('scr-bet',250)">250</button>
-                <button class="preset-btn" onclick="setBet('scr-bet',500)">500</button>
-                <button class="preset-btn" onclick="setBet('scr-bet',1000)">1K</button>
-              </div>
+            <div class="game-title">🧩 Sliding Puzzle</div>
+            <div class="game-desc">Slide numbered tiles back into order. Switch between 3×3 and 4×4 boards.</div>
+            <div class="entry-row">
+              <div class="hs-chip">🏆 Best: <strong id="slider-hs">—</strong> moves</div>
+              <button class="play-btn" id="slider-start-btn" onclick="startSlider()">Play — 5 🪙 Entry</button>
             </div>
-
-            <div class="scramble-word" id="scr-word">？ ？ ？ ？ ？</div>
-            <div class="scramble-hint" id="scr-hint">Set a bet and start a round</div>
-            <input type="text" class="scramble-input" id="scr-answer" placeholder="TYPE ANSWER" maxlength="20" disabled />
-            <div class="scramble-timer" id="scr-timer">—</div>
-
-            <button class="play-btn" id="scr-start-btn" onclick="startScramble()">Start Round</button>
-            <div class="result-banner" id="scr-result"></div>
-            <div class="game-log">
-              <div class="game-log-title">Recent</div>
-              <div id="scr-log-list"><span style="color:var(--text-3)">No games yet</span></div>
+            <div class="slider-size-row">
+              <button class="slider-size-btn active" id="slider-size-3" onclick="setSliderSize(3)">3×3</button>
+              <button class="slider-size-btn" id="slider-size-4" onclick="setSliderSize(4)">4×4</button>
             </div>
-          </div>
-        </div>
-
-        <!-- ══ COIN FLIP ═══════════════════════════════ -->
-        <div class="game-panel" id="panel-coinflip">
-          <div class="game-card">
-            <div class="game-title">🪙 Coin Flip <span class="pp-reward-tag">◈ +10 PP on win</span></div>
-            <div class="game-desc">50/50. Pick Heads or Tails. Win = 2× your bet + 10 Prime Points. No house edge — pure chance.</div>
-
-            <div class="bet-row">
-              <label>Bet:</label>
-              <input type="number" class="bet-input" id="cf-bet" value="100" min="50" />
-              <div class="bet-presets">
-                <button class="preset-btn" onclick="setBet('cf-bet',100)">100</button>
-                <button class="preset-btn" onclick="setBet('cf-bet',250)">250</button>
-                <button class="preset-btn" onclick="setBet('cf-bet',500)">500</button>
-                <button class="preset-btn" onclick="setBet('cf-bet',1000)">1K</button>
-              </div>
-            </div>
-
-            <div class="cf-arena">
-              <span class="cf-coin" id="cf-coin">🪙</span>
-              <div style="font-size:12px;color:var(--text-3);">Pick a side, then flip</div>
-            </div>
-
-            <div class="cf-choice-row">
-              <button class="cf-choice-btn" onclick="playCoinFlip('heads')">🪙 Heads</button>
-              <button class="cf-choice-btn" onclick="playCoinFlip('tails')">🌑 Tails</button>
-            </div>
-
-            <div class="result-banner" id="cf-result"></div>
-            <div class="game-log">
-              <div class="game-log-title">Recent</div>
-              <div id="cf-log-list"><span style="color:var(--text-3)">No games yet</span></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ══ DICE DUEL ════════════════════════════════ -->
-        <div class="game-panel" id="panel-diceduel">
-          <div class="game-card">
-            <div class="game-title">🎲 Dice Duel <span class="pp-reward-tag">◈ +15 PP on win</span></div>
-            <div class="game-desc">Pick High (4–6) or Low (1–3). Both you and the bot roll a d6. You win if your roll is in your chosen range AND beats the bot's roll. Win = 2.2× bet + 15 PP.</div>
-
-            <div class="bet-row">
-              <label>Bet:</label>
-              <input type="number" class="bet-input" id="dd-bet" value="150" min="50" />
-              <div class="bet-presets">
-                <button class="preset-btn" onclick="setBet('dd-bet',150)">150</button>
-                <button class="preset-btn" onclick="setBet('dd-bet',300)">300</button>
-                <button class="preset-btn" onclick="setBet('dd-bet',500)">500</button>
-                <button class="preset-btn" onclick="setBet('dd-bet',1000)">1K</button>
-              </div>
-            </div>
-
-            <div class="dd-arena">
-              <div class="dd-die-wrap">
-                <div class="dd-die-label">You</div>
-                <div class="dd-die" id="dd-player-die">⚀</div>
-                <div class="dd-die-val" id="dd-player-val">—</div>
-              </div>
-              <div class="dd-vs">VS</div>
-              <div class="dd-die-wrap">
-                <div class="dd-die-label">Bot</div>
-                <div class="dd-die" id="dd-bot-die">⚀</div>
-                <div class="dd-die-val" id="dd-bot-val">—</div>
-              </div>
-            </div>
-
-            <div class="dd-choice-row">
-              <button class="dd-choice-btn high" onclick="playDiceDuel('high')">
-                ⬆ HIGH
-                <span>Roll 4, 5, or 6</span>
-              </button>
-              <button class="dd-choice-btn low" onclick="playDiceDuel('low')">
-                ⬇ LOW
-                <span>Roll 1, 2, or 3</span>
-              </button>
-            </div>
-
-            <div class="result-banner" id="dd-result"></div>
-            <div class="game-log">
-              <div class="game-log-title">Recent</div>
-              <div id="dd-log-list"><span style="color:var(--text-3)">No games yet</span></div>
+            <div class="score-row" style="margin-bottom:0.5rem;">Moves: <strong id="slider-moves">0</strong></div>
+            <div style="position:relative;">
+              <div class="slider-grid" id="slider-grid"></div>
+              <div class="stage-overlay" id="slider-overlay" style="position:absolute;"></div>
             </div>
           </div>
         </div>
 
       </div><!-- /LEFT -->
 
-      <!-- ───────────── RIGHT: PP Leaderboard ───────────── -->
+      <!-- ───────────── RIGHT: High Scores ───────────── -->
       <div class="right-col">
-        <div class="pp-lb">
-          <div class="pp-lb-header">
-            <div>
-              <div class="pp-lb-title">◈ Prime Points Board</div>
-              <div class="pp-lb-sub">Local to this device · session earnings</div>
-            </div>
+        <div class="hs-panel">
+          <div class="hs-panel-header">
+            <div class="hs-panel-title">🏆 Your Best Scores</div>
+            <div class="hs-panel-sub">Tracked on this device</div>
           </div>
-          <div id="pp-lb-list">
-            <div class="pp-lb-empty">Play a game to appear here!</div>
-          </div>
-          <div class="pp-lb-footer">
-            <button class="pp-withdraw-btn" onclick="openCashoutModal()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
-              Withdraw Prime Points via WhatsApp
-            </button>
-          </div>
+          <div id="hs-panel-list"></div>
         </div>
       </div><!-- /RIGHT -->
 
     </div><!-- /games-layout -->
   </main>
-</div>
-
-<!-- PP Flash -->
-<div class="pp-flash" id="pp-flash"></div>
-
-<!-- Cashout / Withdraw Modal -->
-<div class="cashout-modal-overlay" id="cashout-modal">
-  <div class="cashout-modal">
-    <button class="co-close-btn" onclick="closeCashoutModal()">✕</button>
-    <div class="cashout-modal-title">◈ Withdraw Prime Points</div>
-    <div class="cashout-modal-sub">1 PP = 2,000 🪙 Primos, credited to your account instantly — no need to message admin.</div>
-
-    <div class="co-player-info">
-      <div>
-        <div class="co-player-name" id="co-player-name">—</div>
-        <div class="co-player-phone" id="co-player-phone">—</div>
-      </div>
-      <div>
-        <div style="font-size:10px;color:var(--text-3);margin-bottom:2px;">Balance</div>
-        <div class="co-pp-balance">◈ <span id="co-pp-balance">0</span></div>
-      </div>
-    </div>
-
-    <div class="co-field">
-      <label>Amount to withdraw (min 500 PP)</label>
-      <input type="number" id="co-amount" placeholder="e.g. 500" min="500" />
-    </div>
-    <div class="co-field">
-      <label>Optional note (used for WhatsApp requests only)</label>
-      <textarea id="co-note" placeholder="I would like to convert my PP"></textarea>
-    </div>
-
-    <button class="co-submit-btn" id="co-submit-btn" onclick="submitCashout()">Withdraw →</button>
-    <div id="co-result"></div>
-  </div>
 </div>
 
 <script src="data/config.js"></script>
