@@ -20,6 +20,8 @@
       font-weight: 700; color: #fff; line-height: 1.0;
     }
     .zoo-sub { font-size: 12px; color: rgba(255,255,255,0.3); margin-top: 6px; }
+    .zoo-streak { color: rgba(255,255,255,0.55); }
+    .zoo-streak-flame { filter: drop-shadow(0 0 4px rgba(251,146,60,0.6)); }
 
     .zoo-layout { display: grid; grid-template-columns: 220px 1fr; gap: 1.5rem; align-items: start; }
     @media (max-width: 760px) { .zoo-layout { grid-template-columns: 1fr; } }
@@ -34,51 +36,162 @@
       padding: 12px;
       text-align: center;
       cursor: pointer;
-      transition: border-color 0.2s, transform 0.2s;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      opacity: 0;
+      animation: rosterCardIn 0.4s ease forwards;
     }
-    .zoo-roster-card:hover { transform: translateY(-2px); border-color: rgba(139,92,246,0.3); }
+    #zoo-roster .zoo-roster-card:nth-child(1) { animation-delay: 0.02s; }
+    #zoo-roster .zoo-roster-card:nth-child(2) { animation-delay: 0.08s; }
+    #zoo-roster .zoo-roster-card:nth-child(3) { animation-delay: 0.14s; }
+    #zoo-roster .zoo-roster-card:nth-child(4) { animation-delay: 0.20s; }
+    #zoo-roster .zoo-roster-card:nth-child(5) { animation-delay: 0.26s; }
+    #zoo-roster .zoo-roster-card:nth-child(n+6) { animation-delay: 0.30s; }
+    @keyframes rosterCardIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .zoo-roster-card:hover { transform: translateY(-3px); border-color: rgba(139,92,246,0.35); box-shadow: 0 6px 18px rgba(0,0,0,0.3); }
     .zoo-roster-card.active { border-color: #a78bfa; box-shadow: 0 0 20px rgba(139,92,246,0.2); }
-    .zoo-roster-img { width: 48px; height: 48px; object-fit: contain; margin-bottom: 6px; }
+    .zoo-roster-card:active { transform: translateY(-1px) scale(0.98); }
+    .zoo-roster-img { width: 48px; height: 48px; object-fit: contain; margin-bottom: 6px; transition: transform 0.2s; }
+    .zoo-roster-card:hover .zoo-roster-img { transform: scale(1.08) rotate(-2deg); }
     .zoo-roster-name { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 14px; color: #e2e8f0; }
     .zoo-roster-sub { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 2px; }
     .zoo-roster-badge {
       display: inline-block; margin-top: 6px; font-size: 9px; letter-spacing: 0.1em;
       color: #34d399; border: 1px solid rgba(52,211,153,0.4); border-radius: 10px; padding: 2px 8px;
+      animation: badgeGlow 2.2s ease-in-out infinite;
+    }
+    @keyframes badgeGlow {
+      0%, 100% { box-shadow: 0 0 0 rgba(52,211,153,0); }
+      50% { box-shadow: 0 0 8px rgba(52,211,153,0.4); }
     }
     .zoo-roster-release {
       position: absolute; top: 6px; right: 6px;
       background: rgba(248,113,113,0.12); border: 1px solid rgba(248,113,113,0.3);
       color: #f87171; width: 20px; height: 20px; border-radius: 50%;
-      font-size: 11px; line-height: 1; cursor: pointer;
+      font-size: 11px; line-height: 1; cursor: pointer; transition: background 0.15s, transform 0.15s;
     }
-    .zoo-roster-release:hover { background: rgba(248,113,113,0.25); }
+    .zoo-roster-release:hover { background: rgba(248,113,113,0.25); transform: scale(1.1); }
+
+    /* Mood badge */
+    .zoo-mood-badge {
+      position: absolute; top: 8px; left: 8px; font-size: 15px;
+      background: rgba(8,6,24,0.75); border-radius: 50%; width: 22px; height: 22px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .zoo-mood-tag { font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.5); margin-left: 6px; }
+
+    /* Rarity aura */
+    .rarity-uncommon { border-color: rgba(52,211,153,0.4) !important; }
+    .rarity-rare { border-color: rgba(96,165,250,0.5) !important; box-shadow: 0 0 16px rgba(96,165,250,0.18); }
+    .rarity-epic { border-color: rgba(167,139,250,0.55) !important; box-shadow: 0 0 20px rgba(167,139,250,0.25); }
+    .rarity-legendary {
+      border-color: rgba(251,191,36,0.6) !important;
+      box-shadow: 0 0 26px rgba(251,191,36,0.3);
+      animation: legendaryPulse 2.4s ease-in-out infinite;
+    }
+    @keyframes legendaryPulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(251,191,36,0.22); }
+      50% { box-shadow: 0 0 32px rgba(251,191,36,0.4); }
+    }
 
     /* Active pet card */
     .lb-card.zoo-card { padding: 1.5rem; }
-    .zoo-pet-header { display: flex; align-items: center; gap: 14px; margin-bottom: 1.25rem; }
-    .zoo-pet-img { width: 64px; height: 64px; object-fit: contain; }
+    .zoo-pet-header { position: relative; display: flex; align-items: center; gap: 14px; margin-bottom: 0.75rem; }
+    .zoo-pet-img {
+      width: 64px; height: 64px; object-fit: contain;
+      animation: petBreathe 3.2s ease-in-out infinite;
+      transform-origin: center bottom;
+    }
+    @keyframes petBreathe {
+      0%, 100% { transform: scale(1) translateY(0); }
+      50% { transform: scale(1.03) translateY(-2px); }
+    }
+    .zoo-pet-img.bounce { animation: petBounce 0.45s ease; }
+    @keyframes petBounce {
+      0%   { transform: scale(1) rotate(0deg); }
+      30%  { transform: scale(1.15) rotate(-4deg); }
+      60%  { transform: scale(0.95) rotate(3deg); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
     .zoo-pet-name { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 22px; color: #fff; }
     .zoo-pet-sub { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 2px; }
 
-    .zoo-stats { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.5rem; }
+    /* Particle burst */
+    #zoo-particles { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+    .zoo-particle {
+      position: absolute; font-size: 18px; pointer-events: none;
+      animation: particleFloat 1s ease-out forwards;
+    }
+    @keyframes particleFloat {
+      0%   { transform: translate(0, 0) scale(0.6); opacity: 1; }
+      100% { transform: translate(var(--dx, 0), -60px) scale(1.1); opacity: 0; }
+    }
+
+    /* Flavor text line */
+    .zoo-flavor {
+      font-size: 12px; font-style: italic; color: rgba(196,181,253,0.7);
+      min-height: 16px; margin: 4px 0 1rem; opacity: 0;
+    }
+    .zoo-flavor.show { animation: flavorFade 2.2s ease forwards; }
+    @keyframes flavorFade {
+      0%   { opacity: 0; transform: translateY(2px); }
+      15%  { opacity: 1; transform: translateY(0); }
+      85%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .zoo-stats { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.5rem; border-radius: 10px; }
+    .zoo-stats.level-pulse { animation: statsPulse 0.9s ease; }
+    @keyframes statsPulse {
+      0%   { filter: brightness(1); }
+      40%  { filter: brightness(1.5); }
+      100% { filter: brightness(1); }
+    }
     .zoo-stat-row { display: grid; grid-template-columns: 100px 1fr 70px; align-items: center; gap: 10px; }
     .zoo-stat-label { font-size: 12px; color: rgba(255,255,255,0.55); }
     .zoo-stat-bar {
-      height: 8px; border-radius: 4px; background: rgba(255,255,255,0.06);
+      position: relative; height: 8px; border-radius: 4px; background: rgba(255,255,255,0.06);
       overflow: hidden; display: block;
     }
-    .zoo-stat-bar span { display: block; height: 100%; border-radius: 4px; transition: width 0.3s; }
+    .zoo-stat-bar span {
+      display: block; height: 100%; border-radius: 4px;
+      transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+      position: relative; overflow: hidden;
+    }
+    .zoo-stat-bar span::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+      transform: translateX(-100%);
+      animation: barShimmer 2.6s ease-in-out infinite;
+    }
+    @keyframes barShimmer {
+      0% { transform: translateX(-100%); }
+      50%, 100% { transform: translateX(100%); }
+    }
     .zoo-stat-val { font-size: 11px; color: rgba(255,255,255,0.45); text-align: right; }
 
     .zoo-actions { display: flex; flex-wrap: wrap; gap: 10px; }
     .zoo-action-btn {
+      position: relative; overflow: hidden;
       font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 13px;
       padding: 0.65rem 1.1rem; border-radius: 10px;
       background: rgba(139,92,246,0.15); border: 1px solid rgba(139,92,246,0.4);
       color: #c4b5fd; cursor: pointer; transition: background 0.2s, transform 0.15s;
+      display: flex; flex-direction: column; gap: 6px; min-width: 96px;
     }
     .zoo-action-btn:hover:not(:disabled) { background: rgba(139,92,246,0.28); transform: translateY(-1px); }
-    .zoo-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .zoo-action-btn:active:not(:disabled) { transform: translateY(0) scale(0.97); }
+    .zoo-action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .zoo-action-label { pointer-events: none; }
+    .zoo-cd-track {
+      display: block; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.08); overflow: hidden;
+    }
+    .zoo-cd-fill {
+      display: block; height: 100%; background: linear-gradient(90deg, #a78bfa, #34d399);
+      transition: width 1s linear;
+    }
 
     .zoo-inv-section { margin-top: 1.5rem; }
     .zoo-inv-section-title { font-size: 11px; letter-spacing: 0.1em; color: rgba(255,255,255,0.3); margin-bottom: 8px; text-transform: uppercase; }
@@ -86,22 +199,35 @@
       display: inline-block; font-size: 12px; color: #e2e8f0;
       background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
       border-radius: 8px; padding: 4px 10px; margin: 0 6px 6px 0;
+      transition: transform 0.15s, background 0.15s;
     }
+    .zoo-inv-item:hover { transform: translateY(-1px); background: rgba(255,255,255,0.09); }
     .zoo-inv-empty { font-size: 12px; color: rgba(255,255,255,0.3); }
 
     #zoo-loading, #zoo-empty { display: none; text-align: center; padding: 3rem 1rem; }
     #zoo-loading { display: flex; justify-content: center; }
-    .empty-icon { font-size: 32px; margin-bottom: 8px; }
+    .empty-icon { font-size: 32px; margin-bottom: 8px; display: inline-block; animation: emptyBob 2.4s ease-in-out infinite; }
+    @keyframes emptyBob {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-4px) rotate(-4deg); }
+    }
     .empty-text { color: rgba(255,255,255,0.4); font-size: 13px; }
 
     #zoo-toast {
-      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px) scale(0.95);
       background: rgba(20,16,40,0.95); border: 1px solid rgba(139,92,246,0.4);
       color: #e2e8f0; font-size: 13px; padding: 10px 18px; border-radius: 10px;
       opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s;
       z-index: 50;
     }
-    #zoo-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #zoo-toast.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .zoo-roster-card, .zoo-pet-img, .zoo-particle, .zoo-flavor, .zoo-stats,
+      .zoo-stat-bar span::after, .zoo-roster-badge, .rarity-legendary, .empty-icon {
+        animation: none !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -113,6 +239,7 @@
       <div class="zoo-eyebrow">AniGamble HQ</div>
       <div class="zoo-title">🐾 Zoo</div>
       <div class="zoo-sub">Take care of your companions</div>
+      <div class="zoo-sub zoo-streak" id="zoo-streak">Take care of your pet daily to build a streak 🔥</div>
     </div>
 
     <div id="zoo-loading"><div class="spinner"></div></div>
@@ -121,7 +248,7 @@
     <div id="zoo-root" class="zoo-layout fade-in">
       <div id="zoo-roster"></div>
       <div class="lb-card zoo-card">
-        <div id="zoo-active"></div>
+        <div id="zoo-active" class="zoo-active-inner"></div>
         <div class="zoo-inv-section">
           <div class="zoo-inv-section-title">Inventory</div>
           <div id="zoo-inventory"></div>
